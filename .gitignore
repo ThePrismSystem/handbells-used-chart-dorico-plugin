@@ -3,3 +3,4 @@ __pycache__/
 fixtures/build/
 .hbuc-token
 dist/
+node_modules/

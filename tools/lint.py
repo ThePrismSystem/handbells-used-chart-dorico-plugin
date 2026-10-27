@@ -64,6 +64,10 @@ def luacheck(exe, sarif_dir):
     return subprocess.run(argv, cwd=ROOT).returncode == 0
 
 
+def eslint(exe, sarif_dir):
+    return subprocess.run([exe, "--max-warnings", "0", *tracked(["*.js"])], cwd=ROOT).returncode == 0
+
+
 def sarif_result_count(sarif):
     return sum(len(run.get("results", [])) for run in sarif.get("runs", []))
 
@@ -127,6 +131,7 @@ TOOLS = [
     Tool("psscriptanalyzer", ("pwsh", "powershell"),
          "Install-Module PSScriptAnalyzer, InjectionHunter -Scope CurrentUser (the versions are in lint.yml)",
          psscriptanalyzer),
+    Tool("eslint", "eslint", "npm ci", eslint),
 ]
 
 

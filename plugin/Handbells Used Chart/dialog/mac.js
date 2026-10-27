@@ -384,6 +384,7 @@ function installEditMenu(app) {
   app.setMainMenu(bar);
 }
 
+/* exported run -- osascript calls it with the script's arguments */
 function run(argv) {
   ObjC.import("Cocoa");
   const app = $.NSApplication.sharedApplication;

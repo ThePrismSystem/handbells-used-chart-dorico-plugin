@@ -128,6 +128,16 @@ class LuacheckTests(unittest.TestCase):
         self.assertEqual(argv[-2:], files)
 
 
+class EslintTests(unittest.TestCase):
+    def test_runs_on_tracked_js(self):
+        eslint = next(t for t in lint.TOOLS if t.name == "eslint")
+        files = ["plugin/Handbells Used Chart/dialog/mac.js", "tests/dialog/mac_harness.js"]
+        with mock.patch.object(lint, "tracked", return_value=files), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertTrue(eslint.run("eslint", None))
+        self.assertEqual(run.call_args.args[0], ["eslint", "--max-warnings", "0", *files])
+
+
 class PssaTests(unittest.TestCase):
     WINDOWS_PS1 = lint.ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
 
