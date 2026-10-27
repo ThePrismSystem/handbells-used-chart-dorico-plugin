@@ -1,6 +1,7 @@
 """tools/lint.py: the runner and its helpers."""
 import contextlib
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -125,6 +126,64 @@ class LuacheckTests(unittest.TestCase):
         argv = run.call_args.args[0]
         self.assertEqual(argv[:3], ["luacheck", "--config", str(lint.ROOT / ".luacheckrc")])
         self.assertEqual(argv[-2:], files)
+
+
+class PssaTests(unittest.TestCase):
+    WINDOWS_PS1 = lint.ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
+
+    def test_empty_output_is_no_records(self):
+        self.assertEqual(lint.parse_pssa_json(""), [])
+
+    def test_one_record_becomes_a_list(self):
+        self.assertEqual(lint.parse_pssa_json('{"RuleName": "X"}'), [{"RuleName": "X"}])
+
+    def test_a_list_stays_a_list(self):
+        self.assertEqual(lint.parse_pssa_json('[{"RuleName": "X"}, {"RuleName": "Y"}]'),
+                         [{"RuleName": "X"}, {"RuleName": "Y"}])
+
+    def test_sarif_has_rule_level_and_relative_uri(self):
+        rec = {"RuleName": "PSAvoidUsingInvokeExpression", "Severity": 1, "Line": 7, "Column": 3, "Message": "m",
+               "ScriptPath": str(self.WINDOWS_PS1)}
+        sarif = lint.pssa_to_sarif([rec], lint.ROOT)
+        result = sarif["runs"][0]["results"][0]
+        self.assertEqual(sarif["version"], "2.1.0")
+        self.assertEqual(sarif["runs"][0]["tool"]["driver"]["name"], "PSScriptAnalyzer")
+        self.assertEqual((result["ruleId"], result["level"]), ("PSAvoidUsingInvokeExpression", "warning"))
+        loc = result["locations"][0]["physicalLocation"]
+        self.assertEqual(loc["artifactLocation"]["uri"], "plugin/Handbells Used Chart/dialog/windows.ps1")
+        self.assertEqual((loc["region"]["startLine"], loc["region"]["startColumn"]), (7, 3))
+
+    def test_severity_numbers_and_names_map_alike(self):
+        for severity, level in ((0, "note"), ("Information", "note"), (1, "warning"), ("Warning", "warning"),
+                                (2, "error"), ("Error", "error"), (3, "error"), ("ParseError", "error")):
+            rec = {"RuleName": "R", "Severity": severity, "Line": 1, "Column": 1, "Message": "m",
+                   "ScriptPath": str(self.WINDOWS_PS1)}
+            self.assertEqual(lint.pssa_to_sarif([rec], lint.ROOT)["runs"][0]["results"][0]["level"], level, severity)
+
+    def test_windows_powershell_is_the_fallback(self):
+        pssa = next(t for t in lint.TOOLS if t.name == "psscriptanalyzer")
+        with mock.patch.object(lint, "find_exe", side_effect={"powershell": "powershell-path"}.get), \
+                mock.patch.object(lint, "tracked", return_value=["a b.ps1"]), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout="[]")) as run:
+            status, _ = quietly(lint.run_tool, pssa, strict=False, sarif_dir=None)
+        self.assertEqual(status, "PASS")
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[0], "powershell-path")
+        self.assertEqual(argv[-1], "a b.ps1")
+
+    def test_findings_fail_and_write_sarif(self):
+        pssa = next(t for t in lint.TOOLS if t.name == "psscriptanalyzer")
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out, True)
+        record = ('{"RuleName": "PSAvoidUsingInvokeExpression", "Severity": "Warning", "Line": 2, "Column": 1, '
+                  '"Message": "m", "ScriptPath": ' + json.dumps(str(self.WINDOWS_PS1)) + '}')
+        with mock.patch.object(lint, "tracked", return_value=["x.ps1"]), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=record)):
+            clean, printed = quietly(pssa.run, "pwsh", out)
+        self.assertFalse(clean)
+        self.assertIn("plugin/Handbells Used Chart/dialog/windows.ps1:2:1 PSAvoidUsingInvokeExpression m", printed)
+        sarif = json.loads((out / "psscriptanalyzer.sarif").read_text(encoding="utf-8"))
+        self.assertEqual(lint.sarif_result_count(sarif), 1)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@ The request is what hbuc/request.lua builds. The response is the chosen options:
  "shapes": {kind: shape}, "colours": {kind: text}, "remove": bool}; a cancel is {"version", "runId", "cancelled": true}.
 atPitch: the instruments whose "Written as" is at pitch. It is written as UTF-8 without a byte-order mark.
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Response',
+    Justification = 'Write-Response uses it')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 's',
+    Justification = 'The sender, in event handlers that only need the event')]
 param(
     [string]$Request,
     [string]$Response,
@@ -224,7 +228,7 @@ $table.Add_CellClick({
     }
 })
 $table.Add_DataError({ param($s, $e) $e.ThrowException = $false })
-function Rows-Named([int]$column, $value) {
+function Get-RowsNamed([int]$column, $value) {
     return ,@($table.Rows | Where-Object { $_.Cells[$column].Value -eq $value } | ForEach-Object { [string]$_.Cells[1].Value })
 }
 $main.Controls.Add($table)
@@ -238,7 +242,7 @@ if ($modeBox.SelectedIndex -lt 0 -and $modeBox.Items.Count -gt 0) { $modeBox.Sel
 $chartsRow.Controls.Add($modeBox)
 $main.Controls.Add($chartsRow)
 # Charting one instrument apart is the same as charting it combined.
-$updateMode = { $modeBox.Enabled = ((Rows-Named 0 $true).Count -gt 1) }
+$updateMode = { $modeBox.Enabled = ((Get-RowsNamed 0 $true).Count -gt 1) }
 $table.Add_CellValueChanged($updateMode)
 & $updateMode
 
@@ -344,8 +348,8 @@ Write-Response @{
     version = $version
     runId = $runId
     cancelled = $false
-    instruments = Rows-Named 0 $true
-    atPitch = Rows-Named 2 $writtenAtPitch
+    instruments = Get-RowsNamed 0 $true
+    atPitch = Get-RowsNamed 2 $writtenAtPitch
     mode = [string]$modeBox.SelectedItem
     heads = $heads
     shapes = $chosenShapes
