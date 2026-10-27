@@ -14,6 +14,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -35,6 +36,16 @@ def tracked(patterns, cwd=ROOT):
     """The tracked files matching any of the patterns, as repo-relative POSIX paths, sorted."""
     out = subprocess.run(["git", "ls-files", "-z", "--", *patterns], cwd=cwd, capture_output=True, check=True).stdout
     return sorted(p for p in out.decode("utf-8").split("\0") if p)
+
+
+def copy_tracked(dest, cwd=ROOT):
+    """Copies each tracked file as it is in the working tree: uncommitted edits are scanned, untracked files never."""
+    for rel in tracked([], cwd=cwd):
+        source = Path(cwd) / rel
+        if source.is_file():  # not deleted in the working tree
+            target = Path(dest) / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
 
 
 def find_exe(name):
@@ -76,6 +87,44 @@ def zizmor(exe, sarif_dir):
         proc = subprocess.run([exe, "--format", "sarif", *files], cwd=ROOT, capture_output=True, text=True)
         (sarif_dir / "zizmor.sarif").write_text(proc.stdout, encoding="utf-8")
     return clean
+
+
+def gitleaks(exe, sarif_dir):
+    argv = [exe, "git", "--redact", "--no-banner", "--exit-code", "1"]
+    if sarif_dir:
+        argv += ["--report-format", "sarif", "--report-path", str(sarif_dir / "gitleaks.sarif")]
+    return subprocess.run([*argv, str(ROOT)], cwd=ROOT).returncode == 0
+
+
+# Each language, and the folder its database gets in a cluster.
+CODEQL_LANGUAGES = {"actions": "actions", "javascript-typescript": "javascript", "python": "python"}
+
+
+def codeql(exe, sarif_dir):
+    """The queries code scanning runs (.github/codeql/codeql-config.yml), over a copy of the tracked files."""
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        source, db = tmp / "source", tmp / "db"
+        copy_tracked(source)
+        create = [exe, "database", "create", str(db), "--db-cluster", "--language=" + ",".join(CODEQL_LANGUAGES),
+                  "--build-mode=none", "--source-root", str(source),
+                  "--codescanning-config=" + str(ROOT / ".github" / "codeql" / "codeql-config.yml"), "--overwrite"]
+        if subprocess.run(create, cwd=ROOT).returncode != 0:
+            return False
+        found = 0
+        for folder in CODEQL_LANGUAGES.values():
+            out = tmp / f"{folder}.sarif"
+            analyze = [exe, "database", "analyze", str(db / folder), "--format=sarif-latest", "--output", str(out)]
+            if subprocess.run(analyze, cwd=ROOT).returncode != 0:
+                return False
+            sarif = json.loads(out.read_text(encoding="utf-8"))
+            for run in sarif.get("runs", []):
+                for r in run.get("results", []):
+                    where = (r.get("locations") or [{}])[0].get("physicalLocation", {})
+                    print(f"{where.get('artifactLocation', {}).get('uri')}:{where.get('region', {}).get('startLine')} "
+                          f"{r.get('ruleId')} {r.get('message', {}).get('text')}")
+            found += sarif_result_count(sarif)
+    return found == 0
 
 
 def sarif_result_count(sarif):
@@ -143,6 +192,10 @@ TOOLS = [
          psscriptanalyzer),
     Tool("eslint", "eslint", "npm ci", eslint),
     Tool("zizmor", "zizmor", "pip install -r requirements-dev.txt", zizmor),
+    Tool("gitleaks", "gitleaks", "Get it from https://github.com/gitleaks/gitleaks/releases (lint.yml has the version).",
+         gitleaks),
+    Tool("codeql", "codeql", "Get the CodeQL bundle from https://github.com/github/codeql-action/releases.", codeql,
+         optional=True),
 ]
 
 

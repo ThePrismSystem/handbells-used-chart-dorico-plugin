@@ -170,6 +170,76 @@ class ZizmorTests(unittest.TestCase):
             self.assertIn(condition, step)
 
 
+class SarifCountTests(unittest.TestCase):
+    def test_counts_results_across_runs(self):
+        self.assertEqual(lint.sarif_result_count({"runs": [{"results": [{}, {}]}, {"results": []}, {}]}), 2)
+
+
+class CopyTrackedTests(unittest.TestCase):
+    def test_untracked_files_stay_behind(self):
+        tmp = temp_repo(self)
+        (tmp / "a.py").write_text("first\n")
+        subprocess.run(["git", "add", "a.py"], cwd=tmp, check=True)
+        (tmp / "a.py").write_text("edited\n")
+        (tmp / "b.py").write_text("untracked\n")
+        dest = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, dest, True)
+        lint.copy_tracked(dest, cwd=tmp)
+        self.assertEqual(sorted(p.name for p in dest.rglob("*") if p.is_file()), ["a.py"])
+        self.assertEqual((dest / "a.py").read_text(), "edited\n")
+
+
+class GitleaksTests(unittest.TestCase):
+    def test_scans_history_redacted_with_a_sarif_report(self):
+        gitleaks = next(t for t in lint.TOOLS if t.name == "gitleaks")
+        out = Path("/sarif-dir")
+        with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertTrue(gitleaks.run("gitleaks", out))
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[:2], ["gitleaks", "git"])
+        self.assertIn("--redact", argv)
+        self.assertEqual(argv[argv.index("--report-format") + 1], "sarif")
+        self.assertEqual(argv[argv.index("--report-path") + 1], str(out / "gitleaks.sarif"))
+
+
+class CodeqlTests(unittest.TestCase):
+    def run_codeql(self, results):
+        codeql = next(t for t in lint.TOOLS if t.name == "codeql")
+        calls = []
+
+        def run(argv, **_):
+            calls.append(argv)
+            if "analyze" in argv:
+                out = Path(argv[argv.index("--output") + 1])
+                out.write_text(json.dumps({"runs": [{"results": results}]}), encoding="utf-8")
+            return subprocess.CompletedProcess(argv, 0)
+        with mock.patch.object(lint, "copy_tracked"), mock.patch("subprocess.run", side_effect=run):
+            clean, printed = quietly(codeql.run, "codeql", None)
+        return clean, printed, calls
+
+    def test_scans_a_copy_of_the_tracked_files_with_the_shared_config(self):
+        self.assertTrue(codeql.optional for codeql in lint.TOOLS if codeql.name == "codeql")
+        clean, _, calls = self.run_codeql([])
+        self.assertTrue(clean)
+        create = calls[0]
+        self.assertEqual(create[:3], ["codeql", "database", "create"])
+        self.assertIn("--db-cluster", create)
+        self.assertIn("--language=actions,javascript-typescript,python", create)
+        self.assertIn("--build-mode=none", create)
+        self.assertIn("--codescanning-config=" + str(lint.ROOT / ".github" / "codeql" / "codeql-config.yml"), create)
+        self.assertNotEqual(create[create.index("--source-root") + 1], str(lint.ROOT), "a copy, never the folder")
+        # a cluster names the javascript-typescript database "javascript"
+        self.assertEqual([Path(c[3]).name for c in calls[1:]], ["actions", "javascript", "python"])
+
+    def test_any_result_fails(self):
+        result = {"ruleId": "py/x", "message": {"text": "bad"},
+                  "locations": [{"physicalLocation": {"artifactLocation": {"uri": "tools/a.py"},
+                                                      "region": {"startLine": 3}}}]}
+        clean, printed, _ = self.run_codeql([result])
+        self.assertFalse(clean)
+        self.assertIn("tools/a.py:3 py/x bad", printed)
+
+
 class PssaTests(unittest.TestCase):
     WINDOWS_PS1 = lint.ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
 

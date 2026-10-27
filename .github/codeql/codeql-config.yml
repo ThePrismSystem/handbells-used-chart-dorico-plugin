@@ -1,0 +1,4 @@
+name: codeql config
+# The same queries in CI and in python tools/lint.py --codeql.
+queries:
+  - uses: security-extended
