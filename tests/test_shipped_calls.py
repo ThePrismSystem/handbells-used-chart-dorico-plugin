@@ -294,6 +294,11 @@ class ShippedTests(unittest.TestCase):
         for zip_path, found in shipped():
             self.assertFalse({name: n for name, n in found.items() if name in NETWORK}, zip_path)
 
+    def test_security_md_names_every_process(self):
+        security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+        for command in PROCESSES:
+            self.assertIn(command, security)
+
     def test_every_process_is_in_the_code(self):
         code = "\n".join(STRIP[Path(disk).suffix](Path(disk).read_text(encoding="utf-8"))
                          for disk, _ in shipped_files())
