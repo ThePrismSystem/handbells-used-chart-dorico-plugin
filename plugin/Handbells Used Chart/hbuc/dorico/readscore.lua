@@ -1,0 +1,237 @@
+-- Reads the players and every note of the music, with noteheads and colours, without leaving any change behind.
+-- docs/dorico-lua-guide.md, section 3:
+--   * stream:dump() lists every note with its sounding spelling, whatever else the stream holds;
+--   * flow.instruments says which instrument owns each voice stream;
+--   * noteheads and colours need stream.events, which throws on lyrics, slurs, playing techniques and the like.
+--     Each such flow's notes are copied (filtered to notes and chords) into a scratch flow of its own and read
+--     there, and all the scratch flows are taken away again together, with the run's one Edit.Undo.
+local dump = require("hbuc.dump")
+local eventtext = require("hbuc.eventtext")
+local instruments = require("hbuc.instruments")
+local reading = require("hbuc.reading")
+local doc = require("hbuc.dorico.doc")
+
+local readscore = {}
+
+-- Event kinds with a Lua class (spike/17_api_map.lua lists the bound classes). Any other kind in a stream makes
+-- stream.events throw.
+local WRAPPABLE = {
+  kNoteEvent = true, kGraceNoteEvent = true, kRestEvent = true, kBarRestEvent = true, kTextEvent = true,
+  kTupletEvent = true, kClefEvent = true, kBreakEvent = true, kOttavaLineEvent = true, kBarDivisionEvent = true,
+  kTonalityDivisionEvent = true, kDynamicGroupEvent = true,
+}
+
+-- The note and grace note events of a readable list, with notehead set and colour.
+local function noteEvents(list)
+  local out = {}
+  local ctx = DoCore.PropertyContext()
+  for _, e in ipairs(list) do
+    local ok, text = pcall(tostring, e)
+    if ok then
+      local ev = eventtext.parse(text)
+      if (ev.kind == "note" or ev.kind == "grace") and ev.spelling then
+        out[#out + 1] = {
+          id = ev.id, spelling = ev.spelling, grace = ev.kind == "grace",
+          head = tostring(e.propertyTable:get("kNoteheadSetOverride", ctx)),
+          colour = tostring(e.propertyTable:get("kEventColour", ctx)),
+        }
+      end
+    end
+  end
+  return out
+end
+
+-- Players in score order, named as the dialog lists them (repeats told apart), and the name of each instrument.
+local function namePlayers(score, skipKeys)
+  local kept, names = {}, {}
+  for _, pl in ipairs(score.players) do
+    local key = doc.playerKey(pl)
+    if not skipKeys[key] then
+      kept[#kept + 1] = { player = pl, key = key }
+      names[#names + 1] = tostring(pl)
+    end
+  end
+  local unique = instruments.unique(names)
+  local players, nameOf = {}, {}
+  for i, e in ipairs(kept) do
+    players[i] = { key = e.key, name = unique[i] }
+    for _, ins in ipairs(e.player.instruments) do nameOf[ins.id] = unique[i] end
+  end
+  return players, nameOf
+end
+
+-- A fingerprint of the music: each flow's dumped note count and player count, leaving out flow skipId.
+function readscore.summary(score, skipId)
+  local parts = {}
+  for _, f in ipairs(score.flows) do
+    if f.id ~= skipId then
+      local n = 0
+      for _, s in ipairs(f.voiceStreams) do n = n + #dump.notes(doc.dumpOf(s)) end
+      parts[#parts + 1] = f.id .. "=" .. n .. "n/" .. #f.players .. "p"
+    end
+  end
+  return table.concat(parts, ",")
+end
+
+-- Copies a flow's notes into a new scratch flow holding only its players and reads them there. The scratch flow
+-- stays until takeAway; its id goes into scratchIds before anything else, so a failure still takes it away.
+local function copyAndRead(app, log, flowId, nameOf, scratchIds)
+  local existing = {}
+  for _, f in ipairs(app.currentScore.flows) do existing[f.id] = true end
+  doc.command(app, log, "Project.Flow.New")
+  local scratchId
+  for _, f in ipairs(app.currentScore.flows) do
+    if not existing[f.id] then scratchId = f.id end
+  end
+  if not scratchId then error("Project.Flow.New did not add a flow") end
+  scratchIds[#scratchIds + 1] = scratchId
+
+  local flow = doc.flowById(app.currentScore, flowId)
+  local member = {}
+  for _, k in ipairs(doc.flowKeys(flow)) do member[k] = true end
+  local scratch = doc.flowById(app.currentScore, scratchId)
+  for _, pl in ipairs(scratch.players) do
+    if not member[doc.playerKey(pl)] then scratch:removePlayer(pl) end
+  end
+
+  -- the music flow's whole range, on every staff, notes and chords only
+  local first, block
+  for _, s in ipairs(flow.voiceStreams) do
+    local d = doc.dumpOf(s)
+    first, block = dump.firstEventId(d), d.blockId
+    if first then break end
+  end
+  if not first then return {} end
+  doc.select(app, log, flowId, first, block)
+  doc.command(app, log, "Edit.SelectToStartOfFlow")
+  doc.command(app, log, "Edit.SelectAtEndOfFlow")
+  for _ = 2, #flow.staveStreams do doc.command(app, log, "EventEdit.NavigateDownExtend") end
+  doc.command(app, log, "Filter.NotesAndChords")
+  doc.command(app, log, "Edit.Copy")
+
+  -- pasted at the start of the scratch flow's top staff, onto a temporary note there
+  scratch = doc.flowById(app.currentScore, scratchId)
+  local top = scratch.voiceStreams[1]
+  local temp = top:createNote(DoCore.RhythmicLength(0), DoCore.RhythmicLength(1),
+    DoCore.MIDIPitchWithSpelling.fromString("C5"))
+  local tempId = temp.id
+  doc.select(app, log, scratchId, tempId, doc.dumpOf(top).blockId)
+  doc.command(app, log, "Edit.Paste")
+
+  -- The filter keeps note-attached lines with their notes, and a line has no Lua class: delete every event the
+  -- copy holds that is not one Lua can list, one by one, in the scratch flow only.
+  scratch = doc.flowById(app.currentScore, scratchId)
+  for _, s in ipairs(scratch.voiceStreams) do
+    if not pcall(function() return s.events end) then
+      local d = doc.dumpOf(s)
+      for _, ev in ipairs(d.events) do
+        local tag = ev.raw:match("^(k%a+)")
+        if ev.id and not WRAPPABLE[tag] then
+          doc.select(app, log, scratchId, ev.id, d.blockId)
+          doc.command(app, log, "Edit.Delete")
+        end
+      end
+    end
+  end
+  doc.command(app, log, "Edit.SelectNone")
+
+  local read = {}
+  scratch = doc.flowById(app.currentScore, scratchId)
+  for _, o in ipairs(doc.voiceOwners(scratch)) do
+    local okE, list = pcall(function() return o.stream.events end)
+    if not okE then
+      local kinds = {}
+      for _, ev in ipairs(doc.dumpOf(o.stream).events) do kinds[#kinds + 1] = ev.raw:match("^(k%a+)") end
+      log:line("unreadable copy stream", o.stream.id, table.concat(kinds, " "):sub(1, 2000))
+      error("the copy of the music could not be read")
+    end
+    local name = nameOf[o.key]
+    for _, n in ipairs(noteEvents(list)) do
+      if n.id ~= tempId and name then
+        n.instrument = name
+        read[#read + 1] = n
+      end
+    end
+  end
+  return read
+end
+
+-- Takes every scratch flow away with ONE Edit.Undo, which rolls back everything this run has done through commands
+-- and nothing done before the run. A second undo in the same run would also take back the user's previous action
+-- (spike/29_undo_experiments.py, E9 against E10), so there is never a second one.
+local function takeAway(app, log, scratchIds, before)
+  doc.command(app, log, "Edit.Undo")
+  for _, id in ipairs(scratchIds) do
+    if doc.flowById(app.currentScore, id) then
+      error({ code = "scratchLeft", flowNumber = doc.flowNumber(app.currentScore, id) })
+    end
+  end
+  local after = readscore.summary(app.currentScore)
+  if after ~= before then
+    -- which flows differ, for the run log
+    local was, now, diff = {}, {}, {}
+    for id, part in before:gmatch("(%d+)=([^,]*)") do was[id] = part end
+    for id, part in after:gmatch("(%d+)=([^,]*)") do now[id] = part end
+    for id, part in pairs(was) do
+      if now[id] ~= part then diff[#diff + 1] = "flow " .. id .. ": " .. part .. " -> " .. tostring(now[id]) end
+    end
+    for id, part in pairs(now) do
+      if not was[id] then diff[#diff + 1] = "flow " .. id .. ": new, " .. part end
+    end
+    log:line("the project changed while it was being read:", table.concat(diff, "; "))
+    error("the project changed while it was being read (" .. table.concat(diff, "; ") .. ")")
+  end
+end
+
+-- opts: {log, skipFlowId, skipKeys = {[key] = true}, forcePaste}. Returns {players = {{key, name}}, records,
+-- unread, merged, pastedFlows}. Call it at most once per run, before the run edits anything: its copies go with
+-- the run's one Edit.Undo, which would take back anything else the run had done by then.
+function readscore.scan(app, opts)
+  local log = opts.log
+  local players, nameOf = namePlayers(app.currentScore, opts.skipKeys or {})
+  local flowIds = {}
+  for _, f in ipairs(app.currentScore.flows) do
+    if f.id ~= opts.skipFlowId then flowIds[#flowIds + 1] = f.id end
+  end
+
+  local before = readscore.summary(app.currentScore)
+  local dumped, read, scratchIds = {}, {}, {}
+  local ok, err = pcall(function()
+    for _, flowId in ipairs(flowIds) do
+      local flow = doc.flowById(app.currentScore, flowId)
+      local flowDumped, direct, readable = {}, {}, not opts.forcePaste
+      for _, o in ipairs(doc.voiceOwners(flow)) do
+        local name = nameOf[o.key]
+        if name then
+          for _, n in ipairs(dump.notes(doc.dumpOf(o.stream))) do
+            flowDumped[#flowDumped + 1] = { instrument = name, spelling = n.spelling, grace = n.grace }
+          end
+          if readable then
+            local okE, list = pcall(function() return o.stream.events end)
+            if okE then
+              for _, n in ipairs(noteEvents(list)) do
+                n.instrument = name
+                direct[#direct + 1] = n
+              end
+            else
+              readable = false
+            end
+          end
+        end
+      end
+      -- stream.events can also list fewer notes than a stream holds: trusted only when every count agrees
+      if readable and not reading.countsMatch(flowDumped, direct) then readable = false end
+      log:line("flow", flowId, #flowDumped, "notes", readable and "read directly" or "read through a copy")
+      if #flowDumped > 0 and not readable then direct = copyAndRead(app, log, flowId, nameOf, scratchIds) end
+      for _, n in ipairs(flowDumped) do dumped[#dumped + 1] = n end
+      for _, n in ipairs(direct) do read[#read + 1] = n end
+    end
+  end)
+  if #scratchIds > 0 then takeAway(app, log, scratchIds, before) end
+  if not ok then error(err, 0) end
+
+  local records, unread, merged = reading.records(dumped, read)
+  return { players = players, records = records, unread = unread, merged = merged, pastedFlows = #scratchIds }
+end
+
+return readscore

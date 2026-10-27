@@ -1,0 +1,25 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.2"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lua unit tests
+        run: lua tests/run.lua
+      - name: Spike library tests
+        run: |
+          lua spike/lib/test_json.lua
+          lua spike/lib/test_events.lua
+      - name: Python unit tests
+        run: python -m unittest tools/dorico/test_dws.py tools/dorico/test_run_lua.py fixtures/test_make_fixture_xml.py tools/test_install.py tools/test_package.py tests/dialog/test_mac_script.py tools/test_run_tests.py
