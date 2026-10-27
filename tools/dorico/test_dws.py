@@ -12,7 +12,7 @@ import dws  # noqa: E402
 def server_frame(obj):
     """An unmasked text frame, as Dorico sends them."""
     data = json.dumps(obj).encode()
-    assert len(data) < 126
+    assert len(data) < 126  # noqa: S101  # longer frames need a longer header
     return bytes([0x81, len(data)]) + data
 
 

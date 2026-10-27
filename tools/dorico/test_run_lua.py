@@ -238,7 +238,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(run_lua.run_dir_for({"TEMP": "C:/T", "TMP": "C:/U"}), Path("C:/T") / "hbuc-run")
         self.assertEqual(run_lua.run_dir_for({"TMP": "C:/U"}), Path("C:/U") / "hbuc-run")
         self.assertEqual(run_lua.run_dir_for({"TMPDIR": "/var/T"}), Path("/var/T") / "hbuc-run")
-        self.assertEqual(run_lua.run_dir_for({}), Path("/tmp") / "hbuc-run")
+        self.assertEqual(run_lua.run_dir_for({}), Path("/tmp") / "hbuc-run")  # noqa: S108  # the fallback under test
 
     def test_active_project_needs_explicit_opt_in(self):
         client = FakeClient(self.run_dir, self.ok_result(False))

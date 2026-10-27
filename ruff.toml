@@ -1,0 +1,5 @@
+[lint]
+select = ["E", "F", "W", "B", "S"]
+# E501: line length isn't checked, since rewrapping the long lines would only add churn.
+# S603, S607: the tools start local programs on purpose and always pass argument lists. S602 (shell=True) stays on.
+ignore = ["E501", "S603", "S607"]

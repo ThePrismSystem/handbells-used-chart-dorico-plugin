@@ -28,7 +28,7 @@ def pitches(m):
 class MakeFixtureXmlTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = ET.fromstring(make_fixture_xml.build_xml(fixture_data.FIXTURE))
+        cls.root = ET.fromstring(make_fixture_xml.build_xml(fixture_data.FIXTURE))  # noqa: S314  # XML this test just built
         cls.heads = make_fixture_xml.build_heads(fixture_data.FIXTURE)
 
     def test_part_count(self):

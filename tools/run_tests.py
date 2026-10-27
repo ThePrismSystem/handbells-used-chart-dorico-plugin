@@ -15,7 +15,7 @@ import run_lua  # noqa: E402
 
 PY_TESTS = ["tools/dorico/test_dws.py", "tools/dorico/test_run_lua.py", "fixtures/test_make_fixture_xml.py",
             "tools/test_install.py", "tools/test_package.py", "tests/dialog/test_mac_script.py",
-            "tools/test_run_tests.py"]
+            "tools/test_run_tests.py", "tools/test_lint.py"]
 LUA_TESTS = ["tests/run.lua", "spike/lib/test_json.lua", "spike/lib/test_events.lua"]
 LUA_CANDIDATES = ["lua52", "lua5.2", "C:/ProgramData/chocolatey/lib/lua52/tools/lua52.exe", "lua"]
 
