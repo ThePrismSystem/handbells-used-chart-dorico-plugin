@@ -68,6 +68,16 @@ def eslint(exe, sarif_dir):
     return subprocess.run([exe, "--max-warnings", "0", *tracked(["*.js"])], cwd=ROOT).returncode == 0
 
 
+def zizmor(exe, sarif_dir):
+    """The workflows and Dependabot's config. With GH_TOKEN set, zizmor also runs its online audits."""
+    files = tracked([".github/workflows/*.yml", ".github/dependabot.yml"])
+    clean = subprocess.run([exe, *files], cwd=ROOT).returncode == 0
+    if sarif_dir:
+        proc = subprocess.run([exe, "--format", "sarif", *files], cwd=ROOT, capture_output=True, text=True)
+        (sarif_dir / "zizmor.sarif").write_text(proc.stdout, encoding="utf-8")
+    return clean
+
+
 def sarif_result_count(sarif):
     return sum(len(run.get("results", [])) for run in sarif.get("runs", []))
 
@@ -132,6 +142,7 @@ TOOLS = [
          "Install-Module PSScriptAnalyzer, InjectionHunter -Scope CurrentUser (the versions are in lint.yml)",
          psscriptanalyzer),
     Tool("eslint", "eslint", "npm ci", eslint),
+    Tool("zizmor", "zizmor", "pip install -r requirements-dev.txt", zizmor),
 ]
 
 

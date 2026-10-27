@@ -2,24 +2,26 @@ name: test
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_call:
+
+permissions: {}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: leafo/gh-actions-lua@v10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
         with:
           luaVersion: "5.2"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Lua unit tests
-        run: lua tests/run.lua
-      - name: Spike library tests
-        run: |
-          lua spike/lib/test_json.lua
-          lua spike/lib/test_events.lua
-      - name: Python unit tests
-        run: python -m unittest tools/dorico/test_dws.py tools/dorico/test_run_lua.py fixtures/test_make_fixture_xml.py tools/test_install.py tools/test_package.py tests/dialog/test_mac_script.py tools/test_run_tests.py
+      - name: Unit tests
+        run: python tools/run_tests.py

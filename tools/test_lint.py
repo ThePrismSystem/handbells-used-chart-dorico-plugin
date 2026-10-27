@@ -138,6 +138,38 @@ class EslintTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0], ["eslint", "--max-warnings", "0", *files])
 
 
+class ZizmorTests(unittest.TestCase):
+    FILES = [".github/dependabot.yml", ".github/workflows/test.yml"]
+
+    def test_runs_on_the_tracked_workflows(self):
+        zizmor = next(t for t in lint.TOOLS if t.name == "zizmor")
+        with mock.patch.object(lint, "tracked", return_value=self.FILES), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertTrue(zizmor.run("zizmor", None))
+        self.assertEqual(run.call_args.args[0], ["zizmor", *self.FILES])
+
+    def test_sarif_is_a_second_run(self):
+        zizmor = next(t for t in lint.TOOLS if t.name == "zizmor")
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out, True)
+        sarif = '{"version": "2.1.0", "runs": [{"results": []}]}'
+        with mock.patch.object(lint, "tracked", return_value=self.FILES), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout=sarif)) as run:
+            self.assertTrue(zizmor.run("zizmor", out))
+        self.assertEqual(run.call_args.args[0], ["zizmor", "--format", "sarif", *self.FILES])
+        self.assertEqual(json.loads((out / "zizmor.sarif").read_text(encoding="utf-8"))["version"], "2.1.0")
+
+    def test_sarif_uploads_skip_fork_pull_requests(self):
+        # a pull request from a fork gets a token that can't upload, and the findings are in the job log anyway
+        condition = ("if: always() && (github.event_name != 'pull_request' || "
+                     "github.event.pull_request.head.repo.full_name == github.repository)")
+        workflow = (lint.ROOT / ".github" / "workflows" / "lint.yml").read_text(encoding="utf-8")
+        steps = [s for s in workflow.split("\n      - ") if "github/codeql-action/upload-sarif" in s]
+        self.assertTrue(steps, "lint.yml uploads SARIF")
+        for step in steps:
+            self.assertIn(condition, step)
+
+
 class PssaTests(unittest.TestCase):
     WINDOWS_PS1 = lint.ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
 
