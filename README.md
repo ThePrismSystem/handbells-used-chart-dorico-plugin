@@ -58,6 +58,9 @@ Create the `Script Plug-ins` folder if it isn't there, then restart Dorico. The 
 There is nothing else to install. The dialog is drawn by Windows PowerShell on Windows, and by macOS's own
 `osascript` (JavaScript for Automation) on a Mac, so it works on Apple silicon and Intel Macs alike.
 
+[SECURITY.md](SECURITY.md) lists everything the plug-in runs and every file it uses, and shows how to check that a
+download is genuine.
+
 From a clone of this repository, `python tools/install.py` does the copying, and `python tools/install.py
 --uninstall` removes exactly those two items again.
 
@@ -164,6 +167,9 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 
 - **Unit tests:** `python tools/run_tests.py` runs the Lua unit tests (stock Lua 5.2) and the Python tests. CI runs
   the same. The Mac dialog's tests need Node: they check `mac.js`'s syntax and run its non-AppKit parts.
+- **Linting and security scans:** `python tools/lint.py` runs luacheck, PSScriptAnalyzer, ESLint, ruff, zizmor and
+  gitleaks over the tracked files, and `--codeql` adds CodeQL. It says how to install any tool it can't find. CI runs
+  the same checks.
 - **The Windows dialog:** `python tests/dialog/test_windows_dialog.py` opens the real dialog and drives it.
 - **Inside Dorico:** `python tools/run_tests.py --dorico` adds the suites that run in Dorico 6 through its Remote
   Control API, on scratch copies of `fixtures/handbells-fixture.dorico` and of Steinberg's example projects. Dorico

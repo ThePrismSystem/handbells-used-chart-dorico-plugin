@@ -1,0 +1,75 @@
+name: release
+
+# A v<version> tag, or v<version>-rc.<N> for a release candidate, builds the zip, attests where it came from and
+# makes a draft release for the owner to read and publish. Started by hand, it only builds the zip and keeps it as a
+# workflow artifact, with no tag, attestation or release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    uses: $/.github/workflows/test.yml
+    permissions:
+      contents: read
+  lint:
+    uses: $/.github/workflows/lint.yml
+    permissions:
+      contents: read
+      security-events: write # lint uploads its SARIF results to code scanning
+  dry-run:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Build the zip
+        run: python tools/package.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-zip
+          path: dist/*.zip
+          if-no-files-found: error
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the draft release
+      id-token: write # to get the certificate that signs the attestation
+      attestations: write # to store the attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Build the zip and its release notes
+        id: package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python tools/package.py --tag "$TAG" --notes notes.md --outputs "$GITHUB_OUTPUT"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.package.outputs.zip }}
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          PRERELEASE: ${{ steps.package.outputs.prerelease }}
+        run: |
+          flags=(--draft --verify-tag --title "$TAG" --notes-file notes.md)
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" "$ZIP" "${flags[@]}" --repo "$GITHUB_REPOSITORY"
