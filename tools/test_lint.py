@@ -240,6 +240,14 @@ class CodeqlTests(unittest.TestCase):
         self.assertIn("tools/a.py:3 py/x bad", printed)
 
 
+class LintWorkflowTests(unittest.TestCase):
+    def test_npm_install_scripts_never_run_in_ci(self):
+        # the job can write to code scanning, so a dependency's install script must not run in it
+        workflow = (lint.ROOT / ".github" / "workflows" / "lint.yml").read_text(encoding="utf-8")
+        self.assertIn("run: npm ci --ignore-scripts\n", workflow)
+        self.assertNotIn("run: npm ci\n", workflow)
+
+
 class PssaTests(unittest.TestCase):
     WINDOWS_PS1 = lint.ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
 

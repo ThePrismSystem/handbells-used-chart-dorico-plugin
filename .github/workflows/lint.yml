@@ -27,8 +27,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
+      # No dependency's install script runs in a job that can write to code scanning.
       - name: Install ESLint
-        run: npm ci
+        run: npm ci --ignore-scripts
       - uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
         with:
           luaVersion: "5.2"
