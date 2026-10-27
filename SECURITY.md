@@ -30,8 +30,12 @@ When you choose **Script > Handbells Used Chart**:
 ## Programs it starts
 
 The plug-in starts nothing but its dialog script and, on a Mac, two standard commands.
-[`tests/test_shipped_calls.py`](tests/test_shipped_calls.py) lists every command, file call and Win32 call in the
-plug-in's code, and fails if one is added or removed without the list being updated.
+
+[`tests/test_shipped_calls.py`](tests/test_shipped_calls.py) reads every Lua, PowerShell and JavaScript file in the
+release zip. It counts the calls that start a program, read or write a file, load code, call Windows directly or use
+the network, and the counts must match a list kept in the test, with a reason for each entry. So the test fails when
+one of those calls is added or removed. It matches the names those calls go by, which catches ordinary code; code
+written on purpose to disguise a call could still get past it.
 
 Each path is quoted for the shell that runs the command: cmd on Windows, sh on a Mac.
 
@@ -49,8 +53,8 @@ The options do the following:
 - `-NoProfile` skips your PowerShell profile scripts, so nothing of yours runs alongside the dialog or changes how it
   behaves.
 - `-ExecutionPolicy Bypass` lets this one PowerShell process run the script. It doesn't change the execution policy
-  for your account or your computer, and it ends when the dialog closes. The plug-in needs it because `windows.ps1`
-  isn't signed, and Windows' default policy won't run an unsigned script file.
+  for your account or your computer, and it ends when the dialog closes. The plug-in needs it because the default
+  policy on Windows desktops, Restricted, runs no script files at all, signed or not. (`windows.ps1` isn't signed.)
 - `-WindowStyle Hidden` hides PowerShell's console window. The dialog itself is an ordinary window.
 - `-File` runs that one script, with the arguments that follow it.
 
@@ -83,18 +87,26 @@ Two more commands can run on a Mac:
 - Its data folder, `%APPDATA%\Handbells Used Chart\` on Windows and
   `~/Library/Application Support/Handbells Used Chart/` on a Mac. `settings.json` remembers your choices. `run.log`
   records the latest run; it's emptied when a run starts.
-- Its temp folder, `%TEMP%\hbuc\` on Windows and `$TMPDIR/hbuc/` on a Mac, which holds:
+- Its temp folder, `%TEMP%\hbuc\` on Windows and `$TMPDIR/hbuc/` on a Mac (`/tmp/hbuc/` if `TMPDIR` isn't set),
+  which holds:
   - the dialog's request, response and message files;
   - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart and
     the flow headings;
   - `osascript.log` on a Mac;
-  - the log of a run that couldn't start.
+  - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
+    set (on a Mac with none of them set, `/tmp/hbuc/`).
 - The open project, which it saves before it changes anything.
+
+[`hbuc/guards.lua`](plugin/Handbells%20Used%20Chart/hbuc/guards.lua) decides where the folders are. The plug-in
+writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`. Dorico writes the text exports when
+`hbuc/dorico/doc.lua` runs File > Export > Text, and saves the project when `hbuc/main.lua` runs File > Save. The
+call test pins each of these calls.
 
 ## No network
 
 None of the plug-in's code opens a network connection, downloads anything, or contains a web address.
-`tests/test_shipped_calls.py` checks this on every change.
+`tests/test_shipped_calls.py` fails if any of it names a networking API (PowerShell's web cmdlets, .NET's
+`System.Net`, Cocoa's `NSURL` classes, a socket library), `curl` or `wget`, or a web address.
 
 ## What the repository checks
 
@@ -123,11 +135,12 @@ Each release zip is built on GitHub by the repository's release workflow, from a
 record of that build (an attestation). With the [GitHub CLI](https://cli.github.com/) installed, run:
 
 ```
-gh attestation verify handbells-used-chart-dorico-v<version>.zip --repo ThePrismSystem/handbells-used-chart-dorico-plugin
+gh attestation verify handbells-used-chart-dorico-v<version>.zip --repo ThePrismSystem/handbells-used-chart-dorico-plugin --signer-workflow ThePrismSystem/handbells-used-chart-dorico-plugin/.github/workflows/release.yml
 gh release verify-asset v<version> handbells-used-chart-dorico-v<version>.zip --repo ThePrismSystem/handbells-used-chart-dorico-plugin
 ```
 
-The first command checks that the release workflow built the zip and shows which commit it came from. The second
+The first command checks that the repository's release workflow, `.github/workflows/release.yml`, built the zip,
+and shows which commit it came from. The second
 checks that it's the file attached to that release.
 
 Without the CLI, compare the zip's SHA-256 with the one in the release notes. Use

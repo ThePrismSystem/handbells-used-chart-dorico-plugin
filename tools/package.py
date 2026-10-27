@@ -75,7 +75,7 @@ def release_notes(changelog, version, zip_name, sha256):
     return (f"{section.group(1).strip()}\n\n"
             f"SHA-256: {sha256}\n\n"
             "To check that this zip was built from this repository by its release workflow, run:\n\n"
-            f"    gh attestation verify {zip_name} --repo {REPO}\n")
+            f"    gh attestation verify {zip_name} --repo {REPO} --signer-workflow {REPO}/.github/workflows/release.yml\n")
 
 
 def main(argv=None):

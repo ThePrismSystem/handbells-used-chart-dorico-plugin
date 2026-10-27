@@ -92,7 +92,8 @@ class ReleaseNotesTests(unittest.TestCase):
     def test_notes_give_the_checksum_and_how_to_verify(self):
         notes = self.notes()
         self.assertIn("SHA-256: ab12", notes)
-        self.assertIn("gh attestation verify x-v0.1.0.zip --repo ThePrismSystem/handbells-used-chart-dorico-plugin",
+        self.assertIn("gh attestation verify x-v0.1.0.zip --repo ThePrismSystem/handbells-used-chart-dorico-plugin "
+                      "--signer-workflow ThePrismSystem/handbells-used-chart-dorico-plugin/.github/workflows/release.yml",
                       notes)
 
     def test_a_missing_version_is_an_error(self):
