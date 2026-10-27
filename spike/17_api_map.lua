@@ -25,7 +25,8 @@ probe.run("17_api_map", function(p)
     local v = reg[k]
     if type(v) == "table" then out[#out + 1] = "R." .. tostring(k) .. " = " .. keysOf(v):sub(1, 4000) end
   end
-  local okN, names = pcall(class_names)
+  -- luabind's class_names, where the build has it
+  local okN, names = pcall(class_names) -- luacheck: ignore 113
   if okN and type(names) == "table" then out[#out + 1] = "class_names = " .. table.concat(names, " ") end
   for _, g in ipairs({ "DoCore", "DoScore", "DoApp", "DoUI" }) do
     local t = rawget(_G, g)

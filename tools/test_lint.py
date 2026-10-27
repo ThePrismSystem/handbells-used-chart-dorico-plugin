@@ -115,5 +115,17 @@ class RuffTests(unittest.TestCase):
         self.assertIn("plugin/Handbells Used Chart/x.py", argv)
 
 
+class LuacheckTests(unittest.TestCase):
+    def test_runs_on_tracked_lua_with_the_config(self):
+        luacheck = next(t for t in lint.TOOLS if t.name == "luacheck")
+        files = ["plugin/Handbells Used Chart.lua", "tests/run.lua"]
+        with mock.patch.object(lint, "tracked", return_value=files), \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertTrue(luacheck.run("luacheck", None))
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[:3], ["luacheck", "--config", str(lint.ROOT / ".luacheckrc")])
+        self.assertEqual(argv[-2:], files)
+
+
 if __name__ == "__main__":
     unittest.main()

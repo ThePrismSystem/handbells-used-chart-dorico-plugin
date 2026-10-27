@@ -16,5 +16,5 @@ probe.run("smoke", function(p)
   p:fact("flows", score and #score.flows)
   -- Dorico keeps one Lua state between runs, so this global survives from the previous run.
   p:fact("previousRunMarker", rawget(_G, "HBUC_SMOKE_MARKER") or false)
-  HBUC_SMOKE_MARKER = p.args.runId
+  HBUC_SMOKE_MARKER = p.args.runId -- luacheck: ignore 111
 end)

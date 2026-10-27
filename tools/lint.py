@@ -57,8 +57,14 @@ def ruff(exe, sarif_dir):
     return subprocess.run([exe, "check", "--no-fix", *tracked(["*.py"])], cwd=ROOT).returncode == 0
 
 
+def luacheck(exe, sarif_dir):
+    argv = [exe, "--config", str(ROOT / ".luacheckrc"), "--codes", "--quiet", *tracked(["*.lua"])]
+    return subprocess.run(argv, cwd=ROOT).returncode == 0
+
+
 TOOLS = [
     Tool("ruff", "ruff", "pip install -r requirements-dev.txt", ruff),
+    Tool("luacheck", "luacheck", "luarocks install luacheck 1.2.0", luacheck),
 ]
 
 
