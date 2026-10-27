@@ -24,7 +24,7 @@ probe.run("14_flow_instruments", function(p)
     local owners = streammap.owners(app, flow)
     flow = score.flows[fi]
     local fis = flow.instruments
-    local rows, agree = {}, true
+    local rows = {}
     for i, s in ipairs(flow.voiceStreams) do
       local f = fis[i]
       local fid = f and f.id

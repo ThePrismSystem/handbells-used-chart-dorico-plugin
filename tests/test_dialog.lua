@@ -9,12 +9,13 @@ local function showWith(isWindows)
   package.loaded["hbuc.dorico.files"] = { write = function(_, text) written = text end, read = function() end }
   package.loaded["hbuc.dorico.dialog"] = nil
   local execute = os.execute
-  os.execute = function(command) ran = command; return true, "exit", 0 end
+  -- a stand-in for os.execute, put back below
+  os.execute = function(command) ran = command; return true, "exit", 0 end -- luacheck: ignore 122
   local ok, err = pcall(function()
     local ctx = { isWindows = isWindows, root = "r/", folders = { temp = "t/" }, log = { line = function() end } }
     require("hbuc.dorico.dialog").show(ctx, "info", "Done")
   end)
-  os.execute = execute
+  os.execute = execute -- luacheck: ignore 122
   for _, name in ipairs(names) do package.loaded[name] = saved[name] end
   if not ok then error(err, 0) end
   return json.decode(written), ran

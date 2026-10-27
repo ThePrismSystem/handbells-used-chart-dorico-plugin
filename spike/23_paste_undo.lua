@@ -123,14 +123,14 @@ probe.run("23_paste_undo", function(p)
   end
   p:fact("headsAndColours", heads)
   local per = {}
-  for i, st in ipairs(scratch.voiceStreams) do
+  for _, st in ipairs(scratch.voiceStreams) do
     local n = 0
     for _ in dumpOf(st):gmatch(": k%a*NoteEvent %(id:") do n = n + 1 end
     per[#per + 1] = st.id .. ":" .. n
   end
   p:fact("scratchStreamNotes", table.concat(per, " "))
   local mper = {}
-  for i, st in ipairs(flowById(app, musicId).voiceStreams) do
+  for _, st in ipairs(flowById(app, musicId).voiceStreams) do
     local n = 0
     for _ in dumpOf(st):gmatch(": k%a*NoteEvent %(id:") do n = n + 1 end
     mper[#mper + 1] = st.id .. ":" .. n

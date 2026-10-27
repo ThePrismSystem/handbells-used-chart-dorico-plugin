@@ -46,10 +46,12 @@ def run_script(client, steps):
 
 class T:  # harness.scratch wants a TestCase-like object
     def assertIsNotNone(self, v, msg=None):
-        assert v is not None, msg
+        if v is None:
+            raise AssertionError(msg)
 
     def assertTrue(self, v, msg=None):
-        assert v, msg
+        if not v:
+            raise AssertionError(msg)
 
 
 if __name__ == "__main__":

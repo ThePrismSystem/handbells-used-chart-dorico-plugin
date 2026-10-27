@@ -26,7 +26,7 @@ probe.run("31_player_names", function(p)
   p:fact("ids", table.concat(list, ", "))
   p:fact("afterIds", names())
   local later = {}
-  for i = 1, 3 do
+  for _ = 1, 3 do
     app:doCommand("Edit.SelectNone")
     later[#later + 1] = names()
   end

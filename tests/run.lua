@@ -23,6 +23,8 @@ end
 
 local T = {}
 T.__index = T
+-- Tests call these as t:eq and so on, though none of them needs t itself.
+-- luacheck: push no self
 function T:eq(got, want, label)
   if got ~= want then
     error((label or "values differ") .. ": got " .. tostring(got) .. ", want " .. tostring(want), 2)
@@ -35,6 +37,7 @@ function T:fails(fn, label)
   local ok = pcall(fn)
   if ok then error((label or "expected an error") .. ": no error was raised", 2) end
 end
+-- luacheck: pop
 
 local passed, failed = 0, 0
 for _, file in ipairs(listTests()) do

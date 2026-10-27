@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "description": "Development tools only: ESLint for the Mac dialog script and its test harness.",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0"
+  }
+}

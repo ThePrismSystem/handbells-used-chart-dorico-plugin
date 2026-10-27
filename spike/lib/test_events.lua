@@ -81,12 +81,12 @@ eq("flow notation command", layoutopts.flowNotationCommand(15, 1, { ["barlineOpt
 -- streammap.owners cleans up its markers on every path -------------------------------------
 do
   local savedDoCore = rawget(_G, "DoCore")
-  DoCore = { RhythmicLength = function(n) return n end }
+  DoCore = { RhythmicLength = function(len) return len end }
   local function fakeStream(id, failCreate)
     local s = { id = id, events = {}, deleted = 0 }
     function s:createText(_, _, text)
       if failCreate then error("createText failed") end
-      local e = setmetatable({ text = text }, { __tostring = function(t) return "kTextEvent (id:1) at 0 : " .. t.text end })
+      local e = setmetatable({ text = text }, { __tostring = function(ev) return "kTextEvent (id:1) at 0 : " .. ev.text end })
       self.events[#self.events + 1] = e
       return e
     end
@@ -122,8 +122,8 @@ eq("a second note with the same key is refused",
 local headings = require("headings")
 local function export(frames)
   local lines = { '"Path","ID","FlowNumber","FlowName","Instrument","Page","Bar","Type","Text","Hidden"' }
-  for _, f in ipairs(frames) do
-    lines[#lines + 1] = '"","","","","","' .. f[1] .. '","","Text Frame","' .. f[2] .. '","N"'
+  for _, frame in ipairs(frames) do
+    lines[#lines + 1] = '"","","","","","' .. frame[1] .. '","","Text Frame","' .. frame[2] .. '","N"'
   end
   lines[#lines + 1] = '"","","1","Chart","Global","","-1","Flow Info (Title)","Chart","N"'
   return table.concat(lines, "\r\n")
@@ -152,9 +152,9 @@ eq("scratch expected, the user's project found", probeLib.isExpectedScratch({ pa
 do
   local dir = ((os.getenv("TEMP") or os.getenv("TMPDIR") or "/tmp"):gsub("\\", "/"):gsub("/+$", "")) .. "/"
   local argsPath = dir .. "hbuc-test-probe-args.json"
-  local f = assert(io.open(argsPath, "wb"))
-  f:write('{"runId":"r1"}')
-  f:close()
+  local file = assert(io.open(argsPath, "wb"))
+  file:write('{"runId":"r1"}')
+  file:close()
   local saved = { probe = package.loaded.probe, rundir = package.loaded.rundir }
   HBUC_RUN = { dir = dir, args = argsPath }
   package.loaded.probe, package.loaded.rundir = nil, nil
