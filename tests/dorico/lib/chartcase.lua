@@ -34,7 +34,7 @@ local function musicParts(score, skip)
 end
 
 -- opts: {mode, existing (find and update the chart there), instruments (names; default all), newPage (false: no
--- flow breaks)}.
+-- flow breaks), forcePaste (read through a copy, as for music stream.events can't list)}.
 function chartcase.draw(p, ctx, opts)
   local app = ctx.app
   local found
@@ -52,7 +52,8 @@ function chartcase.draw(p, ctx, opts)
     if not skipKeys[doc.playerKey(pl)] then namesBefore[doc.playerKey(pl)] = tostring(pl) end
   end
 
-  local scan = readscore.scan(app, { log = ctx.log, skipFlowId = skipFlow, skipKeys = skipKeys })
+  local scan = readscore.scan(app, { log = ctx.log, skipFlowId = skipFlow, skipKeys = skipKeys,
+    forcePaste = opts.forcePaste })
   local names, musicKeys = {}, {}
   for _, pl in ipairs(scan.players) do
     names[#names + 1] = pl.name

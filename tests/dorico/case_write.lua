@@ -4,6 +4,7 @@
 --   args.existing: true to find and update the chart already there
 --   args.newPage: false to let the music follow the chart on its page
 --   args.startBreaks: a flowBreakBehaviour to give the full score first, as the project's own
+--   args.forcePaste: read the music through a copy, so the run has an Edit.Undo before it draws
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -23,6 +24,6 @@ probe.run("case_write", function(p)
       { flowBreakBehaviour = p.args.startBreaks }))
   end
   local out = chartcase.draw(p, ctx, { mode = p.args.mode or "combined", existing = p.args.existing,
-    instruments = p.args.instruments, newPage = p.args.newPage })
+    instruments = p.args.instruments, newPage = p.args.newPage, forcePaste = p.args.forcePaste })
   chartcase.check(p, ctx, out)
 end)

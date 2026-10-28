@@ -83,10 +83,9 @@ it. Clear what you set.
 Everything a plug-in does goes through one of two doors:
 
 - The object model: `DoApp` and `DoCore`, C++ classes bound to Lua with luabind. It reads the score's structure
-  and notes, and it can create notes, texts and players and set event properties. Its edits don't enter the undo
-  history.
+  and notes, and it can create notes, texts and players and set event properties.
 - Commands: `app:doCommand("Name?Param=Value&...")`, the same commands Dorico's menus and key commands run. They
-  do everything the object model can't (selections, flows, layout options, saving), and their edits are undoable.
+  do everything the object model can't (selections, flows, layout options, saving).
 
 Most real tasks need both. The plug-in reads with the object model, selects with a command, then changes a property
 with the object model or runs another command on the selection.
@@ -254,7 +253,7 @@ plug-in uses it for four things Lua can't read:
 - Flow titles. The `Flow Info (Title)` rows give each flow's title, by `FlowNumber`.
 - Instrument names. Put a marker text in each voice stream with `stream:createText`, export, read each marker
   row's `Instrument` column (the `ID` column is `<flow>-<stream>-<event>`), then delete the markers with
-  `stream:delete`. Object-model edits like these don't enter the undo history.
+  `stream:delete`. Making and deleting the markers still leaves an undo step, one that changes nothing (section 7).
 - Layout options, indirectly. Lua can set layout options but not read them. To learn `flowHeadingBehaviour`,
   export once, then export again under each candidate value. The flow headings appear as `Text Frame` rows only when
   headings show, so the candidate whose rows match the first export is the value the project had. Put that value
@@ -416,13 +415,17 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 
 This is the gotcha that cost the most time.
 
-- Object-model edits never enter the undo history. `createNote`, `createText`, `stream:delete` and property sets
-  can't be undone by the user, nor by the script.
-- A script run's command edits are one undo step.
-- `Edit.Undo` inside a script rolls back that run's own command edits so far, and nothing the user did before
-  the run. An undo in a run that has changed nothing changes nothing.
-- But only the first undo is safe. After an undo inside a run, the run's later commands join the user's
-  *previous* undo step. A second undo in the same run takes back the user's last action as well.
+- Everything a script run changes is one undo step, object-model edits included. On Dorico 6.2.30, one Edit > Undo
+  after a run took back a text the run made with `createText`, and a colour it set with `propertyTable:set`.
+- `Edit.Undo` inside a script rolls back everything that run has done so far, and nothing the user did before
+  the run. That includes object-model edits: in a run that made a text, ran `Project.Flow.New` and made another
+  text, an undo took back all three. An undo in a run that has changed nothing changes nothing.
+- But only the first undo is safe. After an undo inside a run, whatever the run changes next, commands and
+  object-model edits alike, joins the user's *previous* undo step. A second undo in the same run takes back the
+  user's last action as well.
+- A run that makes a text and deletes it again still leaves an undo step. Edit > Undo afterwards uses it up and
+  changes nothing you can see. An early probe of ours saw that and concluded that object-model edits weren't
+  undoable, as earlier versions of this guide said.
 - The read clears the redo history. After a run that changed nothing (the user cancelled), Edit > Redo brings
   back whatever the run's undo took away.
 
@@ -432,8 +435,8 @@ What the plug-in does with that:
    `Edit.Undo`, before it changes anything.
 2. Show the dialog. If the user cancels, stop: nothing has changed.
 3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. That's the clean
-   undo for the user, since the run's edits mix object-model changes (not undoable) and commands (undoable, and
-   joined to the user's previous step).
+   undo for the user. When the run read through a copy, its `Edit.Undo` came before the drawing, so the chart
+   joins the user's previous undo step, and Edit > Undo would take back both.
 
 Saving:
 
@@ -584,7 +587,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - The Remote API's `setoptions` with `flowIDs` changes flow 0.
 - A plug-in can't delete a player.
 - `Project.Flow.New` adds every player to the new flow.
-- Object-model edits aren't undoable. Only the first `Edit.Undo` in a run is safe.
+- A run's edits are one undo step, object-model edits included. Only the first `Edit.Undo` in a run is safe.
 - Command values escape `\`, `&` and `,`. Check every value and id before sending.
 - `os.execute` freezes Dorico until it returns.
 - PowerShell: case-insensitive comparisons and variable names, `$null` to `""`, one-item lists unwrapped, labels

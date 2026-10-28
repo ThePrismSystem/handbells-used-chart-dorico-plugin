@@ -174,9 +174,10 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
   return read
 end
 
--- Takes every scratch flow away with ONE Edit.Undo, which rolls back everything this run has done through commands
--- and nothing done before the run. A second undo in the same run would also take back the user's previous action
--- (spike/29_undo_experiments.py, E9 against E10), so there is never a second one.
+-- Takes every scratch flow away with ONE Edit.Undo, which rolls back everything this run has done, the temporary
+-- notes made with createNote included, and nothing done before the run. A second undo in the same run would also
+-- take back the user's previous action (spike/29_undo_experiments.py, E9 against E10), so there is never a second
+-- one.
 local function takeAway(app, log, scratchIds, before)
   doc.command(app, log, "Edit.Undo")
   for _, id in ipairs(scratchIds) do
