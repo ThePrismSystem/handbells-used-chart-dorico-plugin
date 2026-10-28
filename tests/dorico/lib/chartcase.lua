@@ -197,6 +197,15 @@ function chartcase.check(p, ctx, out)
     if after[id] ~= part then same = false end
   end
   p:check("the music is as it was", same)
+  local probes = 0
+  for _, f in ipairs(app.currentScore.flows) do
+    for _, s in ipairs(f.voiceStreams) do
+      for _, ev in ipairs(doc.dumpOf(s).events) do
+        if ev.kind == "text" and ev.text == constants.PAGE_PROBE then probes = probes + 1 end
+      end
+    end
+  end
+  p:check("the page probe is gone", probes == 0, probes)
   local renamed = {}
   for key, name in pairs(out.namesBefore) do
     local pl = doc.playerByKey(app.currentScore, key)

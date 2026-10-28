@@ -25,6 +25,8 @@ constants.CHART_MODE_COMBINED = "One combined chart"
 constants.CHART_MODE_SEPARATE = "A separate chart for each instrument"
 
 constants.MARKER_PREFIX = "HBUC"
+-- A text the run puts at the start of the music for a moment, to see where the music starts (writechart).
+constants.PAGE_PROBE = "HBUC page probe"
 constants.MARKER_VERSION = "2"
 
 -- The chart's own flow, which also carries page 1's title block.

@@ -49,6 +49,22 @@ local function originalHeadings(app, log, temp, fullId, original)
   return value
 end
 
+-- A text at the start of the first music flow, so the text export has a row whose page shows where the music
+-- starts. Without one, a project with a chart drawn exported the same rows under both flow-break values (the
+-- fixture did). Runs fn with it in place and deletes it again whatever happens.
+local function withPageProbe(app, chartId, fn)
+  local stream
+  for _, f in ipairs(app.currentScore.flows) do
+    if not stream and f.id ~= chartId and #f.voiceStreams > 0 then stream = f.voiceStreams[1] end
+  end
+  if not stream then return fn() end
+  local probe = stream:createText(RL(0), RL(1), constants.PAGE_PROBE)
+  local results = { pcall(fn) }
+  stream:delete(probe)
+  if not results[1] then error(results[2], 0) end
+  return unpack(results, 2)
+end
+
 local function originalFlowBreaks(app, log, temp, fullId, original)
   setOption(app, log, fullId, "flowBreakBehaviour", "kNoFlowBreaks")
   local noBreaks = doc.exportText(app, log, temp, "breaks-none")
@@ -125,20 +141,18 @@ function writechart.write(app, built, opts)
     restore = {}
     for k, v in pairs(opts.existing.marker.restore) do restore[k] = v end
     existingPlayers = opts.existing.players
-    -- A version 1 marker's chart never changed the flow breaks, so they are still the project's own.
-    if not restore.flowBreakBehaviour then
-      local original = doc.exportText(app, log, temp, "layout-original")
-      restore.flowBreakBehaviour = originalFlowBreaks(app, log, temp, fullId, original)
-    end
   else
     chartId = newFlow(app, log)
-    local original = doc.exportText(app, log, temp, "layout-original")
+    local headings, breaks = withPageProbe(app, chartId, function()
+      local original = doc.exportText(app, log, temp, "layout-original")
+      return originalHeadings(app, log, temp, fullId, original), originalFlowBreaks(app, log, temp, fullId, original)
+    end)
     restore = {
-      flowHeadingBehaviour = originalHeadings(app, log, temp, fullId, original),
+      flowHeadingBehaviour = headings,
       hideEmptyStavesPolicy = "kNever",
       alwaysVisiblePlayers = "",
       playersToShowPlayerName = "",
-      flowBreakBehaviour = originalFlowBreaks(app, log, temp, fullId, original),
+      flowBreakBehaviour = breaks,
     }
   end
 
@@ -180,6 +194,14 @@ function writechart.write(app, built, opts)
     local columns = 0
     for _, s in ipairs(opts.existing.marker.sections) do columns = columns + s.columns end
     clearFlow(app, chartId, columns)
+    -- A version 1 marker's chart never changed the flow breaks, so they are still the project's own. They are read
+    -- with the chart flow empty again, as for a new chart: a drawn chart can fill page 1, and then both values put
+    -- the music on page 2.
+    if not restore.flowBreakBehaviour then
+      restore.flowBreakBehaviour = withPageProbe(app, chartId, function()
+        return originalFlowBreaks(app, log, temp, fullId, doc.exportText(app, log, temp, "layout-original"))
+      end)
+    end
   end
 
   -- the marker first, so the chart can always be found again
