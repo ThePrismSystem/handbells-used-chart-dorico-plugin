@@ -233,6 +233,8 @@ function writechart.write(app, built, opts)
     local function filler(stream, spelling, pos)
       local e = stream:createNote(RL(pos), RL(1), DoCore.MIDIPitchWithSpelling.fromString(spelling))
       for _, prop in ipairs({ "kNoteHideNotehead", "kNoteHideStem", "kNoteLedgerLineHide" }) do doc.setTrue(e, prop) end
+      -- a hidden notehead still shows its accidental: the end note's natural, after a B flat in the section's bar
+      naturals[#naturals + 1] = { stream = stream, id = e.id }
       voices[stream.id] = voices[stream.id] or { stream = stream, first = e.id, pos = pos }
       return e
     end

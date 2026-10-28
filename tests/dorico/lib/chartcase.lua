@@ -168,13 +168,14 @@ function chartcase.check(p, ctx, out)
           actual[#actual + 1] = o.key .. ":" .. index[o.key] .. "|" .. ev.spelling .. "|"
             .. doc.getString(e, "kNoteheadSetOverride") .. "|" .. doc.getString(e, "kEventColour")
           if doc.getString(e, "kNoteHideStem") == "true" then stems = stems + 1 end
-          if ev.spelling:match("^[A-G]%-?%d+$") then
-            local hidden = false
-            for _, n in ipairs(e.propertyTable:getPropertyNames()) do
-              if n == "kNoteAccidentalVisibility_v3" then hidden = true end
-            end
-            if not hidden then naturalsShown = naturalsShown + 1 end
+        end
+        -- hidden notes too: a hidden notehead still shows its accidental (a natural after a flat in the bar)
+        if ev.kind == "note" and ev.spelling:match("^[A-G]%-?%d+$") then
+          local hidden = false
+          for _, n in ipairs(e.propertyTable:getPropertyNames()) do
+            if n == "kNoteAccidentalVisibility_v3" then hidden = true end
           end
+          if not hidden then naturalsShown = naturalsShown + 1 end
         end
       end
     end
