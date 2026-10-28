@@ -94,13 +94,20 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
     if not member[doc.playerKey(pl)] then scratch:removePlayer(pl) end
   end
 
-  -- the music flow's whole range, on every staff, notes and chords only
-  local first, block
-  for _, s in ipairs(flow.voiceStreams) do
-    local d = doc.dumpOf(s)
+  -- the music flow's whole range, on every staff, notes and chords only. The range starts on the staff of the first
+  -- voice holding a note or rest, which is lower down when the first players have nothing to play: note whose voice
+  -- that is, and which of its instrument's voices.
+  local first, block, firstKey, nth
+  local owners, voices = doc.voiceOwners(flow), {}
+  for _, o in ipairs(owners) do voices[o.key] = (voices[o.key] or 0) + 1 end
+  local seen = {}
+  for _, o in ipairs(owners) do
+    seen[o.key] = (seen[o.key] or 0) + 1
+    local d = doc.dumpOf(o.stream)
     first = dump.firstEventId(d)
     if first then
-      block = doc.blockIdOf(s, first, d)
+      block = doc.blockIdOf(o.stream, first, d)
+      firstKey, nth = o.key, seen[o.key]
       break
     end
   end
@@ -112,9 +119,17 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
   doc.command(app, log, "Filter.NotesAndChords")
   doc.command(app, log, "Edit.Copy")
 
-  -- pasted at the start of the scratch flow's top staff, onto a temporary note there
+  -- Pasted onto a temporary note at the start of the same staff in the scratch flow, which has one voice per staff.
+  -- A grand staff's voices are [treble, bass] in both flows, so the nth voice is on the nth staff when the music
+  -- flow also has one voice per staff for that instrument. With more, which staff a voice is on can't be told, and
+  -- the instrument's first staff is used.
   scratch = doc.flowById(app.currentScore, scratchId)
-  local top = scratch.voiceStreams[1]
+  local staves = {}
+  for _, o in ipairs(doc.voiceOwners(scratch)) do
+    if o.key == firstKey then staves[#staves + 1] = o.stream end
+  end
+  local top = staves[#staves == voices[firstKey] and nth or 1]
+  if not top then error("the scratch flow has no voice for instrument " .. tostring(firstKey)) end
   local temp = top:createNote(DoCore.RhythmicLength(0), DoCore.RhythmicLength(1),
     DoCore.MIDIPitchWithSpelling.fromString("C5"))
   local tempId = temp.id

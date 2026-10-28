@@ -219,8 +219,11 @@ holds only notes, reads that, and takes it away again:
    `Edit.SelectAtEndOfFlow`, and `EventEdit.NavigateDownExtend` once for each staff after the first
    (`#flow.staveStreams - 1`).
 3. `Filter.NotesAndChords`, then `Edit.Copy`.
-4. In the scratch flow, create a temporary note at position 0 of the first voice stream, `EventEdit.Select` it, and
-   `Edit.Paste`.
+4. In the scratch flow, create a temporary note at position 0 on the staff the copied range starts on,
+   `EventEdit.Select` it, and `Edit.Paste`. The range starts on the staff of the event you selected, which is
+   lower down when the first players have nothing to play. Pasted on the top staff instead, every staff's notes land
+   that much higher, under the wrong player. The scratch flow has one voice per staff, and a grand staff's voices
+   are `[treble, bass]`, so take the scratch voice of the same instrument and staff.
 5. The filter keeps note-attached lines with their notes, and a line makes `stream.events` throw again. Delete every
    event in the scratch flow whose kind has no Lua class: select each by id from the dump, then `Edit.Delete`.
 6. Now `stream.events` and `propertyTable:get` work: noteheads, colours and grace notes. Skip the temporary note by

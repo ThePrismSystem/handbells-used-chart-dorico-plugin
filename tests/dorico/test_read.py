@@ -34,6 +34,21 @@ class ReadTests(unittest.TestCase):
         run_case(self, "case_read.lua", FIXTURE, {"forcePaste": True, "expect": {
             "players": FIXTURE_PLAYERS, "records": 58, "pastedFlows": 1, "histogram": FIXTURE_HISTOGRAM}})
 
+    def paste_matches_direct(self, args):
+        # The copied range starts on the first staff with a note or rest. Pasted any higher in the scratch flow,
+        # every staff's notes would be credited to the player above, and case_read would find notes unread.
+        with harness.scratch(self, "case_tacet.lua", args=args) as (client, _):
+            direct = harness.run_more(self, client, "case_read.lua")["facts"]
+            pasted = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})["facts"]
+            self.assertEqual((direct["pastedFlows"], pasted["pastedFlows"]), (0, 1))
+            self.assertEqual(pasted["byInstrument"], direct["byInstrument"])
+
+    def test_paste_route_when_the_first_player_is_tacet(self):
+        self.paste_matches_direct({})
+
+    def test_paste_route_when_the_first_treble_staff_is_empty(self):
+        self.paste_matches_direct({"topOnly": True})
+
     def test_smith_reads_through_the_paste_route_and_leaves_no_trace(self):
         result = run_case(self, "case_read.lua", inputs.ensure("smith"), timeout=600)
         facts = result["facts"]
