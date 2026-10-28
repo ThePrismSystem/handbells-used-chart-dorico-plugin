@@ -57,6 +57,12 @@ class WriteTests(unittest.TestCase):
             self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kNoFlowBreaks", "told apart from the default")
             self.check_options(client, facts)
 
+    def test_a_player_name_with_a_comma_comes_back_whole(self):
+        # Finding the player ids renames each player and puts its name back, by command, where a bare comma would
+        # end the name. case_write checks every music player keeps its exact name.
+        with harness.scratch(self, "case_rename.lua", args={"name": "Handbells (A), choir 2"}) as (client, _):
+            harness.run_more(self, client, "case_write.lua", {"mode": "combined"})
+
     def test_separate_chart_is_drawn(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "separate"}) as (client, result):
             labels = result["facts"]["labels"]

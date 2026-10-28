@@ -30,6 +30,15 @@ return {
     t:eq(reading.DEFAULT_HEAD, "noteheadset.default")
     t:eq(records[1].colour, "")
   end,
+  a_colour_lua_cannot_read_is_marked = function(t)
+    -- a colour set by command reads back as "", but the note lists the property
+    local n = read("A", "C5", "noteheadset.diamondNoteheads")
+    n.colourUnreadable = true
+    local records = reading.records({ dumped("A", "C5"), dumped("A", "D5") }, { n, read("A", "D5") })
+    t:eq(records[1].colour, "")
+    t:eq(records[1].colourUnreadable, true)
+    t:eq(records[2].colourUnreadable, false, "a note with no colour")
+  end,
   grace_notes_are_kept = function(t)
     local records = reading.records({ dumped("A", "B5", true) }, { read("A", "B5", "", "", true) })
     t:eq(#records, 1)

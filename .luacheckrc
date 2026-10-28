@@ -11,3 +11,4 @@ files["tests/dorico/**/*.lua"] = { read_globals = dorico }
 files["fixtures/**/*.lua"] = { read_globals = dorico }
 -- These tests stand in for Dorico's globals and the runner's.
 files["spike/lib/test_events.lua"] = { globals = { "DoCore", "HBUC_RUN" } }
+files["tests/test_readscore.lua"] = { globals = { "DoCore" } }

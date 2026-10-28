@@ -23,13 +23,16 @@ probe.run("case_read", function(p)
   p:fact("seconds", os.clock() - t0)
   local after = readscore.summary(app.currentScore)
 
-  local names, histogram, pitched = {}, {}, 0
+  local names, histogram, byInstrument, pitched, colourUnreadable = {}, {}, {}, 0, 0
   for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
   for _, r in ipairs(scan.records) do
+    if r.colourUnreadable then colourUnreadable = colourUnreadable + 1 end
     if r.pitch then
       pitched = pitched + 1
       local k = r.head .. "|" .. r.colour
       histogram[k] = (histogram[k] or 0) + 1
+      k = table.concat({ r.instrument, r.pitch, r.head, r.colour }, "|")
+      byInstrument[k] = (byInstrument[k] or 0) + 1
     end
   end
   p:fact("players", names)
@@ -38,6 +41,8 @@ probe.run("case_read", function(p)
   p:fact("unread", scan.unread)
   p:fact("pastedFlows", scan.pastedFlows)
   p:fact("histogram", histogram)
+  p:fact("byInstrument", byInstrument)
+  p:fact("colourUnreadable", colourUnreadable)
   p:fact("summary", after)
 
   p:check("the music is as it was", after == before, after .. " vs " .. before)

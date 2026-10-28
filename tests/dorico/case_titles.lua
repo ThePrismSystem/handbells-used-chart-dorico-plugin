@@ -15,7 +15,7 @@ probe.run("case_titles", function(p)
   local textexport = require("hbuc.textexport")
   local ctx = cases.context(p)
   -- args.renameFirstFlow: an edit of the user's own, in a script run of its own (so its own undo step)
-  -- args.secondFlow: a second flow holding one note (object model, so not an undo step of its own)
+  -- args.secondFlow: a second flow holding one note, the flow and the note together one undo step
   if p.args.secondFlow then
     local before = {}
     for _, f in ipairs(ctx.app.currentScore.flows) do before[f.id] = true end

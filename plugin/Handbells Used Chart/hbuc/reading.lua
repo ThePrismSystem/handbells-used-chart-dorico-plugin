@@ -13,8 +13,8 @@ local function pair(n)
   return tostring(n.instrument) .. "\0" .. tostring(n.spelling)
 end
 
--- records: {pitch, diatonic, head, colour, instrument, grace} in bell space (the sounding spelling, as Dorico's
--- Handbells instrument stores it). unread: how many dumped notes had no read note to take a notehead from; each
+-- records: {pitch, diatonic, head, colour, colourUnreadable, instrument, grace} in bell space (the sounding
+-- spelling, as Dorico's Handbells instrument stores it). colourUnreadable: the note has a colour that reads as "". unread: how many dumped notes had no read note to take a notehead from; each
 -- becomes a record with no pitch, which collect counts as unreadable.
 local function tally(notes)
   local counts = {}
@@ -48,7 +48,8 @@ function reading.records(dumpNotes, readNotes)
       if head == "" then head = reading.DEFAULT_HEAD end
       records[#records + 1] = {
         pitch = p and p.pitch, diatonic = p and p.diatonic, head = head, colour = n.colour or "",
-        instrument = n.instrument, grace = n.grace and true or false,
+        colourUnreadable = n.colourUnreadable and true or false, instrument = n.instrument,
+        grace = n.grace and true or false,
       }
     end
   end
