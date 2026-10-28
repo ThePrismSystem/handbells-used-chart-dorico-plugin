@@ -35,8 +35,29 @@ return {
     t:eq(d.events[1].pos, 1.5)
     t:eq(dump.notes(d)[1].spelling, "Eb4")
   end,
-  block_id_is_start_block_minus_1000 = function(t)
-    t:eq(dump.parse(lines({ RULE, "Start block id: 1419 position: 0" })).blockId, 419)
+  events_carry_their_block_instance = function(t)
+    -- "Start block id" is a block instance id. EventEdit.Select takes a block id, which the dump doesn't show: in one
+    -- downloaded project instance 1061 held block 36 (hbuc.dorico.doc.blockIdOf reads it).
+    local d = dump.parse(lines({
+      RULE,
+      "Start block id: 1061 position: 0",
+      "0 (0) dur: 1: kNoteEvent (id:7932) at 0, duration 1  E5 (ends 1)",
+      "Start block id: 1070 position: 16",
+      "16 (16) dur: 1: kNoteEvent (id:8000) at 16, duration 1  C6 (ends 17)",
+    }))
+    t:eq(d.events[1].instance, 1061)
+    t:eq(d.events[2].instance, 1070)
+    t:eq(d.blockId, nil, "no block id is guessed from the instance id")
+  end,
+  first_event_gives_its_instance = function(t)
+    local d = dump.parse(lines({
+      RULE,
+      "Start block id: 1061 position: 0",
+      "0 (0) dur: 1: kNoteEvent (id:7932) at 0, duration 1  E5 (ends 1)",
+    }))
+    local id, instance = dump.firstEventId(d)
+    t:eq(id, 7932)
+    t:eq(instance, 1061)
   end,
   text_ends_before_its_paragraph_style = function(t)
     local d = dump.parse(lines({

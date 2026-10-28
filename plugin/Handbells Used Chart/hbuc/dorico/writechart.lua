@@ -218,15 +218,15 @@ function writechart.write(app, built, opts)
     treble:createText(RL(s.start), RL(1), s.label)
   end
 
-  local blocks = {}
-  local function blockOf(stream)
-    blocks[stream.id] = blocks[stream.id] or doc.dumpOf(stream).blockId
-    return blocks[stream.id]
+  -- Dumped afresh for each select: the commands between them (a time signature, a system break) may change how a
+  -- chart stream is split into blocks, and chart streams are small.
+  local function blockOf(stream, eventId)
+    return doc.blockIdOf(stream, eventId)
   end
 
   -- naturals: hidden one at a time with Dorico's own command (a direct property set doesn't take)
   for _, n in ipairs(naturals) do
-    doc.select(app, log, chartId, n.id, blockOf(n.stream))
+    doc.select(app, log, chartId, n.id, blockOf(n.stream, n.id))
     doc.command(app, log, "Edit.HideAccidental")
   end
 
@@ -234,7 +234,7 @@ function writechart.write(app, built, opts)
   for i = 2, #built.sections do
     local first, at = firstNotes[i], built.sections[i].start
     if not first then error("section " .. i .. " has no note to start its system at") end
-    doc.select(app, log, chartId, first.id, blockOf(first.stream))
+    doc.select(app, log, chartId, first.id, blockOf(first.stream, first.id))
     doc.command(app, log, commands.timeSignature("X"))
     local division
     for _, e in ipairs(doc.flowById(app.currentScore, chartId).timebaseStreams[1].events) do
@@ -244,13 +244,13 @@ function writechart.write(app, built, opts)
     if not division then error("no time signature could be made at section " .. i) end
     doc.setTrue(division, "kTimeSignatureHide")
     doc.setTrue(division, "kBarNumberHide")
-    doc.select(app, log, chartId, first.id, blockOf(first.stream))
+    doc.select(app, log, chartId, first.id, blockOf(first.stream, first.id))
     doc.command(app, log, "Edit.CreateSystemBreak")
   end
 
   -- no rests in any chart voice that holds notes
   for _, v in pairs(voices) do
-    doc.select(app, log, chartId, v.first, blockOf(v.stream))
+    doc.select(app, log, chartId, v.first, blockOf(v.stream, v.first))
     doc.command(app, log, "Edit.SelectToStartOfFlow")
     doc.command(app, log, "Edit.SelectAtEndOfFlow")
     doc.command(app, log, "Edit.RemoveRests")
@@ -261,7 +261,7 @@ function writechart.write(app, built, opts)
     local d = doc.dumpOf(s)
     for _, ev in ipairs(d.events) do
       if ev.kind == "rest" and ev.id then
-        doc.select(app, log, chartId, ev.id, d.blockId)
+        doc.select(app, log, chartId, ev.id, doc.blockIdOf(s, ev.id, d))
         doc.command(app, log, "Edit.RemoveRests")
       end
     end

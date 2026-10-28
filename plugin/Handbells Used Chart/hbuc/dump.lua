@@ -19,13 +19,15 @@ local function textOf(first, rest)
   return text
 end
 
+-- Each event carries the block instance it sits in ("Start block id" is an instance id, despite its name).
 function dump.parse(text)
   local out = { events = {} }
-  local current, rest
+  local current, rest, instance
   local function finish()
     if not current then return end
     local ev = eventtext.parse(current)
     if ev.kind == "text" then ev.text = textOf(current, rest) end
+    ev.instance = instance
     out.events[#out.events + 1] = ev
     current, rest = nil, nil
   end
@@ -36,7 +38,7 @@ function dump.parse(text)
       current, rest = line:sub(at + 2), {}
     elseif line:match("^Start block id: %d+") then
       finish()
-      if not out.blockId then out.blockId = tonumber(line:match("^Start block id: (%d+)")) - 1000 end
+      instance = tonumber(line:match("^Start block id: (%d+)"))
     elseif line:match("^%-%-%-%-") then
       finish()
     elseif current and line ~= "" then
@@ -58,10 +60,10 @@ function dump.notes(parsed)
   return notes
 end
 
--- The first event a selection can start from: a note, grace note or rest.
+-- The first event a selection can start from (a note, grace note or rest), and its block instance.
 function dump.firstEventId(parsed)
   for _, ev in ipairs(parsed.events) do
-    if ev.kind == "note" or ev.kind == "grace" or ev.kind == "rest" then return ev.id end
+    if ev.kind == "note" or ev.kind == "grace" or ev.kind == "rest" then return ev.id, ev.instance end
   end
   return nil
 end

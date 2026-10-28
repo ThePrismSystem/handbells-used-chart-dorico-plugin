@@ -116,7 +116,8 @@ local score = app.currentScore        -- nil, or an error, when no project is op
 | Flow | `id`, `players`, `voiceStreams`, `staveStreams`, `allStreams`, `instruments`, `addPlayer`, `removePlayer` | a name or title |
 | Player | `tostring(player)` (its name), `instruments` | an id, `==` |
 | Instrument | `id` | a name (`tostring` and `.name` throw), its type, its transposition |
-| EventStream | `events`, `dump()`, `createNote`, `createText`, `delete`, `deleteEventsInRange`, `type`, `id` | |
+| EventStream | `events`, `dump()`, `blockInstances`, `createNote`, `createText`, `delete`, `deleteEventsInRange`, `type`, `id` | |
+| Block instance | `id` (the dump's "Start block id"), `block.id` (what `EventEdit.Select` takes) | |
 | Event | `id`, `propertyTable`, `tostring(event)` | |
 | Layout | `id`, `players`, `addPlayer`, `removeFlow` | any layout option |
 
@@ -201,7 +202,8 @@ Start block id: 1010 position: 0
 Each event line is `<position> (<position>)[ dur: <duration>]: <tostring(event)>`. A text event's own line breaks
 continue it on further lines, ending with a line holding its paragraph style in brackets. The dump gives every
 note's id, position and sounding spelling. It shows no properties, so it can't tell you noteheads or colours. Note
-the `Start block id`: you need it to select an event by command (section 5).
+the `Start block id`: despite its name it is a block *instance* id, and the events after it belong to that
+instance. You need the instance's block to select an event by command (section 5).
 
 The plug-in parses dumps with `hbuc/dump.lua` and event strings with `hbuc/eventtext.lua`. Both are pure Lua, with
 unit tests.
@@ -308,8 +310,20 @@ Set them with `DoCore.Variant.createString(...)`. Notehead set ids we used: `not
 EventEdit.Select?FlowID=<flow.id>&EventID=<event.id>&EventBlockID=<block id>
 ```
 
-The block id is the `Start block id` from the stream's `dump()`, **minus 1000**. The block *instance* id selects
-nothing. `Edit.SelectNone` clears the selection, and `Edit.SelectAtEndOfFlow` extends one to the end of the flow.
+The block id is the id of the block holding the event. Find the event's instance (the `Start block id` above it in
+the dump) in `stream.blockInstances`, and take that instance's `block.id`:
+
+```lua
+for _, bi in ipairs(stream.blockInstances) do
+  if bi.id == instanceId then return bi.block.id end
+end
+```
+
+In most projects the block id happens to be the instance id minus 1000, and the plug-in once took that for the rule.
+In a downloaded arrangement, instance 1061 held block 36. A select given the wrong block id selects nothing and
+reports no error, so the commands after it act on nothing too. `hbuc/dorico/doc.lua`'s `blockIdOf` does the lookup.
+
+`Edit.SelectNone` clears the selection, and `Edit.SelectAtEndOfFlow` extends one to the end of the flow.
 
 ### Flows
 
@@ -554,7 +568,8 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
-- `EventEdit.Select` needs the dump's start block id minus 1000.
+- `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
+  wrong block id selects nothing, silently.
 - `kEventHide` hides neither texts nor rests. Naturals hide only by command.
 - A system break needs a barline. A new flow has none.
 - Layout options can be set, never read.
