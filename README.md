@@ -179,9 +179,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 
 ## Known limitations
 
-- **Undo.** Edit > Undo after a run doesn't take the chart away cleanly. It takes back the chart's command edits
-  together with your last action before the run, and leaves the chart's notes behind. Use **File > Revert**: the
-  plug-in saved the project just before drawing.
+- **Undo.** One Edit > Undo takes back everything a run changed, the chart and the full-score options included.
+  Music with markings the plug-in can't read directly, such as lyrics, slurs, hairpins or playing techniques, is
+  read from a temporary copy, though, and then the same undo also takes back your last action before the run. To
+  keep that action, use **File > Revert**: the plug-in saved the project just before it changed anything.
 - **Redo.** Reading the music clears Dorico's redo history, even when you then click Cancel. After a run that
   changed nothing, Edit > Redo brings back the temporary flow the plug-in read the music from: press Undo to take it
   away again.
@@ -208,6 +209,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 - Bells outside C2-C9 are skipped and reported. Grace notes are charted; cue notes aren't, since they repeat another
   player's music.
 - Handbells are always charted in black.
+- **Colours set in the Properties panel** can't be read by a plug-in. The colour fields open on the colour most of a
+  kind's notes have, counting only the colours the plug-in can read. If you coloured a kind's notes in the
+  Properties panel, its field may open empty or on another colour, so type the colour in. The chart uses the colour
+  in the field.
 - One notehead per kind of bell. Notes with a second notehead style for the same kind are skipped and counted.
 - Tested on Windows only, until the first Mac check.
 

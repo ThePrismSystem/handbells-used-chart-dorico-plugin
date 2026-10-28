@@ -83,10 +83,9 @@ it. Clear what you set.
 Everything a plug-in does goes through one of two doors:
 
 - The object model: `DoApp` and `DoCore`, C++ classes bound to Lua with luabind. It reads the score's structure
-  and notes, and it can create notes, texts and players and set event properties. Its edits don't enter the undo
-  history.
+  and notes, and it can create notes, texts and players and set event properties.
 - Commands: `app:doCommand("Name?Param=Value&...")`, the same commands Dorico's menus and key commands run. They
-  do everything the object model can't (selections, flows, layout options, saving), and their edits are undoable.
+  do everything the object model can't (selections, flows, layout options, saving).
 
 Most real tasks need both. The plug-in reads with the object model, selects with a command, then changes a property
 with the object model or runs another command on the selection.
@@ -158,6 +157,12 @@ note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx
 
 - `get` returns a Variant, and `tostring(variant)` gives its value. An unset property reads as `""`.
 - `getPropertyNames()` lists only the properties an event actually has, not every one it could have.
+- A colour set by command, which includes the Properties panel, can't be read. `get("kEventColour", ctx)` returns an
+  invalid Variant (`type` -1) whose text is `""`, the same as no colour. The note still lists `kEventColour` in
+  `getPropertyNames()`, so you can tell "coloured, but unreadable" from "no colour". A colour set from Lua reads back
+  as it was set, after a save and reopen and in a pasted copy too.
+- A read can lag the page. After a command recoloured a note whose colour had been set from Lua, the page showed the
+  new colour while Lua still read the old one.
 - `set` returns `true` when Dorico took the value. That doesn't always mean the score changed (section 5).
 
 ## 3. Reading the music
@@ -219,8 +224,11 @@ holds only notes, reads that, and takes it away again:
    `Edit.SelectAtEndOfFlow`, and `EventEdit.NavigateDownExtend` once for each staff after the first
    (`#flow.staveStreams - 1`).
 3. `Filter.NotesAndChords`, then `Edit.Copy`.
-4. In the scratch flow, create a temporary note at position 0 of the first voice stream, `EventEdit.Select` it, and
-   `Edit.Paste`.
+4. In the scratch flow, create a temporary note at position 0 on the staff the copied range starts on,
+   `EventEdit.Select` it, and `Edit.Paste`. The range starts on the staff of the event you selected, which is
+   lower down when the first players have nothing to play. Pasted on the top staff instead, every staff's notes land
+   that much higher, under the wrong player. The scratch flow has one voice per staff, and a grand staff's voices
+   are `[treble, bass]`, so take the scratch voice of the same instrument and staff.
 5. The filter keeps note-attached lines with their notes, and a line makes `stream.events` throw again. Delete every
    event in the scratch flow whose kind has no Lua class: select each by id from the dump, then `Edit.Delete`.
 6. Now `stream.events` and `propertyTable:get` work: noteheads, colours and grace notes. Skip the temporary note by
@@ -251,7 +259,7 @@ plug-in uses it for four things Lua can't read:
 - Flow titles. The `Flow Info (Title)` rows give each flow's title, by `FlowNumber`.
 - Instrument names. Put a marker text in each voice stream with `stream:createText`, export, read each marker
   row's `Instrument` column (the `ID` column is `<flow>-<stream>-<event>`), then delete the markers with
-  `stream:delete`. Object-model edits like these don't enter the undo history.
+  `stream:delete`. Making and deleting the markers still leaves an undo step, one that changes nothing (section 7).
 - Layout options, indirectly. Lua can set layout options but not read them. To learn `flowHeadingBehaviour`,
   export once, then export again under each candidate value. The flow headings appear as `Text Frame` rows only when
   headings show, so the candidate whose rows match the first export is the value the project had. Put that value
@@ -398,9 +406,11 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 ## 6. Commands
 
 - Syntax: `Name?key=value&key=value`.
-- Values: Dorico reads a backslash as an escape. Write `\&` for an ampersand and `\\` for a backslash. `=` and any
-  Unicode go through as they are. A line break can't be sent. Build every command with one encoder function, so a
-  player named "Handbells (P&F)" goes through exactly.
+- Values: Dorico reads a backslash as an escape. Write `\&` for an ampersand, `\,` for a comma and `\\` for a
+  backslash. A bare comma ends the value, so `Name=A, B` names a player `A`. `=` and any Unicode go through as they
+  are. A line break can't be sent. Build every command with one encoder function, so a player named "Handbells
+  (P&F)" or "Bells, choir 2" goes through exactly. Escape backslashes before anything else, or the escapes you add
+  get doubled.
 - Check what you send. Converting with `tostring` turns a missing value into the word `nil`, and a wrong id
   selects, renames or deletes the wrong thing, or nothing, with no error from Dorico. The plug-in's builders refuse a
   missing value and any id that isn't a whole number (`hbuc/commands.lua`).
@@ -413,13 +423,17 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 
 This is the gotcha that cost the most time.
 
-- Object-model edits never enter the undo history. `createNote`, `createText`, `stream:delete` and property sets
-  can't be undone by the user, nor by the script.
-- A script run's command edits are one undo step.
-- `Edit.Undo` inside a script rolls back that run's own command edits so far, and nothing the user did before
-  the run. An undo in a run that has changed nothing changes nothing.
-- But only the first undo is safe. After an undo inside a run, the run's later commands join the user's
-  *previous* undo step. A second undo in the same run takes back the user's last action as well.
+- Everything a script run changes is one undo step, object-model edits included. On Dorico 6.2.30, one Edit > Undo
+  after a run took back a text the run made with `createText`, and a colour it set with `propertyTable:set`.
+- `Edit.Undo` inside a script rolls back everything that run has done so far, and nothing the user did before
+  the run. That includes object-model edits: in a run that made a text, ran `Project.Flow.New` and made another
+  text, an undo took back all three. An undo in a run that has changed nothing changes nothing.
+- But only the first undo is safe. After an undo inside a run, whatever the run changes next, commands and
+  object-model edits alike, joins the user's *previous* undo step. A second undo in the same run takes back the
+  user's last action as well.
+- A run that makes a text and deletes it again still leaves an undo step. Edit > Undo afterwards uses it up and
+  changes nothing you can see. An early probe of ours saw that and concluded that object-model edits weren't
+  undoable, as earlier versions of this guide said.
 - The read clears the redo history. After a run that changed nothing (the user cancelled), Edit > Redo brings
   back whatever the run's undo took away.
 
@@ -428,9 +442,10 @@ What the plug-in does with that:
 1. Read everything first, into as many scratch flows as it needs, and take them all away with exactly one
    `Edit.Undo`, before it changes anything.
 2. Show the dialog. If the user cancels, stop: nothing has changed.
-3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. That's the clean
-   undo for the user, since the run's edits mix object-model changes (not undoable) and commands (undoable, and
-   joined to the user's previous step).
+3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. One Edit > Undo
+   takes the chart back too, its notes and layout options included (`spike/39_chart_undo.py`, Dorico 6.2.30). But
+   when the run read through a copy, its `Edit.Undo` came before the drawing, so the chart joined the user's
+   previous undo step and that Edit > Undo took back both.
 
 Saving:
 
@@ -572,6 +587,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Every pitch is sounding, and nothing says how an instrument transposes.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
+- A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
 - `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
   wrong block id selects nothing, silently.
@@ -581,8 +597,8 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - The Remote API's `setoptions` with `flowIDs` changes flow 0.
 - A plug-in can't delete a player.
 - `Project.Flow.New` adds every player to the new flow.
-- Object-model edits aren't undoable. Only the first `Edit.Undo` in a run is safe.
-- Command values escape `\` and `&`. Check every value and id before sending.
+- A run's edits are one undo step, object-model edits included. Only the first `Edit.Undo` in a run is safe.
+- Command values escape `\`, `&` and `,`. Check every value and id before sending.
 - `os.execute` freezes Dorico until it returns.
 - PowerShell: case-insensitive comparisons and variable names, `$null` to `""`, one-item lists unwrapped, labels
   eating `&`.

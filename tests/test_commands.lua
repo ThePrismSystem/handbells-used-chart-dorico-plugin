@@ -49,6 +49,13 @@ return {
     t:eq(commands.build("X", { { "K", "C\\D" } }), "X?K=C\\\\D")
     t:eq(commands.build("X", { { "K", "Ünïcødé" } }), "X?K=Ünïcødé")
   end,
+  values_escape_commas = function(t)
+    -- a bare comma ends the value: "Name=A, B" names the player "A", while "A\, B" keeps the comma
+    t:eq(commands.renamePlayerName(3, "A, B"), "Project.Player.Rename?PlayerID=3&Name=A\\, B")
+    t:eq(commands.renamePlayerName(3, "A, B & C"), "Project.Player.Rename?PlayerID=3&Name=A\\, B \\& C")
+    -- the backslash is escaped first, so a comma's own escape isn't doubled
+    t:eq(commands.build("X", { { "K", "a\\,b" } }), "X?K=a\\\\\\,b")
+  end,
   line_breaks_and_odd_keys_are_refused = function(t)
     t:fails(function() commands.build("X", { { "K", "line\nbreak" } }) end, "newline")
     t:fails(function() commands.build("X", { { "K&", "v" } }) end, "key with an ampersand")
