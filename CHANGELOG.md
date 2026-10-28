@@ -36,6 +36,8 @@ The first version, for the first check on a Mac. It is not released yet: 1.0.0 f
   project's own setting back.
 - Projects whose blocks Dorico has numbered out of step, such as some shared or downloaded files, are read and
   charted. Before, every note was reported unreadable.
+- A player whose name has a comma in it keeps its whole name. Before, drawing or removing a chart cut the name at
+  the comma and stopped with an error.
 - The dialog on Windows (PowerShell) and on a Mac (JavaScript for Automation, for Apple silicon and Intel). On the
   Mac, the colour fields take Cmd-C, Cmd-V and Cmd-A, and the results alert closes on Escape too.
 - Any Dorico 6 build is accepted; other versions are refused, with nothing changed.

@@ -12,13 +12,15 @@ local function checkParam(text, what)
 end
 
 -- A parameter value as Dorico reads it (spike/30_param_escapes.lua): a backslash escapes the next character, so
--- "\&" is an ampersand and "\\" a backslash; "=" and any Unicode pass through as they are.
+-- "\&" is an ampersand and "\\" a backslash; "=" and any Unicode pass through as they are. A bare comma ends the
+-- value ("Name=A, B" names a player "A"), so commas go as "\,". No list of several ids goes through here: its
+-- separating commas would have to stay bare.
 local function encodeValue(text)
   -- tostring would send the word "nil" to Dorico.
   if text == nil then error("a command value is missing", 3) end
   local s = tostring(text)
   if s:find("[\n\r]") then error("a command value cannot contain a line break: " .. s, 3) end
-  return (s:gsub("\\", "\\\\"):gsub("&", "\\&"))
+  return (s:gsub("\\", "\\\\"):gsub("&", "\\&"):gsub(",", "\\,"))
 end
 
 -- A Dorico id is a whole number (a digit string will do). Anything else would select or delete the wrong thing,

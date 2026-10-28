@@ -396,9 +396,11 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 ## 6. Commands
 
 - Syntax: `Name?key=value&key=value`.
-- Values: Dorico reads a backslash as an escape. Write `\&` for an ampersand and `\\` for a backslash. `=` and any
-  Unicode go through as they are. A line break can't be sent. Build every command with one encoder function, so a
-  player named "Handbells (P&F)" goes through exactly.
+- Values: Dorico reads a backslash as an escape. Write `\&` for an ampersand, `\,` for a comma and `\\` for a
+  backslash. A bare comma ends the value, so `Name=A, B` names a player `A`. `=` and any Unicode go through as they
+  are. A line break can't be sent. Build every command with one encoder function, so a player named "Handbells
+  (P&F)" or "Bells, choir 2" goes through exactly. Escape backslashes before anything else, or the escapes you add
+  get doubled.
 - Check what you send. Converting with `tostring` turns a missing value into the word `nil`, and a wrong id
   selects, renames or deletes the wrong thing, or nothing, with no error from Dorico. The plug-in's builders refuse a
   missing value and any id that isn't a whole number (`hbuc/commands.lua`).
@@ -580,7 +582,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - A plug-in can't delete a player.
 - `Project.Flow.New` adds every player to the new flow.
 - Object-model edits aren't undoable. Only the first `Edit.Undo` in a run is safe.
-- Command values escape `\` and `&`. Check every value and id before sending.
+- Command values escape `\`, `&` and `,`. Check every value and id before sending.
 - `os.execute` freezes Dorico until it returns.
 - PowerShell: case-insensitive comparisons and variable names, `$null` to `""`, one-item lists unwrapped, labels
   eating `&`.
