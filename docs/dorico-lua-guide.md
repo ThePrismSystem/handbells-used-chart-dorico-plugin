@@ -442,9 +442,10 @@ What the plug-in does with that:
 1. Read everything first, into as many scratch flows as it needs, and take them all away with exactly one
    `Edit.Undo`, before it changes anything.
 2. Show the dialog. If the user cancels, stop: nothing has changed.
-3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. That's the clean
-   undo for the user. When the run read through a copy, its `Edit.Undo` came before the drawing, so the chart
-   joins the user's previous undo step, and Edit > Undo would take back both.
+3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. One Edit > Undo
+   takes the chart back too, its notes and layout options included (`spike/39_chart_undo.py`, Dorico 6.2.30). But
+   when the run read through a copy, its `Edit.Undo` came before the drawing, so the chart joined the user's
+   previous undo step and that Edit > Undo took back both.
 
 Saving:
 

@@ -2,7 +2,7 @@
 
     python spike/39_chart_undo.py
 
-The README's note on undo dates from when object-model edits were thought never to enter the undo history. Later
+The README's note on undo dated from when object-model edits were thought never to enter the undo history. Later
 probes found they do: a run's edits are one undo step, and after an Edit.Undo inside a run, what the run does next
 joins the user's previous step. This checks what that means for a whole chart, on two scratch copies of the fixture:
   * paste: the music is read through a copy, so the run's one Edit.Undo comes before the drawing;
@@ -11,6 +11,9 @@ Each copy gets an edit of the user's own first (the music flow renamed, in a scr
 tests/dorico/case_write.lua draws a chart with the plug-in's own read and write (no dialog and no save), and one
 Edit > Undo is sent through the Remote API. spike/39_chart_state.lua lists the flows and players after the run and
 after the undo. Each copy is closed unsaved.
+
+On Dorico 6.2.30 the undo took the whole chart away on both copies, layout options included, and on the paste copy
+the user's rename as well. The findings are in docs/dorico-lua-guide.md, section 7.
 """
 import json
 import sys
