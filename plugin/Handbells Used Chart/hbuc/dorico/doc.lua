@@ -61,6 +61,22 @@ function doc.command(app, log, text)
   app:doCommand(text)
 end
 
+-- The EventBlockID that EventEdit.Select takes for one of a stream's events: the id of the block whose instance
+-- holds it. It can't be worked out from the instance id: in a downloaded project instance 1061 held block 36, and
+-- a select given the wrong block selects nothing, without an error. parsed: the stream's dump, if already parsed.
+function doc.blockIdOf(stream, eventId, parsed)
+  parsed = parsed or doc.dumpOf(stream)
+  local instance
+  for _, ev in ipairs(parsed.events) do
+    if ev.id == eventId then instance = ev.instance break end
+  end
+  if not instance then error("event " .. tostring(eventId) .. " is not in stream " .. tostring(stream.id)) end
+  for _, bi in ipairs(stream.blockInstances) do
+    if bi.id == instance then return bi.block.id end
+  end
+  error("stream " .. tostring(stream.id) .. " lists no block instance " .. instance)
+end
+
 function doc.select(app, log, flowId, eventId, blockId)
   doc.command(app, log, "Edit.SelectNone")
   doc.command(app, log, commands.select(flowId, eventId, blockId))

@@ -98,8 +98,11 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
   local first, block
   for _, s in ipairs(flow.voiceStreams) do
     local d = doc.dumpOf(s)
-    first, block = dump.firstEventId(d), d.blockId
-    if first then break end
+    first = dump.firstEventId(d)
+    if first then
+      block = doc.blockIdOf(s, first, d)
+      break
+    end
   end
   if not first then return {} end
   doc.select(app, log, flowId, first, block)
@@ -115,7 +118,7 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
   local temp = top:createNote(DoCore.RhythmicLength(0), DoCore.RhythmicLength(1),
     DoCore.MIDIPitchWithSpelling.fromString("C5"))
   local tempId = temp.id
-  doc.select(app, log, scratchId, tempId, doc.dumpOf(top).blockId)
+  doc.select(app, log, scratchId, tempId, doc.blockIdOf(top, tempId))
   doc.command(app, log, "Edit.Paste")
 
   -- The filter keeps note-attached lines with their notes, and a line has no Lua class: delete every event the
@@ -127,7 +130,7 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
       for _, ev in ipairs(d.events) do
         local tag = ev.raw:match("^(k%a+)")
         if ev.id and not WRAPPABLE[tag] then
-          doc.select(app, log, scratchId, ev.id, d.blockId)
+          doc.select(app, log, scratchId, ev.id, doc.blockIdOf(s, ev.id, d))
           doc.command(app, log, "Edit.Delete")
         end
       end

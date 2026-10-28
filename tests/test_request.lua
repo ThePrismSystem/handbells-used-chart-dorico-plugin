@@ -49,6 +49,7 @@ return {
     t:eq(constants.VERSION, "0.1.0")
     t:eq(constants.DIALOG.title, "Create a Handbells/Handchimes/SMBs Used Chart")
     t:eq(constants.DIALOG.saveNote, "The project is saved before the chart is drawn.")
+    t:eq(constants.DIALOG.newPage, "Start the music on a new page")
     t:eq(constants.KIND_COLOUR_LABEL.chimes, "Handchime Color")
     t:eq(constants.KIND_COLOUR_LABEL.bells, nil)
   end,
@@ -146,6 +147,23 @@ return {
     t:eq(request.parse(answer({ mode = constants.CHART_MODE_SEPARATE }), build("")).mode, "separate")
     t:eq(request.parse(answer({ mode = "nonsense" }), build("")).mode, "combined")
     t:eq(request.parse(answer({ remove = true }), build("")).remove, true)
+  end,
+  build_opens_on_a_new_page_unless_remembered_otherwise = function(t)
+    t:eq(build("").newPage, true, "Dorico's own layout: the music after the chart starts a new page")
+    t:eq(build('{"newPage": false}').newPage, false)
+  end,
+  parse_reads_new_page = function(t)
+    t:eq(request.parse(answer({ newPage = false }), build("")).newPage, false)
+    t:eq(request.parse(answer({ newPage = true }), build("")).newPage, true)
+    t:eq(request.parse(answer(), build("")).newPage, true, "an answer without it keeps the new page")
+    t:eq(request.parse(answer({ newPage = "no" }), build("")).newPage, true, "only false turns it off")
+  end,
+  settings_after_remember_new_page = function(t)
+    local req = build("")
+    local resp = request.parse(answer({ newPage = false }), req)
+    local after = request.settingsAfter(options.decodeSettings(""), req, resp)
+    t:eq(after.newPage, false)
+    t:eq(options.decodeSettings(options.encodeSettings(after)).newPage, false, "survives the settings file")
   end,
   settings_after_remember_exclusions_and_choices = function(t)
     local settings = options.decodeSettings('{"excluded":"Elsewhere"}')

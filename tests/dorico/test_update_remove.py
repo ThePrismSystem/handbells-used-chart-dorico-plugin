@@ -35,6 +35,20 @@ class UpdateAndRefuse(unittest.TestCase):
             self.assertIn('named "Chart"', renamed["facts"]["reason"])
 
 
+class OldMarker(unittest.TestCase):
+    def test_a_chart_from_before_the_flow_break_option_still_updates(self):
+        # A version 1 marker records no flow breaks: its chart never changed them, so the update finds them out.
+        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "startBreaks": "kNoFlowBreaks",
+                                                           "newPage": False}) as (client, first):
+            harness.run_more(self, client, "case_oldmarker.lua")
+            again = harness.run_more(self, client, "case_write.lua", {"mode": "combined", "existing": True})
+            facts = again["facts"]
+            self.assertEqual(facts["found"], "ok")
+            self.assertEqual(facts["chartFlowId"], first["facts"]["chartFlowId"])
+            self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kNoFlowBreaks")
+            self.assertEqual(layout(client).get("flowBreakBehaviour"), "kStartNewPageForFlows")
+
+
 class AddedPlayer(unittest.TestCase):
     def test_a_player_added_after_charting_does_not_block_an_update(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "combined"}) as (client, first):
@@ -51,8 +65,10 @@ class AddedPlayer(unittest.TestCase):
 class SeparateThenCombinedThenRemove(unittest.TestCase):
     def test_update_leaves_no_old_notes_and_remove_follows_dorico_dialogs(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "separate"}) as (client, first):
-            combined = harness.run_more(self, client, "case_write.lua", {"mode": "combined", "existing": True})
+            combined = harness.run_more(self, client, "case_write.lua",
+                                        {"mode": "combined", "existing": True, "newPage": False})
             a, b = first["facts"], combined["facts"]
+            self.assertEqual(layout(client).get("flowBreakBehaviour"), "kNoFlowBreaks", "the update's choice")
             self.assertEqual(a["chartFlowId"], b["chartFlowId"])
             self.assertEqual(set(a["chartKeys"].split(",")), set(b["chartKeys"].split(",")),
                              "every chart player kept, the extra ones as surplus")
@@ -82,6 +98,7 @@ class SeparateThenCombinedThenRemove(unittest.TestCase):
             self.assertEqual(gone["chartLayoutsLeft"], 0)
             options = layout(client)
             self.assertEqual(options.get("flowHeadingBehaviour"), "kAlwaysInsertHeadings")
+            self.assertEqual(options.get("flowBreakBehaviour"), "kStartNewPageForFlows", "the project's own again")
             self.assertEqual(options.get("hideEmptyStavesPolicy"), "kNever")
             self.assertIn(options.get("staffLabelLayoutOptions.playersToShowPlayerName"), ("", None))
 

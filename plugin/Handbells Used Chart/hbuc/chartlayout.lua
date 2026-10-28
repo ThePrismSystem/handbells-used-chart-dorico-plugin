@@ -160,4 +160,11 @@ function chartlayout.chartHeadings(original, musicFlows)
   return "kAddHeadingsAfterFirstFlow"
 end
 
+-- The full score's flowBreakBehaviour while the chart is there: a new page for each flow (Dorico's default), or
+-- none, so the music follows the chart on the same page. It's one setting for the whole layout, so without breaks
+-- every later music flow runs on from the one before as well.
+function chartlayout.flowBreaks(newPage)
+  return newPage and "kStartNewPageForFlows" or "kNoFlowBreaks"
+end
+
 return chartlayout

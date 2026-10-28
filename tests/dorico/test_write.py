@@ -16,8 +16,9 @@ IMAGES = harness.ROOT / "images"
 
 
 class WriteTests(unittest.TestCase):
-    def check_options(self, client, facts):
+    def check_options(self, client, facts, breaks="kStartNewPageForFlows"):
         layout = harness.options(client, "kLayout", "layoutID", 0)
+        self.assertEqual(layout.get("flowBreakBehaviour"), breaks)
         # one music flow: no headings, so its title is not printed twice
         self.assertEqual(layout.get("flowHeadingBehaviour"), "kNoFlowHeadings")
         self.assertEqual(layout.get("hideEmptyStavesPolicy"), "kAllSystems")
@@ -35,8 +36,24 @@ class WriteTests(unittest.TestCase):
             facts = result["facts"]
             self.assertEqual(facts["musicKeys"], "0,1,2")
             self.assertEqual(facts["restore"]["flowHeadingBehaviour"], "kAlwaysInsertHeadings")
+            self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kStartNewPageForFlows")
             self.check_options(client, facts)
             harness.capture(client, IMAGES / "combined.png")
+
+    def test_the_music_can_follow_the_chart_on_its_page(self):
+        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "newPage": False}) as (client, result):
+            facts = result["facts"]
+            self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kStartNewPageForFlows", "the project's own")
+            self.check_options(client, facts, breaks="kNoFlowBreaks")
+            harness.capture(client, DOCS / "same-page.png", height=1500)
+
+    def test_a_project_without_flow_breaks_has_that_remembered(self):
+        # as in a hand-made chart that the music follows on the same page
+        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "startBreaks": "kNoFlowBreaks"}) as (
+                client, result):
+            facts = result["facts"]
+            self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kNoFlowBreaks", "told apart from the default")
+            self.check_options(client, facts)
 
     def test_separate_chart_is_drawn(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "separate"}) as (client, result):

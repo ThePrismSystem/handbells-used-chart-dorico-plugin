@@ -142,11 +142,14 @@ return {
     t:eq(back.heads.smbs, "", "missing kinds default to empty")
     t:eq(back.shapes.chimes, "Square")
     t:eq(back.colours.chimes, "#c80000")
+    t:eq(back.newPage, true, "not remembered: a new page")
+    t:eq(options.decodeSettings(options.encodeSettings({ newPage = false })).newPage, false)
   end,
   corrupt_settings_give_defaults = function(t)
-    for _, text in ipairs({ "{bad", "", "[]", '{"mode": 3}' }) do
+    for _, text in ipairs({ "{bad", "", "[]", '{"mode": 3}', '{"newPage": "no"}' }) do
       local d = options.decodeSettings(text)
       t:eq(d.mode, "combined", "mode default for " .. text)
+      t:eq(d.newPage, true, "new page default for " .. text)
       t:eq(d.excluded, "", "excluded default for " .. text)
       t:eq(d.heads.bells, "", "heads default for " .. text)
     end

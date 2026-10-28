@@ -47,6 +47,7 @@ function requestModel(req) {
     shapes: toList(field(req, "shapes")).map(text),
     modes: toList(field(req, "modes")).map(text),
     mode: text(field(req, "mode")),
+    newPage: field(req, "newPage") !== false,
     kinds: toList(field(req, "kinds")),
     colours: field(req, "colours") || {},
   };
@@ -64,6 +65,7 @@ function initialPicks(model) {
     ticked: model.instruments.map(function (name) { return model.selected.indexOf(name) >= 0; }),
     atPitch: model.instruments.map(function (name) { return model.atPitch.indexOf(name) >= 0; }),
     mode: model.modes.indexOf(model.mode) >= 0 ? model.mode : (model.modes[0] || ""),
+    newPage: model.newPage,
     heads: model.kinds.map(function (k) { return Math.max(0, model.headIds.indexOf(text(field(k, "head")))); }),
     shapes: model.kinds.map(function (k) {
       const shape = text(field(k, "shape"));
@@ -92,6 +94,7 @@ function settingsResponse(model, picks) {
     instruments: model.instruments.filter(function (_, i) { return picks.ticked[i]; }),
     atPitch: model.instruments.filter(function (_, i) { return picks.atPitch[i]; }),
     mode: picks.mode,
+    newPage: picks.newPage !== false,
     heads: heads,
     shapes: shapes,
     colours: colours,
@@ -286,7 +289,10 @@ function showSettings(app, model) {
   ui.modeBox = addPopup(content, model.modes, MARGIN + 64, y, 300);
   ui.modeBox.selectItemAtIndex(Math.max(0, model.modes.indexOf(picks.mode)));
   ui.modeBox.setEnabled(chartsEnabled(picks.ticked));
-  y += 38;
+  y += 34;
+  ui.newPage = addCheckbox(content, labels.newPage, MARGIN, y, 400);
+  ui.newPage.setState(picks.newPage ? 1 : 0);
+  y += 30;
 
   addLabel(content, labels.noteheadHeader, 200, y, 230, "bold");
   addLabel(content, labels.shapeHeader, 440, y, 200, "bold");
@@ -337,6 +343,7 @@ function showSettings(app, model) {
     ticked: ui.ticks.map(function (t) { return t.state == 1; }),
     atPitch: ui.written.map(function (p) { return p.indexOfSelectedItem == 1; }),
     mode: text(ObjC.unwrap(ui.modeBox.titleOfSelectedItem)),
+    newPage: ui.newPage.state == 1,
     heads: ui.heads.map(function (p) { return Math.max(0, p.indexOfSelectedItem); }),
     shapes: ui.shapes.map(function (p) { return text(ObjC.unwrap(p.titleOfSelectedItem)); }),
     colours: model.kinds.map(function (_, i) {

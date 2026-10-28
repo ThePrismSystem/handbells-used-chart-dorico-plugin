@@ -71,7 +71,8 @@ function commands.flowNotationOptions(openScoreID, flowId, values)
     .. "&OpenScoreID=" .. id(openScoreID, "score id") .. "&FlowIDArray=" .. id(flowId, "flow id")
 end
 
--- blockId is the "Start block id" stream:dump() prints, minus 1000.
+-- blockId is the id of the block holding the event, from hbuc.dorico.doc.blockIdOf. The "Start block id" that
+-- stream:dump() prints is an instance id.
 function commands.select(flowId, eventId, blockId)
   return commands.build("EventEdit.Select", {
     { "FlowID", id(flowId, "flow id") }, { "EventID", id(eventId, "event id") },

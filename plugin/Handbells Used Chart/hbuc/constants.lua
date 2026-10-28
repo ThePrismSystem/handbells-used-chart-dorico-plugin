@@ -25,7 +25,7 @@ constants.CHART_MODE_COMBINED = "One combined chart"
 constants.CHART_MODE_SEPARATE = "A separate chart for each instrument"
 
 constants.MARKER_PREFIX = "HBUC"
-constants.MARKER_VERSION = "1"
+constants.MARKER_VERSION = "2"
 
 -- The chart's own flow, which also carries page 1's title block.
 constants.CHART_FLOW_NAME = "Handbells Used Chart"
@@ -67,7 +67,8 @@ constants.MESSAGES = {
   -- the run could not even begin: no folder for its files, or a module that would not load
   startFailed = "The plug-in could not start, so nothing was changed: %s",
   chartRemovedOptionsLeft = "The existing chart was removed, but the full score's layout options could not be put"
-    .. " back as they were: check its flow headings, hidden staves and staff labels in Layout Options.",
+    .. " back as they were: check its flow headings, whether flows start on a new page, hidden staves and staff labels"
+    .. " in Layout Options.",
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.
@@ -85,6 +86,7 @@ constants.DIALOG = {
   noteheadHeader = "Notehead in Music",
   shapeHeader = "Chart Shape",
   remove = "Remove Existing Chart",
+  newPage = "Start the music on a new page",
   saveNote = "The project is saved before the chart is drawn.",
   chartColumn = "Chart",
   instrumentColumn = "Instrument",

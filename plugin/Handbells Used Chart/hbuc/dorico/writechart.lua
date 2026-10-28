@@ -32,21 +32,30 @@ local function newFlow(app, log)
   return id
 end
 
--- flowHeadingBehaviour as it was, which Lua cannot read: compare text exports under each candidate
--- (docs/dorico-lua-guide.md, section 4). Needs two or more flows, so it runs once the chart flow exists. Leaves the
--- option as it found it.
-local function originalHeadings(app, log, temp, fullId)
-  local openScoreID = app.currentScore.openScoreID
-  local function set(value)
-    doc.command(app, log, commands.layoutOptions(openScoreID, fullId, { flowHeadingBehaviour = value }))
-  end
-  local original = doc.exportText(app, log, temp, "headings-original")
-  set("kNoFlowHeadings")
+-- Layout options as they were, which Lua cannot read: compare text exports under each candidate
+-- (docs/dorico-lua-guide.md, section 4). Both need two or more flows, so they run once the chart flow exists, and
+-- each leaves its option as it found it. original: the text export before either is tried.
+local function setOption(app, log, fullId, key, value)
+  doc.command(app, log, commands.layoutOptions(app.currentScore.openScoreID, fullId, { [key] = value }))
+end
+
+local function originalHeadings(app, log, temp, fullId, original)
+  setOption(app, log, fullId, "flowHeadingBehaviour", "kNoFlowHeadings")
   local none = doc.exportText(app, log, temp, "headings-none")
-  set("kAddHeadingsAfterFirstFlow")
+  setOption(app, log, fullId, "flowHeadingBehaviour", "kAddHeadingsAfterFirstFlow")
   local afterFirst = doc.exportText(app, log, temp, "headings-afterfirst")
   local value = textexport.decideHeadings(original, none, afterFirst)
-  set(value)
+  setOption(app, log, fullId, "flowHeadingBehaviour", value)
+  return value
+end
+
+local function originalFlowBreaks(app, log, temp, fullId, original)
+  setOption(app, log, fullId, "flowBreakBehaviour", "kNoFlowBreaks")
+  local noBreaks = doc.exportText(app, log, temp, "breaks-none")
+  setOption(app, log, fullId, "flowBreakBehaviour", "kStartNewPageForFlows")
+  local newPage = doc.exportText(app, log, temp, "breaks-newpage")
+  local value = textexport.decideFlowBreaks(original, noBreaks, newPage)
+  setOption(app, log, fullId, "flowBreakBehaviour", value)
   return value
 end
 
@@ -101,7 +110,8 @@ local function clearFlow(app, chartId, length)
   end
 end
 
--- built: chartlayout.build output. opts: {log, tempDir, slots, musicKeys, existing = findchart result or nil}.
+-- built: chartlayout.build output. opts: {log, tempDir, slots, musicKeys, existing = findchart result or nil,
+-- newPage = false to let the music follow the chart on its page}.
 -- Returns {flowId, chartKeys}.
 function writechart.write(app, built, opts)
   local log, temp = opts.log, opts.tempDir
@@ -112,15 +122,23 @@ function writechart.write(app, built, opts)
   local chartId, restore, existingPlayers
   if opts.existing then
     chartId = opts.existing.flowId
-    restore = opts.existing.marker.restore
+    restore = {}
+    for k, v in pairs(opts.existing.marker.restore) do restore[k] = v end
     existingPlayers = opts.existing.players
+    -- A version 1 marker's chart never changed the flow breaks, so they are still the project's own.
+    if not restore.flowBreakBehaviour then
+      local original = doc.exportText(app, log, temp, "layout-original")
+      restore.flowBreakBehaviour = originalFlowBreaks(app, log, temp, fullId, original)
+    end
   else
     chartId = newFlow(app, log)
+    local original = doc.exportText(app, log, temp, "layout-original")
     restore = {
-      flowHeadingBehaviour = originalHeadings(app, log, temp, fullId),
+      flowHeadingBehaviour = originalHeadings(app, log, temp, fullId, original),
       hideEmptyStavesPolicy = "kNever",
       alwaysVisiblePlayers = "",
       playersToShowPlayerName = "",
+      flowBreakBehaviour = originalFlowBreaks(app, log, temp, fullId, original),
     }
   end
 
@@ -218,15 +236,15 @@ function writechart.write(app, built, opts)
     treble:createText(RL(s.start), RL(1), s.label)
   end
 
-  local blocks = {}
-  local function blockOf(stream)
-    blocks[stream.id] = blocks[stream.id] or doc.dumpOf(stream).blockId
-    return blocks[stream.id]
+  -- Dumped afresh for each select: the commands between them (a time signature, a system break) may change how a
+  -- chart stream is split into blocks, and chart streams are small.
+  local function blockOf(stream, eventId)
+    return doc.blockIdOf(stream, eventId)
   end
 
   -- naturals: hidden one at a time with Dorico's own command (a direct property set doesn't take)
   for _, n in ipairs(naturals) do
-    doc.select(app, log, chartId, n.id, blockOf(n.stream))
+    doc.select(app, log, chartId, n.id, blockOf(n.stream, n.id))
     doc.command(app, log, "Edit.HideAccidental")
   end
 
@@ -234,7 +252,7 @@ function writechart.write(app, built, opts)
   for i = 2, #built.sections do
     local first, at = firstNotes[i], built.sections[i].start
     if not first then error("section " .. i .. " has no note to start its system at") end
-    doc.select(app, log, chartId, first.id, blockOf(first.stream))
+    doc.select(app, log, chartId, first.id, blockOf(first.stream, first.id))
     doc.command(app, log, commands.timeSignature("X"))
     local division
     for _, e in ipairs(doc.flowById(app.currentScore, chartId).timebaseStreams[1].events) do
@@ -244,13 +262,13 @@ function writechart.write(app, built, opts)
     if not division then error("no time signature could be made at section " .. i) end
     doc.setTrue(division, "kTimeSignatureHide")
     doc.setTrue(division, "kBarNumberHide")
-    doc.select(app, log, chartId, first.id, blockOf(first.stream))
+    doc.select(app, log, chartId, first.id, blockOf(first.stream, first.id))
     doc.command(app, log, "Edit.CreateSystemBreak")
   end
 
   -- no rests in any chart voice that holds notes
   for _, v in pairs(voices) do
-    doc.select(app, log, chartId, v.first, blockOf(v.stream))
+    doc.select(app, log, chartId, v.first, blockOf(v.stream, v.first))
     doc.command(app, log, "Edit.SelectToStartOfFlow")
     doc.command(app, log, "Edit.SelectAtEndOfFlow")
     doc.command(app, log, "Edit.RemoveRests")
@@ -261,7 +279,7 @@ function writechart.write(app, built, opts)
     local d = doc.dumpOf(s)
     for _, ev in ipairs(d.events) do
       if ev.kind == "rest" and ev.id then
-        doc.select(app, log, chartId, ev.id, d.blockId)
+        doc.select(app, log, chartId, ev.id, doc.blockIdOf(s, ev.id, d))
         doc.command(app, log, "Edit.RemoveRests")
       end
     end
@@ -275,6 +293,7 @@ function writechart.write(app, built, opts)
     hideEmptyStavesPolicy = "kAllSystems",
     alwaysVisiblePlayers = idList(ids, opts.musicKeys),
     ["staffLabelLayoutOptions.playersToShowPlayerName"] = idList(ids, chartKeys),
+    flowBreakBehaviour = chartlayout.flowBreaks(opts.newPage ~= false),
   }))
   doc.command(app, log, commands.flowNotationOptions(openScoreID, chartId, {
     ["barlineOptions.finalBarlineType"] = "kNone",

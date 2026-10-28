@@ -157,7 +157,7 @@ function main.chart(ctx)
   local musicKeys = {}
   for _, pl in ipairs(scan.players) do musicKeys[#musicKeys + 1] = pl.key end
   local okWrite, wrote = safe.call(log, "write", writechart.write, app, built,
-    { log = log, tempDir = temp, slots = slots, musicKeys = musicKeys, existing = chart })
+    { log = log, tempDir = temp, slots = slots, musicKeys = musicKeys, existing = chart, newPage = resp.newPage })
   if not okWrite then return result(false, "error", string.format(M.writeFailed, failure(wrote), log.path)) end
 
   -- 9. report

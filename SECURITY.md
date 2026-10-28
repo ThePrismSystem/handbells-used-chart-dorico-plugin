@@ -90,8 +90,8 @@ Two more commands can run on a Mac:
 - Its temp folder, `%TEMP%\hbuc\` on Windows and `$TMPDIR/hbuc/` on a Mac (`/tmp/hbuc/` if `TMPDIR` isn't set),
   which holds:
   - the dialog's request, response and message files;
-  - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart and
-    the flow headings;
+  - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart, the
+    flow headings and whether flows start on a new page;
   - `osascript.log` on a Mac;
   - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
     set (on a Mac with none of them set, `/tmp/hbuc/`).

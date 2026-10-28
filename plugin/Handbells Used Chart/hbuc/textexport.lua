@@ -120,4 +120,25 @@ function textexport.decideHeadings(originalCsv, noneCsv, afterFirstCsv)
   return "kAlwaysInsertHeadings"
 end
 
+-- Sorted "page|type|text|id" keys of every row that is on a page.
+function textexport.pageRows(csv)
+  local rows = {}
+  for _, rec in ipairs(textexport.csvRecords(csv)) do
+    if rec.Page ~= "" then rows[#rows + 1] = table.concat({ rec.Page, rec.Type, rec.Text, rec.ID }, "|") end
+  end
+  table.sort(rows)
+  return rows
+end
+
+-- flowBreakBehaviour as it was, from exports taken with it, with kNoFlowBreaks and with kStartNewPageForFlows. Needs
+-- the chart flow in place, so the music's pages move between the two. When nothing tells them apart, Dorico's
+-- default.
+function textexport.decideFlowBreaks(originalCsv, noBreaksCsv, newPageCsv)
+  local original = textexport.pageRows(originalCsv)
+  if same(original, textexport.pageRows(noBreaksCsv)) and not same(original, textexport.pageRows(newPageCsv)) then
+    return "kNoFlowBreaks"
+  end
+  return "kStartNewPageForFlows"
+end
+
 return textexport
