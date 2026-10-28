@@ -21,6 +21,17 @@ local WRAPPABLE = {
   kTonalityDivisionEvent = true, kDynamicGroupEvent = true,
 }
 
+-- A note's colour, and whether it has one Lua can't read. A colour set by command (the Properties panel's
+-- included) reads back as "", like no colour at all, but the note still lists kEventColour among its properties.
+local function colourOf(e, ctx)
+  local colour = tostring(e.propertyTable:get("kEventColour", ctx))
+  if colour ~= "" then return colour, false end
+  for _, name in ipairs(e.propertyTable:getPropertyNames()) do
+    if name == "kEventColour" then return "", true end
+  end
+  return "", false
+end
+
 -- The note and grace note events of a readable list, with notehead set and colour.
 local function noteEvents(list)
   local out = {}
@@ -30,10 +41,11 @@ local function noteEvents(list)
     if ok then
       local ev = eventtext.parse(text)
       if (ev.kind == "note" or ev.kind == "grace") and ev.spelling then
+        local colour, unreadable = colourOf(e, ctx)
         out[#out + 1] = {
           id = ev.id, spelling = ev.spelling, grace = ev.kind == "grace",
           head = tostring(e.propertyTable:get("kNoteheadSetOverride", ctx)),
-          colour = tostring(e.propertyTable:get("kEventColour", ctx)),
+          colour = colour, colourUnreadable = unreadable,
         }
       end
     end

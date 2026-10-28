@@ -49,6 +49,15 @@ class ReadTests(unittest.TestCase):
     def test_paste_route_when_the_first_treble_staff_is_empty(self):
         self.paste_matches_direct({"topOnly": True})
 
+    def test_a_colour_set_by_command_is_marked_unreadable(self):
+        # It reads back as "", like no colour. The note still lists the property, so the read can tell the two apart
+        # and keep the note out of the colour the dialog suggests.
+        with harness.scratch(self, "case_colour.lua") as (client, _):
+            for args in ({}, {"forcePaste": True}):
+                facts = harness.run_more(self, client, "case_read.lua", args)["facts"]
+                self.assertEqual(facts["colourUnreadable"], 1, args)
+                self.assertEqual(facts["histogram"], FIXTURE_HISTOGRAM, "and its head and colour read as before")
+
     def test_smith_reads_through_the_paste_route_and_leaves_no_trace(self):
         result = run_case(self, "case_read.lua", inputs.ensure("smith"), timeout=600)
         facts = result["facts"]

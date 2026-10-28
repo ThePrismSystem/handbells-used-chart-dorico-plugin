@@ -157,6 +157,12 @@ note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx
 
 - `get` returns a Variant, and `tostring(variant)` gives its value. An unset property reads as `""`.
 - `getPropertyNames()` lists only the properties an event actually has, not every one it could have.
+- A colour set by command, which includes the Properties panel, can't be read. `get("kEventColour", ctx)` returns an
+  invalid Variant (`type` -1) whose text is `""`, the same as no colour. The note still lists `kEventColour` in
+  `getPropertyNames()`, so you can tell "coloured, but unreadable" from "no colour". A colour set from Lua reads back
+  as it was set, after a save and reopen and in a pasted copy too.
+- A read can lag the page. After a command recoloured a note whose colour had been set from Lua, the page showed the
+  new colour while Lua still read the old one.
 - `set` returns `true` when Dorico took the value. That doesn't always mean the score changed (section 5).
 
 ## 3. Reading the music
@@ -578,6 +584,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Every pitch is sounding, and nothing says how an instrument transposes.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
+- A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
 - `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
   wrong block id selects nothing, silently.
