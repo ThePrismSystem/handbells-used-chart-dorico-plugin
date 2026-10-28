@@ -1,7 +1,8 @@
 -- Draws a chart into its own first flow (docs/dorico-lua-guide.md, section 5): chart players that only the chart
 -- flow holds, one system per section (a hidden open-meter time signature and a system break at each section after
--- the first), stemless notes in the section's notehead set and colour, no naturals, rests, staff labels, barlines
--- or flow headings, and a hidden marker written before anything else.
+-- the first, and the last section spread to the frame's width), stemless notes in the section's notehead set and
+-- colour, no naturals, rests, staff labels, barlines or flow headings, and a hidden marker written before anything
+-- else.
 local chartlayout = require("hbuc.chartlayout")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
@@ -120,6 +121,10 @@ local function hasNotes(columns)
   return false
 end
 
+-- Sounding pitches on the treble staff's middle line, for a hidden note that holds a place: the grand staff's
+-- player sounds an octave up, the Glockenspiel two.
+local MIDDLE_LINE = { grand = "B5", treble = "B6" }
+
 local function clearFlow(app, chartId, length)
   for _, s in ipairs(doc.flowById(app.currentScore, chartId).allStreams) do
     s:deleteEventsInRange(RL(0), RL(length + 16))
@@ -191,9 +196,7 @@ function writechart.write(app, built, opts)
 
   -- the old chart goes only now, just before its new marker, so a failure above leaves a chart that can be found
   if opts.existing then
-    local columns = 0
-    for _, s in ipairs(opts.existing.marker.sections) do columns = columns + s.columns end
-    clearFlow(app, chartId, columns)
+    clearFlow(app, chartId, chartlayout.length(opts.existing.marker.sections))
     -- A version 1 marker's chart never changed the flow breaks, so they are still the project's own. They are read
     -- with the chart flow empty again, as for a new chart: a drawn chart can fill page 1, and then both values put
     -- the music on page 2.
@@ -227,34 +230,35 @@ function writechart.write(app, built, opts)
       if pos < voices[stream.id].pos then voices[stream.id].first, voices[stream.id].pos = e.id, pos end
       return e
     end
-    local function filler(stream, spelling)
-      local e = stream:createNote(RL(s.start), RL(1), DoCore.MIDIPitchWithSpelling.fromString(spelling))
+    local function filler(stream, spelling, pos)
+      local e = stream:createNote(RL(pos), RL(1), DoCore.MIDIPitchWithSpelling.fromString(spelling))
       for _, prop in ipairs({ "kNoteHideNotehead", "kNoteHideStem", "kNoteLedgerLineHide" }) do doc.setTrue(e, prop) end
-      voices[stream.id] = voices[stream.id] or { stream = stream, first = e.id, pos = s.start }
+      voices[stream.id] = voices[stream.id] or { stream = stream, first = e.id, pos = pos }
       return e
     end
     for c, spellings in ipairs(s.treble) do
       for _, sp in ipairs(spellings) do
-        local e = note(treble, s.start + c - 1, sp)
+        local e = note(treble, s.start + (c - 1) * s.step, sp)
         if not firstNotes[i] and c == 1 then firstNotes[i] = { stream = treble, id = e.id } end
       end
     end
     if bass then
       for c, spellings in ipairs(s.bass) do
         for _, sp in ipairs(spellings) do
-          local e = note(bass, s.start + c - 1, sp)
+          local e = note(bass, s.start + (c - 1) * s.step, sp)
           if not firstNotes[i] and c == 1 then firstNotes[i] = { stream = bass, id = e.id } end
         end
       end
       if not hasNotes(s.treble) then
-        local e = filler(treble, "B5")
+        local e = filler(treble, MIDDLE_LINE.grand, s.start)
         firstNotes[i] = firstNotes[i] or { stream = treble, id = e.id }
       end
       if not hasNotes(s.bass) then
-        local e = filler(bass, "D4")
+        local e = filler(bass, "D4", s.start)
         firstNotes[i] = firstNotes[i] or { stream = bass, id = e.id }
       end
     end
+    if s.step > 1 then filler(treble, MIDDLE_LINE[chartlayout.roleOf(s.kind)], s.start + s.columns * s.step) end
     treble:createText(RL(s.start), RL(1), s.label)
   end
 

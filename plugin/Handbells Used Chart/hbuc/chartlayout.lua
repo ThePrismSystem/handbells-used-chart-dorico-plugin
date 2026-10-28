@@ -74,12 +74,30 @@ local function spellColumns(columns, role, unwritable)
   return out
 end
 
+-- Beats between the last section's columns; every other section has one per column. The last section is the
+-- chart flow's final system, which Dorico stretches to the frame's width only when it is already wide enough (the
+-- full score's final-system threshold, 50% by default). Spread this far, the section is wider than the frame,
+-- so Dorico fits it to the width, whatever the threshold. A hidden note one step after its last column gives that
+-- column the same space as the others.
+chartlayout.LAST_STEP = 256
+
+local function stepOf(i, count)
+  return i == count and chartlayout.LAST_STEP or 1
+end
+
+-- The beats a chart of these sections ({columns}) takes, the last section's end note included.
+function chartlayout.length(sections)
+  local beats = 1
+  for i, s in ipairs(sections) do beats = beats + s.columns * stepOf(i, #sections) end
+  return beats
+end
+
 -- sections: plan sections with .slot set. choices: {shapes, colours, heads, headNames} keyed by kind (headNames by
 -- notehead set id).
 function chartlayout.build(sections, choices)
   local built, warnings, warned, unwritable = {}, {}, {}, {}
   local start = 0
-  for _, section in ipairs(sections) do
+  for i, section in ipairs(sections) do
     local kind = section.kind
     local head = (choices.heads or {})[kind]
     local shape = shapes.chartShape((choices.shapes or {})[kind], head, (choices.headNames or {})[head or ""], kind)
@@ -89,18 +107,20 @@ function chartlayout.build(sections, choices)
       warnings[#warnings + 1] = { type = "missing-notehead", instrument = constants.KIND_NAME[kind], names = { shape } }
     end
     local role = chartlayout.roleOf(kind)
+    local step = stepOf(i, #sections)
     built[#built + 1] = {
       kind = kind,
       slot = section.slot,
       label = section.label,
       start = start,
+      step = step,
       columns = section.columns,
       noteheadSet = set,
       colour = options.canonicalColour(options.sectionColour(kind, choices.colours or {})),
       treble = spellColumns(section.treble, role, unwritable),
       bass = spellColumns(section.bass, role, unwritable),
     }
-    start = start + section.columns
+    start = start + section.columns * step
   end
   if #unwritable > 0 then warnings[#warnings + 1] = { type = "unwritable", names = unwritable } end
   return { sections = built, warnings = warnings }

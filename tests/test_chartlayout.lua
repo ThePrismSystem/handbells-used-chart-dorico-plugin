@@ -86,6 +86,25 @@ return {
     t:eq(built.sections[2].start, 3)
     t:eq(built.sections[2].label, "Handchimes Used: 1")
   end,
+  the_last_section_is_spread = function(t)
+    local sections = sectionsOf({ r(74, 36, NORMAL), r(76, 37, NORMAL), r(74, 36, DIAMOND), r(76, 37, DIAMOND) })
+    chartlayout.slots(sections)
+    local built = chartlayout.build(sections, choices())
+    t:eq(built.sections[1].step, 1)
+    t:eq(built.sections[2].step, chartlayout.LAST_STEP)
+    t:eq(built.sections[2].start, 2, "it starts where the section before it ends")
+    t:eq(chartlayout.LAST_STEP > 1, true)
+  end,
+  a_chart_of_one_section_is_spread = function(t)
+    local sections = sectionsOf({ r(74, 36, NORMAL) })
+    chartlayout.slots(sections)
+    t:eq(chartlayout.build(sections, choices()).sections[1].step, chartlayout.LAST_STEP)
+  end,
+  length_takes_in_the_spread_section_and_its_end_note = function(t)
+    local step = chartlayout.LAST_STEP
+    t:eq(chartlayout.length({ { columns = 3 }, { columns = 2 } }), 3 + 2 * step + 1)
+    t:eq(chartlayout.length({ { columns = 4 } }), 4 * step + 1)
+  end,
   grand_spellings_are_the_bell_spelling = function(t)
     local sections = sectionsOf({ r(80, 39, NORMAL), r(72, 35, NORMAL) })
     chartlayout.slots(sections)
