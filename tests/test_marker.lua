@@ -4,7 +4,7 @@ local marker = require("hbuc.marker")
 
 local function sample()
   return {
-    version = "1",
+    version = "2",
     chartPlayers = { 3, 4 },
     sections = {
       { kind = "bells", player = 3, columns = 26 },
@@ -16,6 +16,7 @@ local function sample()
       hideEmptyStavesPolicy = "kNever",
       alwaysVisiblePlayers = "",
       playersToShowPlayerName = "",
+      flowBreakBehaviour = "kStartNewPageForFlows",
     },
   }
 end
@@ -35,8 +36,23 @@ end
 return {
   round_trip = function(t)
     local text = marker.encode(sample())
-    t:eq(text:sub(1, 7), "HBUC|1|", "prefix and version first")
+    t:eq(text:sub(1, 7), "HBUC|2|", "prefix and version first")
     same(t, marker.decode(text), sample())
+  end,
+  flow_breaks_round_trip = function(t)
+    local m = sample()
+    m.restore.flowBreakBehaviour = "kNoFlowBreaks"
+    t:eq(marker.decode(marker.encode(m)).restore.flowBreakBehaviour, "kNoFlowBreaks")
+  end,
+  version_1_markers_still_decode = function(t)
+    -- written before the flow-break option: no flow-break value to put back
+    local m = marker.decode("HBUC|1|3,4|1|bells,3,26|kAlwaysInsertHeadings|kNever|0,1|3,4")
+    t:eq(m.version, "1")
+    t:eq(m.restore.flowHeadingBehaviour, "kAlwaysInsertHeadings")
+    t:eq(m.restore.playersToShowPlayerName, "3,4")
+    t:eq(m.restore.flowBreakBehaviour, nil)
+    t:eq(marker.decode("HBUC|1|3,4|1|bells,3,26|kAlwaysInsertHeadings|kNever|0,1|3,4|kNoFlowBreaks"), nil,
+      "a version 1 marker has four layout values")
   end,
   restore_lists_round_trip = function(t)
     local m = sample()
@@ -60,15 +76,17 @@ return {
     end
     local bad = {
       ["wrong prefix"] = good:gsub("^HBUC", "HBUX"),
-      ["wrong version"] = with(2, "2"),
+      ["wrong version"] = with(2, "3"),
       ["non-numeric player id"] = with(3, "3,x"),
       ["non-numeric section count"] = with(4, "three"),
       ["section count too high"] = with(4, "4"),
       ["unknown kind"] = with(5, "gongs,3,26"),
       ["non-numeric columns"] = with(5, "bells,3,many"),
-      ["unknown heading value"] = with(#tokens - 3, "kSometimes"),
-      ["unknown hide-empty value"] = with(#tokens - 2, "kWhenever"),
-      ["non-numeric visible players"] = with(#tokens - 1, "0,piano"),
+      ["unknown heading value"] = with(#tokens - 4, "kSometimes"),
+      ["unknown hide-empty value"] = with(#tokens - 3, "kWhenever"),
+      ["non-numeric visible players"] = with(#tokens - 2, "0,piano"),
+      ["unknown flow-break value"] = with(#tokens, "kSometimes"),
+      ["no flow-break value"] = with(#tokens, ""),
       ["extra token"] = good .. "|extra",
       ["missing token"] = good:gsub("|[^|]*$", ""),
       ["empty"] = "",
@@ -85,6 +103,8 @@ return {
       return m
     end
     t:fails(function() marker.encode(variant(function(m) m.restore.flowHeadingBehaviour = nil end)) end, "missing restore value")
+    t:fails(function() marker.encode(variant(function(m) m.restore.flowBreakBehaviour = nil end)) end,
+      "missing flow breaks")
     t:fails(function() marker.encode(variant(function(m) m.chartPlayers = {} end)) end, "no chart players")
     t:fails(function() marker.encode(variant(function(m) m.sections = {} end)) end, "no sections")
     t:fails(function() marker.encode(variant(function(m) m.sections[1].kind = "gongs" end)) end, "unknown kind")

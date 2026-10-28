@@ -1,16 +1,22 @@
 -- The chart's identity marker: a hidden text in the chart flow that says the chart is this plug-in's and how
 -- to take it out again. Adapted from the Sibelius plugin's Marker.mss. Pipe-separated tokens, escaped as the
 -- remembered settings are (~p, ~~), and free of the characters Dorico may read as Markdown:
---   HBUC|1|<chart player ids>|<section count>|<kind,player,columns>...|<4 layout option values>
+--   HBUC|2|<chart player ids>|<section count>|<kind,player,columns>...|<5 layout option values>
+-- Version 1 had four layout values, without flowBreakBehaviour, and still decodes.
 local constants = require("hbuc.constants")
 local options = require("hbuc.options")
 
 local marker = {}
 
-local RESTORE_KEYS = { "flowHeadingBehaviour", "hideEmptyStavesPolicy", "alwaysVisiblePlayers", "playersToShowPlayerName" }
+local RESTORE_KEYS = {
+  "flowHeadingBehaviour", "hideEmptyStavesPolicy", "alwaysVisiblePlayers", "playersToShowPlayerName", "flowBreakBehaviour",
+}
+-- How many of RESTORE_KEYS each version records.
+local RESTORE_COUNT = { ["1"] = 4, ["2"] = 5 }
 local ENUMS = {
   flowHeadingBehaviour = { kNoFlowHeadings = true, kAddHeadingsAfterFirstFlow = true, kAlwaysInsertHeadings = true },
   hideEmptyStavesPolicy = { kAllSystems = true, kAfterFirstSystem = true, kNever = true },
+  flowBreakBehaviour = { kStartNewPageForFlows = true, kNoFlowBreaks = true },
 }
 local KIND_OK = {}
 for _, kind in ipairs(constants.KINDS) do KIND_OK[kind] = true end
@@ -53,10 +59,11 @@ end
 function marker.decode(text)
   if not marker.isMarker(text) then return nil end
   local tokens = options.pipeList(text)
-  if tokens[2] ~= constants.MARKER_VERSION then return nil end
+  local restoreCount = RESTORE_COUNT[tokens[2]]
+  if not restoreCount then return nil end
   if not isIds(tokens[3]) then return nil end
   local count = tonumber(tokens[4] and tokens[4]:match("^%d+$"))
-  if not count or count < 1 or #tokens ~= 4 + count + #RESTORE_KEYS then return nil end
+  if not count or count < 1 or #tokens ~= 4 + count + restoreCount then return nil end
   local m = { version = tokens[2], chartPlayers = {}, sections = {}, restore = {} }
   local listed = {}
   for id in tokens[3]:gmatch("%d+") do
@@ -71,8 +78,8 @@ function marker.decode(text)
     if columns < 1 or not listed[player] then return nil end
     m.sections[i] = { kind = kind, player = player, columns = columns }
   end
-  for j, key in ipairs(RESTORE_KEYS) do
-    local value = tokens[4 + count + j]
+  for j = 1, restoreCount do
+    local key, value = RESTORE_KEYS[j], tokens[4 + count + j]
     if ENUMS[key] then
       if not ENUMS[key][value] then return nil end
     elseif not isIdList(value) then

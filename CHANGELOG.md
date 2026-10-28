@@ -31,6 +31,9 @@ The first version, for the first check on a Mac. It is not released yet: 1.0.0 f
   long list scrolls. When a run fails, the message says whether anything changed and, if it did, to use
   File > Revert.
 - In a project with several flows, each music flow keeps its heading; only the chart's is hidden.
+- "Start the music on a new page", ticked by default: untick it and the music follows the chart on page 1. It's the
+  full score's flow-break setting, so in a project with several flows the later ones run on as well. Remove puts the
+  project's own setting back.
 - Projects whose blocks Dorico has numbered out of step, such as some shared or downloaded files, are read and
   charted. Before, every note was reported unreadable.
 - The dialog on Windows (PowerShell) and on a Mac (JavaScript for Automation, for Apple silicon and Intel). On the

@@ -59,6 +59,30 @@ return {
     t:eq(textexport.decideHeadings(frames({ { 2, "2. Song" }, { 1, "Song" } }), none, afterFirst),
       "kAddHeadingsAfterFirstFlow", "row order does not matter")
   end,
+  decide_flow_breaks = function(t)
+    -- with the chart flow first, a new page for each flow puts the music's first page after the chart's
+    local function pages(tempoPage, lastPage)
+      return export({
+        '"","","","","","1","","Text Frame","Song","N"',
+        '"","","","","","' .. lastPage .. '","","Text Frame","' .. lastPage .. '","N"',
+        '"","4-34-3395","2","Song","Global","' .. tempoPage .. '","1","Immediate tempo","q = 96",""',
+      })
+    end
+    local newPage, noBreaks = pages(2, 3), pages(1, 2)
+    t:eq(textexport.decideFlowBreaks(newPage, noBreaks, newPage), "kStartNewPageForFlows")
+    t:eq(textexport.decideFlowBreaks(noBreaks, noBreaks, newPage), "kNoFlowBreaks")
+    t:eq(textexport.decideFlowBreaks(noBreaks, noBreaks, noBreaks), "kStartNewPageForFlows",
+      "when the two look the same, Dorico's default")
+    t:eq(textexport.decideFlowBreaks(pages(5, 6), noBreaks, newPage), "kStartNewPageForFlows",
+      "an export like neither: Dorico's default")
+  end,
+  page_rows_ignore_order = function(t)
+    local a = export({ '"","","","","","1","","Text Frame","A","N"', '"","","","","","2","","Text Frame","B","N"' })
+    local b = export({ '"","","","","","2","","Text Frame","B","N"', '"","","","","","1","","Text Frame","A","N"' })
+    t:eq(table.concat(textexport.pageRows(a), ";"), table.concat(textexport.pageRows(b), ";"))
+    t:eq(#textexport.pageRows(export({ '"","","1","F","Global","","-1","Flow Info (Title)","F","N"' })), 0,
+      "rows without a page are left out")
+  end,
   flow_titles_by_number = function(t)
     local csv = export({
       '"C:/p.dorico","","1","Handbells Used Chart","Global","","-1","Flow Info (Title)","Handbells Used Chart","N"',

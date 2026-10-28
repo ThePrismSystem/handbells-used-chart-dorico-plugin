@@ -67,7 +67,7 @@ class MacScriptTests(unittest.TestCase):
     def test_mac_script_writes_every_response_field(self):
         source = MAC_JS.read_text(encoding="utf-8")
         for field in ("version", "runId", "cancelled", "instruments", "atPitch", "mode", "heads", "shapes", "colours",
-                      "remove"):
+                      "remove", "newPage"):
             self.assertIn(field, source)
 
     def test_mac_windows_stay_usable_without_activation(self):
@@ -128,6 +128,13 @@ class MacScriptTests(unittest.TestCase):
         self.assertEqual(parsed["heads"]["chimes"], "noteheadset.diamondNoteheads")
         self.assertEqual(parsed["heads"]["smbs"], "(no notehead)")
         self.assertEqual(parsed["remove"], False)
+        self.assertIs(raw["newPage"], True, "the music starts a new page unless that was turned off")
+        self.assertIs(parsed["newPage"], True)
+
+    def test_remembered_no_new_page_comes_back(self):
+        raw, parsed = self.answer("fixture", '{"newPage":false}')
+        self.assertIs(raw["newPage"], False)
+        self.assertIs(parsed["newPage"], False)
 
     def test_one_instrument_and_many(self):
         self.assertEqual(self.answer("single")[1]["instruments"], ["Handbells"])

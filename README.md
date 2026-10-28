@@ -74,8 +74,9 @@ On OK, the plug-in saves the project first, so **File > Revert** takes the whole
 happened and stops if it didn't, where it can. On a Mac where Dorico doesn't give scripts its file library (the run
 log says `lfs missing`), or for a file name with characters outside Windows' code page, it trusts the save. Then it
 draws the chart into a new flow named "Handbells Used Chart" at the start of the project. That flow carries the
-title on page 1, and the music starts on page 2. In a project with one flow, the music flow's own heading is hidden
-so the title isn't printed twice. A results window then lists the sections drawn and anything skipped.
+title on page 1. The music starts on page 2, or straight after the chart on page 1 if you untick "Start the music
+on a new page". In a project with one flow, the music flow's own heading is hidden so the title isn't printed
+twice. A results window then lists the sections drawn and anything skipped.
 
 The section labels read "Handbells Used: _n_", "Handchimes Used: _n_", "SMBs Used: _n_", "P&F Handbells Used: _n_"
 and "Whitechapel Handbells Used: _n_". With separate charts, each label starts with the instrument's name
@@ -86,8 +87,8 @@ once. The labels are ordinary staff text, so you can edit them afterwards.
 
 **Removing the chart:** tick "Remove Existing Chart" and click OK. Dorico asks you to confirm deleting the chart's
 flow. Then it opens its own "Delete Empty Players" dialog for the chart's players. That dialog lists every empty
-player in the project, yours included, all ticked: untick any of your own before you click OK. Removing puts the
-music flow's heading back.
+player in the project, yours included, all ticked: untick any of your own before you click OK. Removing puts back
+the music flow's heading and the project's own setting for whether flows start on a new page.
 
 ## Settings
 
@@ -97,6 +98,7 @@ music flow's heading back.
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Instruments to Chart  | One row per player: tick the ones to chart, and set how each one's part is written                                  |
 | Charts                | One combined chart, or a separate chart for each instrument. Only with two or more instruments ticked              |
+| Start the music on a new page | Ticked: the chart is alone on page 1 and the music starts on page 2. Unticked: the music follows the chart on the same page. See the note on several flows below |
 | Notehead in Music     | One per kind of bell: which notehead in the score marks a handbell, handchime, SMB, P&F bell or Whitechapel bell    |
 | Chart Shape           | One per kind: the shape its chart is drawn in, or `(match notehead)` to follow the notehead in the music          |
 | Handchime Color       | The colour handchimes are charted in, as a hex value. Filled in from the music when you pick their notehead       |
@@ -187,7 +189,6 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
   changes the selection.
 - **Delete Empty Players** (during Remove) lists your own empty players as well as the chart's, all ticked. Untick
   your own before you click OK, or Dorico deletes them too.
-- The chart is alone on page 1, and the music starts on page 2.
 - **Full-score options.** While a chart exists, the plug-in changes some of the full score's layout options:
   - Flow headings. With one music flow, they're turned off, so the title isn't printed twice. With several, only
     the chart's own heading is hidden: the music flows keep theirs, and the first gains one if it had none. Remove
@@ -197,6 +198,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
   - "Hide empty staves" is set to all systems, with every music player always shown, so that each chart system shows
     only its own staves. Remove puts back Dorico's default (never), so a score that hid empty staves before loses
     that setting.
+  - Whether flows start on a new page. "Start the music on a new page" sets it for the whole full score, since
+    Dorico has no per-flow setting. Unticked, the music follows the chart on page 1, and in a project with several
+    flows each later movement also runs straight on from the one before, with no page break between them. Remove
+    puts back the setting the project had.
 - The last chart section isn't stretched to the full width, because stretching it would also stretch the music's
   final system.
 - A run that charts nothing leaves an existing chart as it was.

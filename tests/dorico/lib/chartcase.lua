@@ -33,7 +33,8 @@ local function musicParts(score, skip)
   return parts
 end
 
--- opts: {mode, existing (find and update the chart there), instruments (names; default all)}.
+-- opts: {mode, existing (find and update the chart there), instruments (names; default all), newPage (false: no
+-- flow breaks)}.
 function chartcase.draw(p, ctx, opts)
   local app = ctx.app
   local found
@@ -69,7 +70,7 @@ function chartcase.draw(p, ctx, opts)
   })
   local t0 = os.clock()
   local res = writechart.write(app, built, { log = ctx.log, tempDir = ctx.folders.temp, slots = slots,
-    musicKeys = musicKeys, existing = found })
+    musicKeys = musicKeys, existing = found, newPage = opts.newPage })
   p:fact("writeSeconds", os.clock() - t0)
   local labels = {}
   for _, s in ipairs(built.sections) do labels[#labels + 1] = s.label end

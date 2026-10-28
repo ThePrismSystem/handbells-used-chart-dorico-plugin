@@ -6,8 +6,9 @@ Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits un
   windows.ps1 -Message <message.json>                             the results window: {"title", "kind", "text", "ok"}
 
 The request is what hbuc/request.lua builds. The response is the chosen options:
-{"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "heads": {kind: set id},
- "shapes": {kind: shape}, "colours": {kind: text}, "remove": bool}; a cancel is {"version", "runId", "cancelled": true}.
+{"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "newPage": bool,
+ "heads": {kind: set id}, "shapes": {kind: shape}, "colours": {kind: text}, "remove": bool}; a cancel is
+ {"version", "runId", "cancelled": true}.
 atPitch: the instruments whose "Written as" is at pitch. It is written as UTF-8 without a byte-order mark.
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Response',
@@ -246,6 +247,13 @@ $updateMode = { $modeBox.Enabled = ((Get-RowsNamed 0 $true).Count -gt 1) }
 $table.Add_CellValueChanged($updateMode)
 & $updateMode
 
+$newPage = New-Object System.Windows.Forms.CheckBox
+$newPage.UseMnemonic = $false
+$newPage.Text = [string](Field $labels "newPage")
+$newPage.AutoSize = $true
+$newPage.Checked = (Field $req "newPage") -ne $false
+$main.Controls.Add($newPage)
+
 $grid = New-Object System.Windows.Forms.TableLayoutPanel
 $grid.ColumnCount = 3
 $grid.AutoSize = $true
@@ -351,6 +359,7 @@ Write-Response @{
     instruments = Get-RowsNamed 0 $true
     atPitch = Get-RowsNamed 2 $writtenAtPitch
     mode = [string]$modeBox.SelectedItem
+    newPage = [bool]$newPage.Checked
     heads = $heads
     shapes = $chosenShapes
     colours = $colours

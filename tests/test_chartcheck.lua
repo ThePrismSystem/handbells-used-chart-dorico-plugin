@@ -7,7 +7,7 @@ local MARKER = marker.encode({
   chartPlayers = { 7, 8 },
   sections = { { kind = "bells", player = 7, columns = 5 } },
   restore = { flowHeadingBehaviour = "kAlwaysInsertHeadings", hideEmptyStavesPolicy = "kNever",
-    alwaysVisiblePlayers = "", playersToShowPlayerName = "" },
+    alwaysVisiblePlayers = "", playersToShowPlayerName = "", flowBreakBehaviour = "kStartNewPageForFlows" },
 })
 
 local function info(over)

@@ -190,12 +190,14 @@ local function kindTable(t)
   return out
 end
 
--- Remembered settings: {excluded and atPitch = pipe strings, mode, heads/shapes/colours keyed by kind}.
+-- Remembered settings: {excluded and atPitch = pipe strings, mode, newPage, heads/shapes/colours keyed by kind}.
+-- newPage is true unless it was turned off.
 function options.encodeSettings(s)
   return json.encode({
     excluded = stringField(s, "excluded"),
     atPitch = stringField(s, "atPitch"),
     mode = stringField(s, "mode"),
+    newPage = s.newPage ~= false,
     heads = kindTable(s.heads),
     shapes = kindTable(s.shapes),
     colours = kindTable(s.colours),
@@ -211,6 +213,7 @@ function options.decodeSettings(text)
     excluded = stringField(raw, "excluded"),
     atPitch = stringField(raw, "atPitch"),
     mode = (mode == "separate") and "separate" or "combined",
+    newPage = raw.newPage ~= false,
     heads = kindTable(raw.heads),
     shapes = kindTable(raw.shapes),
     colours = kindTable(raw.colours),

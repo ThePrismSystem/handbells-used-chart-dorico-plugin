@@ -172,4 +172,8 @@ return {
       "later flows keep theirs")
     t:eq(chartlayout.chartHeadings("kNoFlowHeadings", 3), "kNoFlowHeadings")
   end,
+  flow_breaks_follow_the_choice = function(t)
+    t:eq(chartlayout.flowBreaks(true), "kStartNewPageForFlows")
+    t:eq(chartlayout.flowBreaks(false), "kNoFlowBreaks")
+  end,
 }

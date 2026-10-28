@@ -13,8 +13,11 @@ local function removeWith(layouts, opts)
   package.loaded["hbuc.dorico.removechart"] = nil
   local ok, result = pcall(function()
     local app = { currentScore = { openScoreID = 1, players = { { key = 10 }, { key = 7 } } } }
-    local found = { flowId = 4, marker = { chartPlayers = { 7 }, restore = { flowHeadingBehaviour = "kNever",
-      hideEmptyStavesPolicy = "kNever", alwaysVisiblePlayers = "", playersToShowPlayerName = "" } } }
+    local restore = { flowHeadingBehaviour = "kNever", hideEmptyStavesPolicy = "kNever", alwaysVisiblePlayers = "",
+      playersToShowPlayerName = "" }
+    for k, v in pairs(opts.restore or {}) do restore[k] = v end
+    opts.restore = nil
+    local found = { flowId = 4, marker = { chartPlayers = { 7 }, restore = restore } }
     opts.log = { line = function() end }
     return require("hbuc.dorico.removechart").remove(app, found, opts)
   end)
@@ -40,9 +43,18 @@ return {
     t:eq(#options, 1)
     t:ok(options[1]:find("LayoutIDArray=0$"), options[1])
   end,
+  flow_breaks_are_put_back = function(t)
+    local _, options = removeWith({}, { fullId = 0, restore = { flowBreakBehaviour = "kNoFlowBreaks" } })
+    t:ok(options[1]:find('{string: "flowBreakBehaviour"}\\, {string: "kNoFlowBreaks"}', 1, true), options[1])
+  end,
+  a_version_1_marker_leaves_flow_breaks_alone = function(t)
+    -- it never changed them
+    local _, options = removeWith({}, { fullId = 0 })
+    t:ok(not options[1]:find("flowBreakBehaviour", 1, true), options[1])
+  end,
   the_message = function(t)
     t:eq(require("hbuc.constants").MESSAGES.chartRemovedOptionsLeft, "The existing chart was removed, but the full"
-      .. " score's layout options could not be put back as they were: check its flow headings, hidden staves and"
-      .. " staff labels in Layout Options.")
+      .. " score's layout options could not be put back as they were: check its flow headings, whether flows start"
+      .. " on a new page, hidden staves and staff labels in Layout Options.")
   end,
 }

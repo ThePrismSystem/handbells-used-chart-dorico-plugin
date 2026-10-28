@@ -38,6 +38,8 @@ function removechart.remove(app, found, opts)
       hideEmptyStavesPolicy = r.hideEmptyStavesPolicy,
       alwaysVisiblePlayers = r.alwaysVisiblePlayers,
       ["staffLabelLayoutOptions.playersToShowPlayerName"] = r.playersToShowPlayerName,
+      -- nil for a version 1 marker, whose chart never changed it
+      flowBreakBehaviour = r.flowBreakBehaviour,
     }))
     for _, id in ipairs(chartlayout.partLayouts(layouts, chartKeys, fullId)) do
       doc.command(app, log, commands.deleteLayout(id))

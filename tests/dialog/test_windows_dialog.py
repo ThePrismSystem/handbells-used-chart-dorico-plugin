@@ -118,6 +118,15 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(parsed["mode"], "combined")
         self.assertEqual(parsed["heads"]["smbs"], "(no notehead)")
         self.assertEqual(parsed["remove"], False)
+        self.assertIs(resp["newPage"], True, "the music starts a new page unless that was turned off")
+        self.assertIs(parsed["newPage"], True)
+
+    def test_remembered_no_new_page_comes_back(self):
+        self.make("fixture", '{"newPage":false}')
+        proc = self.open_dialog()
+        self.assertTrue(click(TITLE, "OK"))
+        self.assertIs(self.response_json(proc)["newPage"], False)
+        self.assertIs(self.parsed()["newPage"], False)
 
     def test_cancel_returns_cancelled(self):
         self.make("fixture")

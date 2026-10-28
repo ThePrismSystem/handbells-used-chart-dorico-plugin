@@ -256,6 +256,9 @@ plug-in uses it for four things Lua can't read:
   export once, then export again under each candidate value. The flow headings appear as `Text Frame` rows only when
   headings show, so the candidate whose rows match the first export is the value the project had. Put that value
   back afterwards. (With a single flow, two of the three values look the same, so this needs two or more flows.)
+  `flowBreakBehaviour` works the same way with every row's `Page`: under `kNoFlowBreaks` a second flow's items move
+  up onto the first flow's page. When the two exports are identical, nothing tells them apart, so assume Dorico's
+  default, `kStartNewPageForFlows`.
 
 Quirks:
 
@@ -366,9 +369,9 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 - The dictionary alternates path and value items, separated by `\, `. Inside an item, escape a backslash, a quote
   and a comma with a backslash (`"3\,4"` for the list 3,4).
 - Always give a flow's id in `FlowIDArray`. The Remote API's `setoptions` with `flowIDs` changed flow 0 instead.
-- Options we used: `flowHeadingBehaviour`, `hideEmptyStavesPolicy`, `alwaysVisiblePlayers`,
-  `staffLabelLayoutOptions.playersToShowPlayerName`, and per flow `barlineOptions.finalBarlineType` and
-  `barlineOptions.defaultBarlineType`.
+- Options we used: `flowHeadingBehaviour`, `flowBreakBehaviour` (`kStartNewPageForFlows` or `kNoFlowBreaks`, for the
+  whole layout), `hideEmptyStavesPolicy`, `alwaysVisiblePlayers`, `staffLabelLayoutOptions.playersToShowPlayerName`,
+  and per flow `barlineOptions.finalBarlineType` and `barlineOptions.defaultBarlineType`.
 - Lua can't read any option back. Overwriting one loses the user's value unless you can recover it another way
   (section 4), and the plug-in tells users which options it changes.
 
