@@ -257,8 +257,10 @@ plug-in uses it for four things Lua can't read:
   headings show, so the candidate whose rows match the first export is the value the project had. Put that value
   back afterwards. (With a single flow, two of the three values look the same, so this needs two or more flows.)
   `flowBreakBehaviour` works the same way with every row's `Page`: under `kNoFlowBreaks` a second flow's items move
-  up onto the first flow's page. When the two exports are identical, nothing tells them apart, so assume Dorico's
-  default, `kStartNewPageForFlows`.
+  up onto the first flow's page. Music with no texts may export nothing that moves, so put a temporary text at the
+  start of the second flow (`stream:createText`, then `stream:delete` on the event it returns), and run the check
+  while the first flow is short: if it fills its page, both values start the second flow on a new page. When the
+  exports are still identical, nothing tells the values apart, so assume Dorico's default, `kStartNewPageForFlows`.
 
 Quirks:
 

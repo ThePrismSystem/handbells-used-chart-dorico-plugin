@@ -41,7 +41,9 @@ class WriteTests(unittest.TestCase):
             harness.capture(client, IMAGES / "combined.png")
 
     def test_the_music_can_follow_the_chart_on_its_page(self):
-        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "newPage": False}) as (client, result):
+        # one instrument, so the chart leaves room on page 1 for the music to follow it
+        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "newPage": False,
+                                                           "instruments": ["Handbells (A)"]}) as (client, result):
             facts = result["facts"]
             self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kStartNewPageForFlows", "the project's own")
             self.check_options(client, facts, breaks="kNoFlowBreaks")

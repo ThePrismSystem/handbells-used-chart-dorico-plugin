@@ -15,13 +15,15 @@ probe.run("case_oldmarker", function(p)
   local marker = require("hbuc.marker")
   local app = DoApp.DoApp()
   local old
-  -- the chart flow is first, and its streams hold only notes and texts, so .events works there
+  -- The marker is found in the dump, which gives a text event's text; the event to delete is then looked up by id in
+  -- stream.events, which works in the chart flow (its streams hold only notes and texts).
   for _, s in ipairs(app.currentScore.flows[1].voiceStreams) do
-    for _, e in ipairs(s.events) do
-      local ok, text = pcall(function() return e.text end)
-      if not old and ok and marker.isMarker(text) then
-        old = (text:gsub("^HBUC|2|", "HBUC|1|"):gsub("|[^|]*$", ""))
-        s:delete(e)
+    for _, ev in ipairs(doc.dumpOf(s).events) do
+      if not old and ev.kind == "text" and marker.isMarker(ev.text) then
+        old = (ev.text:gsub("^HBUC|2|", "HBUC|1|"):gsub("|[^|]*$", ""))
+        for _, e in ipairs(s.events) do
+          if e.id == ev.id then s:delete(e) end
+        end
         doc.setTrue(s:createText(DoCore.RhythmicLength(0), DoCore.RhythmicLength(1), old), "kTextHide")
       end
     end
@@ -29,4 +31,11 @@ probe.run("case_oldmarker", function(p)
   p:fact("oldMarker", old or "")
   local m = old and marker.decode(old)
   p:check("the marker is a version 1 one now", m and m.version == "1" and m.restore.flowBreakBehaviour == nil, old)
+  local markers = {}
+  for _, s in ipairs(app.currentScore.flows[1].voiceStreams) do
+    for _, ev in ipairs(doc.dumpOf(s).events) do
+      if ev.kind == "text" and marker.isMarker(ev.text) then markers[#markers + 1] = ev.text end
+    end
+  end
+  p:check("the old marker is the only one", #markers == 1 and markers[1] == old, table.concat(markers, " / "))
 end)
