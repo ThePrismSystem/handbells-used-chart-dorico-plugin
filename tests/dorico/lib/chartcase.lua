@@ -34,9 +34,11 @@ local function musicParts(score, skip)
 end
 
 -- opts: {mode, existing (find and update the chart there), instruments (names; default all), newPage (false: no
--- flow breaks), forcePaste (read through a copy, as for music stream.events can't list)}.
+-- flow breaks), forcePaste (read through a copy, as for music stream.events can't list), lastStep (in place of
+-- chartlayout.LAST_STEP, for spike/41_last_step.py)}.
 function chartcase.draw(p, ctx, opts)
   local app = ctx.app
+  if opts.lastStep then chartlayout.LAST_STEP = opts.lastStep end
   local found
   if opts.existing then
     found = require("hbuc.dorico.findchart").find(app, ctx.log, ctx.folders.temp)
