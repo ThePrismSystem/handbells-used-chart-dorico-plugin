@@ -1,8 +1,8 @@
 -- How do Dorico's io.open and lfs take a path with an accent? Dorico names its MusicXML export folder after the
 -- project's title, and the file picker answers in UTF-8. Read-only: spike/50_paths.py first makes
--- <run>/Flows from Noël/Noël - Full score - 01 Noël.musicxml. Reports, as byte escapes, what files.exports lists for
--- the run folder, and whether io.open and lfs.attributes find the file by its UTF-8 name, by its Windows-1252 name,
--- and by the name lfs.dir gave.
+-- <run>/Flows from Noël/Noël - Full score - 01 Noël.musicxml. Reports, as byte escapes, the MusicXML files lfs.dir
+-- lists in the run folder's "Flows from …" folders, and whether io.open and lfs.attributes find the file by its UTF-8
+-- name, by its Windows-1252 name, and by the name lfs.dir gave.
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../"
 local mine = here .. "lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -17,12 +17,16 @@ local function escaped(s)
 end
 
 probe.run("50_paths", function(p)
-  local files = require("hbuc.dorico.files")
   local lfs = require("lfs")
   local run = probe.runDir:gsub("\\", "/")
   local listed = {}
-  for _, e in ipairs(files.exports(run) or {}) do
-    if e.path:find("Flows from No", 1, true) then listed[#listed + 1] = e.path end
+  for name in lfs.dir(run) do
+    local sub = run .. name .. "/"
+    if name:find("Flows from No", 1, true) and lfs.attributes(sub, "mode") == "directory" then
+      for file in lfs.dir(sub) do
+        if file:lower():match("%.musicxml$") then listed[#listed + 1] = sub .. file end
+      end
+    end
   end
   p:fact("listed", (function()
     local out = {}

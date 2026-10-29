@@ -16,8 +16,8 @@ import run_lua  # noqa: E402
 
 folder = run_lua.RUN_DIR / "Flows from Noël"
 folder.mkdir(parents=True, exist_ok=True)
-shutil.copyfile(REPO / "tests" / "data" / "fixture-full-score.musicxml",
-                folder / "Noël - Full score - 01 Noël.musicxml")
+# the probe only looks the file up by name, so any contents do
+(folder / "Noël - Full score - 01 Noël.musicxml").write_text("<score-partwise/>\n", encoding="utf-8")
 try:
     code, result, _ = run_lua.run(REPO / "spike" / "50_paths.lua", open_file=harness.FIXTURE, timeout=600)
     facts = (result or {}).get("facts") or {}
