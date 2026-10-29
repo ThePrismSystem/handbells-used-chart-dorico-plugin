@@ -4,6 +4,8 @@
 //
 //   osascript -l JavaScript mac.js <request.json> <response.json>   the settings dialog
 //   osascript -l JavaScript mac.js --message <message.json>        the results window: {"title", "kind", "text"}
+//   osascript -l JavaScript mac.js --choice <choice.json> <response.json>   a message with buttons: {"choice": id}
+//   osascript -l JavaScript mac.js --pick <pick.json> <response.json>       a file picker: {"files": [...]}
 //
 // The request is what hbuc/request.lua builds, and the response has dialog/windows.ps1's shape (see its header),
 // written as UTF-8. An answer is always written: if the dialog cannot be shown, a cancel carrying the error.
@@ -109,6 +111,17 @@ function cancelResponse(model, error) {
 }
 
 // Picking a notehead puts the colour most of its notes carry into that instrument's colour field.
+// A choice alert's answer: NSAlertFirstButtonReturn (1000) is the first button, and so on. Anything else is the
+// cancel button, as closing the Windows window is.
+function choiceResponse(choice, code) {
+  const button = toList(field(choice, "buttons"))[code - 1000];
+  return { choice: button ? text(field(button, "id")) : text(field(choice, "cancel")) };
+}
+
+function pickResponse(paths) {
+  return { files: toList(paths).map(String) };
+}
+
 function colourFor(model, headIndex) {
   return text(field(model.colours, model.headIds[headIndex]));
 }
@@ -376,6 +389,39 @@ function showAlert(app, title, body, kind, ok) {
   alert.runModal;
 }
 
+// Returns the runModal code of the pressed button. Escape presses the cancel button.
+function showChoice(app, choice) {
+  const alert = $.NSAlert.alloc.init;
+  alert.setMessageText(text(field(choice, "title")));
+  alert.setInformativeText(text(field(choice, "text")));
+  const cancelId = text(field(choice, "cancel"));
+  toList(field(choice, "buttons")).forEach(function (b) {
+    const button = alert.addButtonWithTitle(text(field(b, "label")));
+    if (text(field(b, "id")) === cancelId) button.setKeyEquivalent("\u001b");
+  });
+  // kept showing above Dorico, as showAlert's is
+  alert.window.setHidesOnDeactivate(false);
+  alert.window.setLevel(3); // NSFloatingWindowLevel
+  activate(app);
+  alert.window.orderFrontRegardless;
+  return alert.runModal;
+}
+
+// Standard Additions' file chooser, which hands back paths. A cancel throws error -128, which means no files.
+function showPicker(pick) {
+  const standard = Application.currentApplication();
+  standard.includeStandardAdditions = true;
+  const options = { withPrompt: text(field(pick, "title")), multipleSelectionsAllowed: true };
+  const folder = text(field(pick, "folder"));
+  if (folder) options.defaultLocation = Path(folder);
+  try {
+    return toList(standard.chooseFile(options)).map(function (p) { return p.toString(); });
+  } catch (error) {
+    if (error.errorNumber === -128) return [];
+    throw error;
+  }
+}
+
 // Text fields take Cmd-X, C, V, A and Z through the main menu's key equivalents, and an app that osascript starts
 // has no menu: give it an Edit menu. An accessory app shows no menu bar, but the keys still go through it.
 function installEditMenu(app) {
@@ -401,6 +447,25 @@ function run(argv) {
     const message = JSON.parse(readText(argv[1]));
     showAlert(app, field(message, "title"), field(message, "text"), text(field(message, "kind")),
       field(message, "ok"));
+    return;
+  }
+  // These two always answer, as the settings dialog does: a failure answers Cancel or no files.
+  if (argv[0] === "--choice") {
+    let choice = {};
+    try {
+      choice = JSON.parse(readText(argv[1]));
+      writeText(argv[2], JSON.stringify(choiceResponse(choice, showChoice(app, choice))));
+    } catch (error) {
+      writeText(argv[2], JSON.stringify({ choice: text(field(choice, "cancel")), error: String(error) }));
+    }
+    return;
+  }
+  if (argv[0] === "--pick") {
+    try {
+      writeText(argv[2], JSON.stringify(pickResponse(showPicker(JSON.parse(readText(argv[1]))))));
+    } catch (error) {
+      writeText(argv[2], JSON.stringify({ files: [], error: String(error) }));
+    }
     return;
   }
   let model = requestModel({});

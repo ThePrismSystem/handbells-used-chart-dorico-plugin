@@ -58,6 +58,8 @@ ALLOWED = {
         "ObjC.import Cocoa": 1,  # AppKit, for the dialog's window
         "stringWithContentsOfFile": 1,  # the request file
         "writeToFile": 1,  # the response file
+        "currentApplication": 1,  # osascript's own Standard Additions, for the file picker
+        "chooseFile": 1,  # the picker for a MusicXML export, which returns the chosen paths and opens nothing
     },
 }
 
@@ -86,7 +88,8 @@ JS_CALLS = [
     ("doShellScript", r"\bdoShellScript\b"), ("NSTask", r"\bNSTask\b"), ("Application()", r"\bApplication\s*\("),
     ("writeToFile", r"\bwriteToFile\w*"), ("stringWithContentsOfFile", r"\bstringWithContentsOfFile\w*"),
     ("NSFileManager", r"\bNSFileManager\b"), ("NSWorkspace", r"\bNSWorkspace\b"),
-    ("NSAppleScript", r"\bNSAppleScript\b"),
+    ("NSAppleScript", r"\bNSAppleScript\b"), ("chooseFile", r"\bchooseFile\b"),
+    ("currentApplication", r"\bcurrentApplication\b"),
 ]
 NETWORK_CALLS = [
     ("Invoke-WebRequest", r"(?i)\bInvoke-WebRequest\b|(?<![\w$-])iwr\b"),
