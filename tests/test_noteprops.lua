@@ -30,11 +30,11 @@ end
 local OFFSET, NO_OFFSET, STAVE = { "propertyOffset", 'string: "0:0:1:0"' }, { "propertyOffset" },
   { "assignedStaveType", "kNormal" }
 
-local function layout(n)
+local function layoutChild(n)
   return { "layoutIDWithFrameChainID", "steamVariantList:list: {int: " .. n .. "}, {int: -1}, {bool: false}" }
 end
 
-local function instance(text)
+local function instanceChild(text)
   return { "blockInstanceID", text }
 end
 
@@ -69,42 +69,42 @@ return {
     t:eq(noteprops.colour(notes[209], 0, 1010), "#c80000")
   end,
   a_colour_context_as_dorico_writes_it = function(t)
-    local e = noteprops.fromTree(colouredNote({ OFFSET, layout(3), instance("-1"), STAVE }))[7][1]
+    local e = noteprops.fromTree(colouredNote({ OFFSET, layoutChild(3), instanceChild("-1"), STAVE }))[7][1]
     t:eq(e.layout, 3)
     t:eq(e.instance, -1)
     t:eq(e.value, "#ffff0000")
   end,
   a_notehead_context_as_dorico_writes_it = function(t)
-    local e = noteprops.fromTree(colouredNote({ NO_OFFSET, layout(-1), instance("1010") }))[7][1]
+    local e = noteprops.fromTree(colouredNote({ NO_OFFSET, layoutChild(-1), instanceChild("1010") }))[7][1]
     t:eq(e.layout, -1)
     t:eq(e.instance, 1010)
   end,
   -- Read as "every layout" or "any instance", a context in a form not seen before could put a part's value on the
   -- full score: the read stops instead.
   a_layout_that_cannot_be_read_fails = function(t)
-    refused(t, { { "layoutIDWithFrameChainID", "layout three" }, instance("1010") }, "layout")
+    refused(t, { { "layoutIDWithFrameChainID", "layout three" }, instanceChild("1010") }, "layout")
   end,
   an_instance_that_cannot_be_read_fails = function(t)
-    refused(t, { layout(3), instance("x") }, "instance")
+    refused(t, { layoutChild(3), instanceChild("x") }, "instance")
   end,
   a_frame_chain_fails = function(t)
     refused(t, { { "layoutIDWithFrameChainID", "steamVariantList:list: {int: 0}, {int: 2}, {bool: true}" },
-      instance("-1") }, "frame chain 2")
+      instanceChild("-1") }, "frame chain 2")
   end,
   another_offset_fails = function(t)
-    refused(t, { { "propertyOffset", 'string: "1:0:0:0"' }, layout(3), instance("-1") }, "offset")
+    refused(t, { { "propertyOffset", 'string: "1:0:0:0"' }, layoutChild(3), instanceChild("-1") }, "offset")
   end,
   another_stave_type_fails = function(t)
-    refused(t, { layout(3), instance("-1"), { "assignedStaveType", "kSmall" } }, "stave type")
+    refused(t, { layoutChild(3), instanceChild("-1"), { "assignedStaveType", "kSmall" } }, "stave type")
   end,
   an_unknown_child_fails = function(t)
-    refused(t, { layout(3), instance("-1"), { "voiceIndex", "1" } }, "unknown child")
+    refused(t, { layoutChild(3), instanceChild("-1"), { "voiceIndex", "1" } }, "unknown child")
   end,
   a_context_without_a_layout_fails = function(t)
-    refused(t, { OFFSET, instance("1010"), STAVE }, "no layout")
+    refused(t, { OFFSET, instanceChild("1010"), STAVE }, "no layout")
   end,
   a_context_without_an_instance_fails = function(t)
-    refused(t, { OFFSET, layout(3), STAVE }, "no instance")
+    refused(t, { OFFSET, layoutChild(3), STAVE }, "no instance")
   end,
   only_the_two_properties_are_kept = function(t)
     for _, e in ipairs(fixtureNotes()[209]) do
