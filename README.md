@@ -136,6 +136,38 @@ choice is remembered while the project still uses it.
 Notes with a notehead none of the five lists names are skipped, and the results window counts them and names the
 noteheads. Two kinds can't share a notehead: the plug-in says which one clashes and draws nothing.
 
+### Noteheads changed in Dorico
+
+A plug-in can't read a notehead set chosen in Dorico itself (with the Notations menu or the Properties panel). It can
+see that a note's notehead was changed, but not which set it was changed to. So when a score has such notes, a message
+comes up before the dialog and asks for a MusicXML export, which does record each note's notehead:
+
+- **Export MusicXML** opens Dorico's own export dialog. Its starting settings are fine: click OK. A file picker then
+  opens in the folder Dorico wrote to, with the full score's file already selected (on Windows), so click Open.
+- **Choose file** goes straight to the picker, for an export you made earlier. If the file is older than the project's
+  last save, the plug-in asks before using it, since noteheads changed since then won't be in it.
+- **Remove chart** appears when the score already has a chart, and removes it without an export.
+- **Cancel** changes nothing.
+
+Choose the uncompressed `.musicxml` file of the full score. With several flows, choose each flow's full-score file, or
+every file the export made. The plug-in checks each flow's notes against the file, so an export of another piece, an
+older version or a single part is refused rather than charted. Only the notes whose noteheads it couldn't read take
+their notehead (and colour) from the file.
+
+MusicXML can't express every Dorico notehead set, so some can't be told apart this way:
+
+| What the file says | Dorico notehead sets |
+| ------------------ | -------------------- |
+| No notehead at all | Rectangular, Old-Style Diamond, Wide Diamond, Circled, Figurenotes, Funk 7-shape, Larger, Moon, Ornate X, Pitch Name, Plus, Round White with Dot, Triangle Left, Triangle Right, Walker 4-shape, Walker 7-shape, X and Circle X |
+| `x`                | X, Large X and Diamond, X and Diamond |
+| `slash`            | Slash, Muted Slash, Oversized Slash, Small Slash |
+
+Notes changed in Dorico to a set in the first row are listed together as "Changed in Dorico (not in MusicXML)". The
+plug-in still tells them apart from plain noteheads, but not from each other, so square SMBs and Wide or Old-Style
+Diamond handchimes in the same score share that entry. To keep them apart, give one of them a set MusicXML keeps,
+such as Diamond or White Diamond for handchimes. The sets in the other two rows are listed as X Noteheads and Slash
+Noteheads. Every other built-in set comes through as itself. The table is from Dorico 6.2.30.
+
 ### Colours
 
 The colour fields take a six-digit hex value, with or without the `#` (`c80000`, `#C80000`). A blank field charts in
@@ -212,7 +244,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 - **Colours set in the Properties panel** can't be read by a plug-in. The colour fields open on the colour most of a
   kind's notes have, counting only the colours the plug-in can read. If you coloured a kind's notes in the
   Properties panel, its field may open empty or on another colour, so type the colour in. The chart uses the colour
-  in the field.
+  in the field. When the plug-in reads a MusicXML export (because noteheads were changed in Dorico too), it takes
+  those colours from the export.
+- **Noteheads changed in Dorico** need a MusicXML export, and some notehead sets can't be told apart through it: see
+  [Noteheads changed in Dorico](#noteheads-changed-in-dorico).
 - One notehead per kind of bell. Notes with a second notehead style for the same kind are skipped and counted.
 - Tested on Windows only, until the first Mac check.
 

@@ -1,7 +1,7 @@
 -- Takes the noteheads (and colours) Lua couldn't read from a MusicXML export (hbuc.musicxml). A file only counts
 -- for a flow when it holds exactly that flow's notes, player by player, so an older export of a changed score, a
--- part's file or another piece is never used. Parts are paired with players by their notes, not their names:
--- Dorico's export names a part after the player, but two players can share a name.
+-- part's file or another piece is never used. Parts pair with players by their notes. Dorico names each part after
+-- its player, but two players can share a name.
 local bellname = require("hbuc.bellname")
 local shapes = require("hbuc.shapes")
 

@@ -1,6 +1,6 @@
 -- Which notehead sets survive a MusicXML export? On a scratch copy of the fixture: a new flow gets one note
--- (args.beats long, default a quarter) per set id in args.ids, in order, on the first player's first voice (set from Lua) and again on the second
--- player's first voice (set by Edit.SetNoteheadSetOverride, as Dorico's UI does). A second run (args.step =
+-- (args.beats long, default a quarter) per set id in args.ids, in order, on the first player's first voice (set
+-- from Lua) and again on the second player's first voice (set by Edit.SetNoteheadSetOverride, as Dorico's UI does). A second run (args.step =
 -- "export") opens Dorico's MusicXML export dialog; spike/48_notehead_survey.py presses OK and reads the file.
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../"

@@ -161,6 +161,13 @@ note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx
   invalid Variant (`type` -1) whose text is `""`, the same as no colour. The note still lists `kEventColour` in
   `getPropertyNames()`, so you can tell "coloured, but unreadable" from "no colour". A colour set from Lua reads back
   as it was set, after a save and reopen and in a pasted copy too.
+- A notehead set chosen in Dorico (the Notations menu, the Properties panel, or the command
+  `Edit.SetNoteheadSetOverride?NoteheadSetEntityID=…`) can't be read either. `kNoteheadSetOverride` is listed and
+  reads as an invalid Variant, in the music and in a pasted copy alike. The Variant's `toString()` is `""` and its
+  `toInt()` throws, and every such Variant compares equal (`==`) to every other, whatever the set and even to an
+  unset one, so you can't even group the notes. Giving a note the set it already has, by command, leaves the value
+  Lua set: clear it first (`Edit.ClearNoteheadSetOverride`) to get the unreadable kind. This plug-in reads such
+  notes' noteheads from a MusicXML export instead (section 5, "Exporting MusicXML").
 - A read can lag the page. After a command recoloured a note whose colour had been set from Lua, the page showed the
   new colour while Lua still read the old one.
 - `set` returns `true` when Dorico took the value. That doesn't always mean the score changed (section 5).
@@ -397,10 +404,36 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 - To show only some staves on a system, set `hideEmptyStavesPolicy = kAllSystems` with every player who must always
   show in `alwaysVisiblePlayers`.
 
+### Exporting MusicXML
+
+There's no silent export, but a script can open Dorico's own MusicXML export and wait for it:
+
+```lua
+app:doCommand("File.Export?FilterID=MusicXMLExportFilter")   -- opens "Export MusicXML"; returns when it closes
+```
+
+- The call blocks until the dialog closes, then the script carries on. It returns `nil` whether OK or Cancel was
+  pressed, so look for new files to tell them apart.
+- By default the dialog exports uncompressed `.musicxml`, every flow and every layout (full score and parts) as
+  separate files, into a new folder beside the project: `Flows from <title>/<project> - <layout> - <NN> <flow>.musicxml`.
+  Exporting into that folder again asks, file by file, whether to overwrite.
+- The export only sees the score as it was before the script run. A flow the same run made exported as an empty
+  `<score-partwise/>`; made in one run and exported in the next, it came out in full.
+- Pitches are written pitch, with `<transpose>` per staff (Dorico's Handbells: `octave-change` 1). Colours are
+  `color="#RRGGBB"` on `<note>`.
+- Of Dorico 6's 36 non-default built-in notehead sets, 17 export no `<notehead>` at all, among them Rectangular,
+  Old-Style Diamond and Wide Diamond. X, Large X and Diamond, and X and Diamond all export `x`, and the four slash sets
+  `slash`. Diamond exports `diamond`, White Diamond `diamond` with `filled="no"`, and the two triangles `triangle` and
+  `inverted triangle`. The README of this repository has the whole list.
+- Positions worked out from `divisions`, `duration`, `backup`, `forward` and `chord` matched `stream:dump()`'s note for
+  note on three scores, once a grace note is put at the next note's onset and a tied-over note
+  (`<tie type="stop"/>`) is left out.
+
 ### Things that didn't work
 
 - `copyRange` copies nothing, within a flow or across flows.
-- There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs.
+- There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs (but see
+  "Exporting MusicXML" above).
 - Saved projects are binary inside (`score.dtn`), so reading the project file isn't an option.
 
 ## 6. Commands

@@ -8,6 +8,9 @@ through Win32. It notes when the script starts, when a new window appears, wheth
 then, captures the window, presses Export or Cancel in it, and notes when the run finishes. Then it lists the
 MusicXML files written since the start under the run folder and the user's Documents. The copy is closed unsaved.
 Output: %TEMP%\\hbuc-run\\46\\ (timeline.json, dialog.png).
+
+The first new window can be Dorico's own while it opens the copy, so the buttons may be pressed there instead and the
+export dialog left open; spike/48_notehead_survey.py waits for "Export MusicXML" by its title.
 """
 import json
 import os

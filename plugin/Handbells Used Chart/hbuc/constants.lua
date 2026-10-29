@@ -85,8 +85,8 @@ constants.MESSAGES = {
   musicxmlUnreadable = "%s isn't a MusicXML file the plug-in can read, so nothing was changed.",
   musicxmlOlder = "This export is older than the project's last save, so it may not show noteheads changed since."
     .. " Use it anyway?",
-  musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Export the"
-    .. " score as MusicXML again, choose its full-score file, and run the plug-in again.",
+  musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Run the plug-in"
+    .. " again, click Export MusicXML, and choose the new export's full-score file.",
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.

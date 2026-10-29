@@ -128,9 +128,9 @@ function shapes.noteheadSetFor(shape)
   return SET_FOR_SHAPE[shape]
 end
 
--- A notehead changed in Dorico's UI can't be read from Lua, so it comes from a MusicXML export. Some sets export no
--- <notehead> at all (Rectangular, Wide Diamond and more: spike/48_notehead_survey.py), so a changed note whose
--- export has none can only be told apart from plain heads by having been changed.
+-- Lua can't read a notehead changed in Dorico's UI, so it comes from a MusicXML export instead. Some sets export no
+-- <notehead> at all (Rectangular, Wide Diamond and more: spike/48_notehead_survey.py). All we know of such a note
+-- is that its head was changed, which still keeps it apart from plain heads.
 shapes.NOT_IN_MUSICXML = "noteheadset.notInMusicXML"
 
 -- What Dorico 6 writes for its built-in sets. A value several sets share (x, slash) names the plain one.
