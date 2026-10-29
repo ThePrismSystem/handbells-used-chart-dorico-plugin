@@ -2,7 +2,12 @@
 -- read. The dumps say which notes a flow has; a file pairs with a flow when, for each player whose noteheads need it,
 -- a part holds exactly that player's notes (by position, sounding pitch and grace).
 local bellname = require("hbuc.bellname")
+local constants = require("hbuc.constants")
+local shapes = require("hbuc.shapes")
 local xmlnotes = require("hbuc.xmlnotes")
+
+local M, D = constants.MESSAGES, constants.DIALOG
+local DIAMOND, PLAIN = "noteheadset.diamondNoteheads", "noteheadset.default"
 
 local function dumped(flowId, instrument, spelling, pos, grace)
   return { flowId = flowId, instrument = instrument, spelling = spelling, pos = pos, grace = grace or false }
@@ -16,15 +21,26 @@ local function read(flowId, instrument, spelling, pos, extra)
   return n
 end
 
--- notes: {{spelling, pos, head = ..., filled = ..., colour = ..., grace = ...}}
+-- notes: {{spelling, pos, head = ..., filled = ..., colour = ..., grace = ..., bar = ..., written = ...}}
 local function part(name, notes)
   local out = {}
   for _, n in ipairs(notes) do
     local p = bellname.fromSpelling(n[1])
     out[#out + 1] = { pitch = p.pitch, diatonic = p.diatonic, pos = n[2], grace = n.grace or false, head = n.head,
-      filled = n.filled, colour = n.colour or "" }
+      filled = n.filled, colour = n.colour or "", bar = n.bar, written = n.written }
   end
   return { name = name, notes = out }
+end
+
+local function buttonIds(choice)
+  local out = {}
+  for _, b in ipairs(choice.buttons) do out[#out + 1] = b.id end
+  return table.concat(out, ",")
+end
+
+-- A read note apply named as not in MusicXML, with what the file said of it (bar and written pitch), if anything.
+local function unnamed(flowId, instrument, spelling, pos, bar, written)
+  return read(flowId, instrument, spelling, pos, { head = shapes.NOT_IN_MUSICXML, bar = bar, written = written })
 end
 
 local function file(...)
@@ -201,6 +217,63 @@ return {
       { file(part("A", { { "C5", 0 }, { "C5", 0, head = "diamond" } })) })
     t:eq(#missing, 0)
     t:eq(newRead[1].head, "noteheadset.diamondNoteheads", "a changed note takes the file's changed head first")
+  end,
+  a_head_from_the_file_brings_its_bar_and_written_pitch = function(t)
+    local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }) }
+    local export = file(part("Piano", { { "C5", 0 }, { "E5", 1, bar = "32", written = "E4" } }), EXPORT.parts[2])
+    local newRead = xmlnotes.apply(FLOW, r, { export })
+    t:eq(newRead[1].bar, "32")
+    t:eq(newRead[1].written, "E4", "as the score shows it")
+  end,
+  one_unnamed_note_and_one_other_notehead = function(t)
+    local r = { read("4", "Piano 1", "C5", 0, { head = DIAMOND }), unnamed("4", "Piano 1", "C#4", 127.5, "32", "C#4") }
+    local q = xmlnotes.groupQuestion(r, { DIAMOND, shapes.NOT_IN_MUSICXML })
+    t:eq(q.title, D.resultsTitle)
+    t:eq(q.text, string.format(M.musicxmlUnnamedNote, "C#4 in bar 32") .. "\n\n"
+      .. string.format(M.musicxmlGroupWithOne, "Diamond Noteheads", constants.NOT_IN_MUSICXML_NAME))
+    t:eq(buttonIds(q), DIAMOND .. ",separate")
+    t:eq(q.buttons[1].label, string.format(D.includeWith, "Diamond Noteheads"))
+    t:eq(q.buttons[2].label, D.keepSeparate)
+    t:eq(q.cancel, "separate", "closing the window keeps them separate")
+  end,
+  several_unnamed_notes_and_several_noteheads = function(t)
+    -- in the music's order; the player named when there are two; just the pitch Lua has when the file had no note
+    local r = {
+      unnamed("4", "Piano 1", "D5", 40, "11", "D4"),
+      read("4", "Piano 1", "C5", 0),
+      unnamed("4", "Piano 2", "E5", 8),
+      unnamed("4", "Piano 1", "C#4", 2, "1", "C#4"),
+    }
+    local q = xmlnotes.groupQuestion(r, { PLAIN, shapes.NOT_IN_MUSICXML, DIAMOND })
+    t:eq(q.text, string.format(M.musicxmlUnnamedNotes, 3, "C#4 in bar 1 (Piano 1), E5 (Piano 2), D4 in bar 11 (Piano 1)")
+      .. "\n\n" .. string.format(M.musicxmlGroupChooseMany, constants.NOT_IN_MUSICXML_NAME))
+    t:eq(buttonIds(q), PLAIN .. "," .. DIAMOND .. ",separate")
+    t:eq(q.buttons[1].label, "Default Noteheads", "named as the options dialog names them")
+    t:eq(q.buttons[2].label, "Diamond Noteheads")
+  end,
+  the_wording_follows_the_counts = function(t)
+    local one = xmlnotes.groupQuestion({ unnamed("1", "A", "C5", 0, "2", "C4") }, { PLAIN, DIAMOND })
+    t:eq(one.text, string.format(M.musicxmlUnnamedNote, "C4 in bar 2") .. "\n\n"
+      .. string.format(M.musicxmlGroupChooseOne, constants.NOT_IN_MUSICXML_NAME))
+    local two = xmlnotes.groupQuestion({ unnamed("1", "A", "C5", 0, "2", "C4"), unnamed("1", "A", "D5", 1, "2", "D4") },
+      { DIAMOND })
+    t:eq(two.text, string.format(M.musicxmlUnnamedNotes, 2, "C4 in bar 2, D4 in bar 2") .. "\n\n"
+      .. string.format(M.musicxmlGroupWithMany, "Diamond Noteheads", constants.NOT_IN_MUSICXML_NAME))
+  end,
+  nothing_is_asked_without_a_few_unnamed_notes_and_another_notehead = function(t)
+    t:eq(xmlnotes.groupQuestion({ read("1", "A", "C5", 0) }, { PLAIN }), nil, "none unnamed")
+    local five = {}
+    for i = 1, 5 do five[i] = unnamed("1", "A", "C5", i) end
+    t:eq(xmlnotes.groupQuestion(five, { PLAIN, shapes.NOT_IN_MUSICXML }), nil, "five or more are the score's own choice")
+    local four = { five[1], five[2], five[3], five[4] }
+    t:ok(xmlnotes.groupQuestion(four, { PLAIN, shapes.NOT_IN_MUSICXML }), "four are asked about")
+    t:eq(xmlnotes.groupQuestion({ unnamed("1", "A", "C5", 0) }, { shapes.NOT_IN_MUSICXML }), nil, "nothing to offer")
+  end,
+  grouping_gives_the_unnamed_notes_the_chosen_head = function(t)
+    local r = { read("1", "A", "C5", 0, { head = DIAMOND }), unnamed("1", "A", "D5", 1), read("1", "A", "E5", 2) }
+    xmlnotes.group(r, DIAMOND)
+    t:eq(r[2].head, DIAMOND)
+    t:eq(r[3].head, "", "a plain note is left alone")
   end,
   grace_notes_pair_as_grace_notes = function(t)
     local d = { dumped("1", "A", "B5", 2, true), dumped("1", "A", "C6", 2) }
