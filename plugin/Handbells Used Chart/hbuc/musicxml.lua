@@ -154,7 +154,6 @@ local function readPart(part)
               local tr = transpose[textOf(child(el, "staff")) or "1"] or transpose[""]
                 or { chromatic = 0, diatonic = 0, octaves = 0 }
               local head = child(el, "notehead")
-              local filled = head and head.attrs.filled
               local colour = colourOf(el.attrs.color)
               if colour == "" and head then colour = colourOf(head.attrs.color) end
               notes[#notes + 1] = {
@@ -163,8 +162,8 @@ local function readPart(part)
                   + 12 * tr.octaves,
                 diatonic = octave * 7 + STEP[step] + tr.diatonic + 7 * tr.octaves,
                 grace = grace,
-                head = head and textOf(head) or nil,
-                filled = filled == "yes" or (filled ~= "no" and nil),
+                head = textOf(head),
+                filled = head and head.attrs.filled,
                 colour = colour,
               }
             end

@@ -81,8 +81,8 @@ return {
   musicxml_heads_map_to_dorico_sets = function(t)
     local want = {
       { "diamond", nil, "noteheadset.diamondNoteheads" },
-      { "diamond", true, "noteheadset.diamondNoteheads" },
-      { "diamond", false, "noteheadset.whiteDiamondNoteheads" },
+      { "diamond", "yes", "noteheadset.diamondNoteheads" },
+      { "diamond", "no", "noteheadset.whiteDiamondNoteheads" },
       { "triangle", nil, "noteheadset.triangleUpNoteheads" },
       { "inverted triangle", nil, "noteheadset.triangleDownNoteheads" },
       { "x", nil, "noteheadset.Xnoteheads" },

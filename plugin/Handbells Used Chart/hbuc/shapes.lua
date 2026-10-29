@@ -154,7 +154,7 @@ local FROM_MUSICXML = {
 -- read. Any other value keeps its own id, named after the value.
 function shapes.fromMusicXML(text, filled)
   if text == nil or text == "" or text == "normal" then return shapes.NOT_IN_MUSICXML end
-  if text == "diamond" and filled == false then return "noteheadset.whiteDiamondNoteheads" end
+  if text == "diamond" and filled == "no" then return "noteheadset.whiteDiamondNoteheads" end
   return FROM_MUSICXML[text] or ("musicxml." .. text)
 end
 

@@ -125,7 +125,7 @@ return {
       note({ "F", 4, 1, after = '<notehead color="#008000">x</notehead>' })) } })
     local n = parsed.parts[1].notes
     t:eq(n[1].head, "diamond")
-    t:eq(n[1].filled, false)
+    t:eq(n[1].filled, "no", "as written")
     t:eq(n[1].colour, "")
     t:eq(n[2].head, "inverted triangle")
     t:eq(n[2].filled, nil)
