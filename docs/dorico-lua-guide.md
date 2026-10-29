@@ -164,14 +164,18 @@ note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx
 - A colour set by command, which includes the Properties panel, can't be read. `get("kEventColour", ctx)` returns an
   invalid Variant (`type` -1) whose text is `""`, the same as no colour. The note still lists `kEventColour` in
   `getPropertyNames()`, so you can tell "coloured, but unreadable" from "no colour". A colour set from Lua reads back
-  as it was set, after a save and reopen and in a pasted copy too.
+  as it was set, after a save and reopen too.
 - A notehead set chosen in Dorico (the Notations menu, the Properties panel, or the command
-  `Edit.SetNoteheadSetOverride?NoteheadSetEntityID=…`) can't be read either. `kNoteheadSetOverride` is listed and
-  reads as an invalid Variant, in the music and in a pasted copy alike. The Variant's `toString()` is `""` and its
-  `toInt()` throws, and every such Variant compares equal (`==`) to every other, whatever the set and even to an
-  unset one, so you can't even group the notes. Giving a note the set it already has, by command, leaves the value
-  Lua set: clear it first (`Edit.ClearNoteheadSetOverride`) to get the unreadable kind. This plug-in reads such
-  notes' noteheads from a MusicXML export instead (section 5, "Exporting MusicXML").
+  `Edit.SetNoteheadSetOverride?NoteheadSetEntityID=…`) reads the same way, and so does every note's `kNoteSpelling`.
+  The Variant's `toString()` is `""` and its `toInt()` throws, and every such Variant compares equal (`==`) to every
+  other, whatever the set and even to an unset one, so you can't even group the notes. Giving a note the set it
+  already has, by command, leaves the value Lua set: clear it first (`Edit.ClearNoteheadSetOverride`) to get the
+  unreadable kind.
+- Dorico stores a value set by command with a context, as a saved project shows: the layout it applies to and the
+  note's block instance (or, for `kNoteSpelling`, an offset). A value set from Lua has none, and `get` only asks for
+  the value with no context. The signature is `Variant get(EventPropertyTable&, std::string, PropertyContext const&)`,
+  but `PropertyContext()` takes no arguments and has no fields, so there's no way to ask for any other. This plug-in
+  reads such values from a saved copy of the project instead (section 3).
 - A read can lag the page. After a command recoloured a note whose colour had been set from Lua, the page showed the
   new colour while Lua still read the old one.
 - `set` returns `true` when Dorico took the value. That doesn't always mean the score changed (section 5).
@@ -224,39 +228,57 @@ instance. You need the instance's block to select an event by command (section 5
 The plug-in parses dumps with `hbuc/dump.lua` and event strings with `hbuc/eventtext.lua`. Both are pure Lua, with
 unit tests.
 
-### Noteheads and colours: read a pasted copy
+### Noteheads and colours: read a saved copy
 
-To read properties from a stream that `stream.events` refuses, the plug-in copies the music into a scratch flow that
-holds only notes, reads that, and takes it away again:
+Lua can't read a notehead set or colour chosen in Dorico itself (section 2), and `stream.events` can't list most real
+music anyway. A saved project holds every note's values, so the plug-in saves a copy and reads that:
 
-1. `Project.Flow.New` adds a flow at the end. It holds every player, so remove the players the music flow doesn't
-   have with `flow:removePlayer`.
-2. Select the music flow's whole range: `EventEdit.Select` its first event, then `Edit.SelectToStartOfFlow`,
-   `Edit.SelectAtEndOfFlow`, and `EventEdit.NavigateDownExtend` once for each staff after the first
-   (`#flow.staveStreams - 1`).
-3. `Filter.NotesAndChords`, then `Edit.Copy`.
-4. In the scratch flow, create a temporary note at position 0 on the staff the copied range starts on,
-   `EventEdit.Select` it, and `Edit.Paste`. The range starts on the staff of the event you selected, which is
-   lower down when the first players have nothing to play. Pasted on the top staff instead, every staff's notes land
-   that much higher, under the wrong player. The scratch flow has one voice per staff, and a grand staff's voices
-   are `[treble, bass]`, so take the scratch voice of the same instrument and staff.
-5. The filter keeps note-attached lines with their notes, and a line makes `stream.events` throw again. Delete every
-   event in the scratch flow whose kind has no Lua class: select each by id from the dump, then `Edit.Delete`.
-6. Now `stream.events` and `propertyTable:get` work: grace notes, and the noteheads and colours Lua can read at all
-   (section 2: not the ones set in Dorico itself, which the copy keeps unreadable). Skip the temporary note by its
-   id. The paste puts the copy's first note at position 0, even though the range starts at the start of the flow, so
-   when every staff starts with rests, every position reads that much early. Shift the copy by the difference
-   between the dumps' first note and its own.
-7. Take the scratch flow away with **one** `Edit.Undo` (section 7 explains why exactly one).
+1. `app:save(app.currentScore, path)` writes the project's current state, unsaved edits included, to `path` and
+   returns `true`. The project keeps its own path and file, and its unsaved mark (the `*` in the window title). It
+   isn't an edit, so it leaves the undo history alone. It took about a second on real arrangements.
+   `File.Save?File=<path>` is no substitute: it ignores the path and saves the project itself.
+2. A `.dorico` file is a zip, and `score.dtn` inside it holds the score, deflated. Dorico's Lua has no zlib, so the
+   plug-in unzips and inflates it in plain Lua (`hbuc/zip.lua`, `hbuc/inflate.lua`): about 0.4 seconds for a 2.5 MB
+   `score.dtn`.
+3. `score.dtn` is a binary tree. It holds a table of element names, a table of values (strings, each stored once),
+   then one record per node: a tag byte, a name index, a value index and, for a node with children, their ids.
+   Numbers are LEB128 varints, and `hbuc/dtn.lua` has the details. It decodes in about 0.1 seconds.
+4. A note is a `NoteEventDefinition` node (`GraceNoteEventDefinition` for a grace note) whose `eventID` is the id
+   `tostring(event)` and the dump show. Each `entry` under its `propertyTable/entries` has a `propertyType`, a
+   `value` and sometimes a `context`:
 
-It takes about 2 seconds a flow. Two catches:
+   ```
+   entry
+     propertyType = 'kNoteheadSetOverride'
+     value = 'string: "noteheadset.rectangular"'
+     context
+       propertyOffset = ''
+       layoutIDWithFrameChainID = 'steamVariantList:list: {int: -1}, {int: -1}, {bool: false}'
+       blockInstanceID = '1010'
+   ```
 
-- The paste merges unisons in two voices on one staff. They're the same pitch, so compare the *set* of
-  (instrument, spelling) pairs with the dumps rather than counting notes.
-- It replaces the clipboard and the selection. Tell users.
+   The first `int` is the layout, -1 for every layout, and the second is a frame chain, -1 for every note seen.
+   `blockInstanceID` is the instance the dump's `Start block id` gives, -1 for any. A colour's context also has
+   `propertyOffset = 'string: "0:0:1:0"'` and `assignedStaveType = 'kNormal'`. The plug-in takes a value set for the
+   full score's layout over one for every layout, then one for the note's own instance over one for any
+   (`hbuc/noteprops.lua`). It refuses a context with any other child or value: read as "every layout", an
+   unfamiliar one could put a part's value on the full score. A colour set by command reads `#aarrggbb`, one set
+   from Lua `#rrggbb`.
 
-The plug-in tries `stream.events` first and only copies a flow whose events can't be read directly, or whose counts
-disagree with the dump (`hbuc/dorico/readscore.lua`).
+Then match the dumps' notes to the copy by event id. On two real arrangements and Steinberg's Liszt and Smith
+examples, every dumped note had one, at the same position and pitch.
+
+Three catches:
+
+- `app:save` takes its path in UTF-8, but `io.open` and `lfs` take the system's code page, so a path with
+  characters outside ASCII needs both forms. `File.Export.Text` fails on such a path too.
+- Nothing documents the format. The plug-in's decoder refuses anything that doesn't decode exactly to the last byte.
+- The copy is the whole project. Delete it once it's read.
+
+An earlier version of this plug-in copied the music into a scratch flow with `Filter.NotesAndChords`, `Edit.Copy`
+and `Edit.Paste`, read the copy with `stream.events`, and took it away with one `Edit.Undo`. That reads only the
+values Lua can read anyway, merges unisons between voices, replaces the clipboard and the selection, and makes a
+later Edit > Undo take back the user's last action along with the run.
 
 ## 4. The text export
 
@@ -413,6 +435,7 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 
 ### Exporting MusicXML
 
+This plug-in reads a saved copy instead (section 3); these notes are for a plug-in that wants MusicXML.
 There's no silent export, but a script can open Dorico's own MusicXML export and wait for it:
 
 ```lua
@@ -431,7 +454,7 @@ app:doCommand("File.Export?FilterID=MusicXMLExportFilter")   -- opens "Export Mu
 - Of Dorico 6's 36 non-default built-in notehead sets, 17 export no `<notehead>` at all, among them Rectangular,
   Old-Style Diamond and Wide Diamond. X, Large X and Diamond, and X and Diamond all export `x`, and the four slash sets
   `slash`. Diamond exports `diamond`, White Diamond `diamond` with `filled="no"`, and the two triangles `triangle` and
-  `inverted triangle`. The README of this repository has the whole list.
+  `inverted triangle`.
 - Positions worked out from `divisions`, `duration`, `backup`, `forward` and `chord` matched `stream:dump()`'s note for
   note on three scores, once a grace note is put at the next note's onset and a tied-over note
   (`<tie type="stop"/>`) is left out.
@@ -441,7 +464,6 @@ app:doCommand("File.Export?FilterID=MusicXMLExportFilter")   -- opens "Export Mu
 - `copyRange` copies nothing, within a flow or across flows.
 - There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs (but see
   "Exporting MusicXML" above).
-- Saved projects are binary inside (`score.dtn`), so reading the project file isn't an option.
 
 ## 6. Commands
 
@@ -474,18 +496,17 @@ This is the gotcha that cost the most time.
 - A run that makes a text and deletes it again still leaves an undo step. Edit > Undo afterwards uses it up and
   changes nothing you can see. An early probe of ours saw that and concluded that object-model edits weren't
   undoable, as earlier versions of this guide said.
-- The read clears the redo history. After a run that changed nothing (the user cancelled), Edit > Redo brings
-  back whatever the run's undo took away.
+- An undo inside a run leaves its own redo step: after a run that undid its edits and changed nothing else,
+  Edit > Redo brings back whatever that undo took away.
 
 What the plug-in does with that:
 
-1. Read everything first, into as many scratch flows as it needs, and take them all away with exactly one
-   `Edit.Undo`, before it changes anything.
+1. Read everything first without changing anything: the dumps, and a copy of the project saved to its temp folder
+   (section 3). The read never calls `Edit.Undo`.
 2. Show the dialog. If the user cancels, stop: nothing has changed.
 3. Save the project (`File.Save`) before drawing, so **File > Revert** takes the whole run back. One Edit > Undo
-   takes the chart back too, its notes and layout options included (`spike/39_chart_undo.py`, Dorico 6.2.30). But
-   when the run read through a copy, its `Edit.Undo` came before the drawing, so the chart joined the user's
-   previous undo step and that Edit > Undo took back both.
+   takes the chart back too, its notes and layout options included (`spike/39_chart_undo.py`, Dorico 6.2.30), and
+   leaves the user's previous action alone (`tests/dorico/test_run.py`).
 
 Saving:
 
@@ -628,9 +649,9 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
-- So does a notehead set chosen in Dorico, and every such Variant equals every other. A MusicXML export has them
-  (section 5).
-- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8.
+- So does a notehead set chosen in Dorico, and every such Variant equals every other. A saved copy has them
+  (section 3).
+- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8. `app:save` takes UTF-8.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
 - `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
   wrong block id selects nothing, silently.
@@ -655,9 +676,10 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | ----- | ----- |
 | Entry file and module loading | `plugin/Handbells Used Chart.lua` |
 | One run, start to finish | `plugin/Handbells Used Chart/hbuc/main.lua` |
-| Reading notes, the paste route, the single undo | `hbuc/dorico/readscore.lua`, `hbuc/dump.lua`, `hbuc/eventtext.lua`, `hbuc/reading.lua` |
+| Reading notes | `hbuc/dorico/readscore.lua`, `hbuc/dump.lua`, `hbuc/eventtext.lua`, `hbuc/reading.lua` |
 | The text export | `hbuc/dorico/doc.lua` (`exportText`), `hbuc/textexport.lua` |
-| Noteheads set in Dorico, through a MusicXML export | `hbuc/dorico/musicxmlstep.lua`, `hbuc/musicxml.lua`, `hbuc/xmlnotes.lua` |
+| Noteheads and colours, from a saved copy | `hbuc/dorico/savedcopy.lua`, `hbuc/zip.lua`, `hbuc/inflate.lua`, `hbuc/dtn.lua`, `hbuc/noteprops.lua` |
+| Combining a rare notehead set with a common one | `hbuc/combine.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
 | Player ids | `hbuc/dorico/doc.lua` (`playerIds`) |
 | Command strings | `hbuc/commands.lua` |

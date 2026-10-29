@@ -25,6 +25,16 @@ function files.write(path, text)
   f:close()
 end
 
+local ENOENT = 2
+
+-- true when path is gone. A missing file counts, since callers remove what may or may not be there; otherwise false
+-- and why.
+function files.remove(path)
+  local removed, why, code = os.remove(path)
+  if removed or code == ENOENT then return true end
+  return false, why
+end
+
 -- Makes every missing folder along path (forward slashes, as guards.folders gives them).
 function files.ensureDir(path)
   local lfs = lfsOrNil()
@@ -40,29 +50,6 @@ function files.ensureDir(path)
       if not ok and lfs.attributes(sofar, "mode") == nil then error("cannot make folder " .. sofar .. ": " .. tostring(err)) end
     end
   end
-end
-
--- The MusicXML files in folder's "Flows from …" subfolders, where Dorico's export puts them unless told otherwise:
--- {{path, modified, size}}. nil without lfs, or when folder (ending in a slash) can't be listed.
-function files.exports(folder)
-  local lfs = lfsOrNil()
-  if not lfs or folder == "" then return nil end
-  local ok, list = pcall(function()
-    local out = {}
-    for name in lfs.dir(folder) do
-      local sub = folder .. name .. "/"
-      if name:match("^Flows from ") and lfs.attributes(sub, "mode") == "directory" then
-        for file in lfs.dir(sub) do
-          local lower = file:lower()
-          local attr = (lower:match("%.musicxml$") or lower:match("%.mxl$")) and lfs.attributes(sub .. file)
-          if attr then out[#out + 1] = { path = sub .. file, modified = attr.modification, size = attr.size } end
-        end
-      end
-    end
-    return out
-  end)
-  if not ok then return nil end
-  return list
 end
 
 -- nil without lfs: main then cannot tell a save that did nothing, and goes on.

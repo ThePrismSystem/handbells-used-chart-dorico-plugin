@@ -1,25 +1,22 @@
 -- One run of the plug-in, start to finish. Every effect goes through ctx (hbuc.dorico.context): the Dorico app, the
--- dialog, the MusicXML step's message and file picker, the message window, the folders and the log, so tests can
--- run it with a scripted dialog. Nothing in the project changes before the user clicks OK (or Remove chart in the
--- MusicXML step's message) and the project is saved, except the reading copy, which is taken away again before the
--- dialog opens.
+-- dialog, the question windows, the message window, the folders and the log, so tests can run it with a scripted
+-- dialog. Nothing in the project changes before the user clicks OK and the project is saved. The read only saves a
+-- copy into the temp folder.
 local chartlayout = require("hbuc.chartlayout")
+local combine = require("hbuc.combine")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
 local guards = require("hbuc.guards")
 local options = require("hbuc.options")
 local plan = require("hbuc.plan")
-local reading = require("hbuc.reading")
 local report = require("hbuc.report")
 local request = require("hbuc.request")
 local shapes = require("hbuc.shapes")
 local textexport = require("hbuc.textexport")
 local transpose = require("hbuc.transpose")
-local xmlnotes = require("hbuc.xmlnotes")
 local doc = require("hbuc.dorico.doc")
 local files = require("hbuc.dorico.files")
 local findchart = require("hbuc.dorico.findchart")
-local musicxmlstep = require("hbuc.dorico.musicxmlstep")
 local readscore = require("hbuc.dorico.readscore")
 local removechart = require("hbuc.dorico.removechart")
 local safe = require("hbuc.dorico.safe")
@@ -84,72 +81,32 @@ function main.chart(ctx)
     for _, k in ipairs(chart.marker.chartPlayers) do skipKeys[k] = true end
   end
   local okRead, scan = safe.call(log, "read", readscore.scan, app,
-    { log = log, skipFlowId = chart and chart.flowId, skipKeys = skipKeys })
-  if not okRead then
-    if type(scan) == "table" and scan.code == "scratchLeft" then
-      return result(false, "error", string.format(M.scratchLeft, scan.flowNumber or 0))
-    end
-    return result(false, "error", string.format(M.readFailed, failure(scan), log.path))
+    { log = log, skipFlowId = chart and chart.flowId, skipKeys = skipKeys, layoutId = fullId, tempDir = temp })
+  if not okRead then return result(false, "error", string.format(M.readFailed, failure(scan), log.path)) end
+
+  -- 3b. a rare notehead set beside a common one of the same shape: the user says whether they chart together
+  for _, group in ipairs(combine.groups(scan.records)) do
+    local answer = ctx.choose(combine.question(group))
+    log:line("combine", group.shape, tostring(answer))
+    if not answer then return result(false, "error", constants.DIALOG.dialogFailed) end
+    if answer == "combine" then combine.apply(scan.records, group) end
   end
 
-  -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export. Its message can also
-  -- remove the chart, without the dialog.
-  local req, resp
-  local extra = {}
-  if #xmlnotes.flowsNeeding(scan.read) > 0 then
-    local got = musicxmlstep.run(ctx, { chartExists = chart ~= nil, projectPath = projectPath })
-    if got.status == "error" then return result(false, "error", got.text) end
-    if got.status == "remove" then
-      resp = { remove = true }
-    elseif got.status == "files" then
-      local read, missing, paired, unmatched = xmlnotes.apply(scan.dumped, scan.read, got.files)
-      -- No flow in any chosen file: the wrong file, or an export older than the music. A flow some files skip
-      -- (one Dorico's export left out) keeps its changed heads apart, and the report names it.
-      if #paired == 0 then
-        return result(false, "error", string.format(M.musicxmlMismatch, scan.flowNumbers[missing[1]] or 0))
-      end
-      scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
-      -- A few notes MusicXML couldn't name may belong with a notehead the score uses: the user says which.
-      local listedAs = constants.NOT_IN_MUSICXML_NAME
-      local question = xmlnotes.groupQuestion(read, request.choices(scan.records).heads)
-      if question then
-        local answer = ctx.choose(question)
-        if not answer then return result(false, "error", constants.DIALOG.dialogFailed) end
-        if answer ~= question.cancel then
-          xmlnotes.group(read, answer)
-          listedAs = shapes.displayName(answer)
-          scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
-        end
-      end
-      if #missing > 0 then
-        local numbers = {}
-        for i, id in ipairs(missing) do numbers[i] = scan.flowNumbers[id] or 0 end
-        extra[#extra + 1] = { type = "musicxml-missing", flows = numbers, as = listedAs }
-      end
-      if unmatched > 0 then extra[#extra + 1] = { type = "musicxml-unmatched", count = unmatched, as = listedAs } end
-    else
-      log:line("cancelled at the MusicXML step")
-      return result(false, "info", "")
-    end
-  end
-
-  -- 4. the dialog, unless the MusicXML step's message already asked for the chart to be removed
+  -- 4. the dialog
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
+  local names = {}
+  for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
+  -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
+  local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
+  local req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
+    runId = runId })
+  local okAsk, raw = pcall(ctx.dialog, req)
+  if not okAsk then log:line("the dialog failed:", raw) end
+  local resp = okAsk and request.parse(raw, req) or nil
   if not resp then
-    local names = {}
-    for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
-    -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
-    local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
-    req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
-      runId = runId })
-    local okAsk, raw = pcall(ctx.dialog, req)
-    if not okAsk then log:line("the dialog failed:", raw) end
-    resp = okAsk and request.parse(raw, req) or nil
-    if not resp then
-      log:line("cancelled")
-      return result(false, "info", "")
-    end
+    log:line("cancelled")
+    return result(false, "info", "")
   end
 
   -- 5. choices that cannot work are refused before anything is saved
@@ -162,8 +119,8 @@ function main.chart(ctx)
     if #resp.instruments == 0 then return result(false, "error", M.noInstrumentSelected) end
   end
 
-  -- 6. remember the choices (if the dialog was shown), and save: File > Revert then takes the whole run back
-  if req then files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp))) end
+  -- 6. remember the choices, and save: File > Revert then takes the whole run back
+  files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp)))
   -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read cannot be checked and
   -- is trusted: on Windows, one with any character outside ASCII, since the text export gives it in UTF-8 and lfs
   -- takes the code page.)
@@ -188,10 +145,9 @@ function main.chart(ctx)
   local records = transpose.atPitch(scan.records, resp.atPitch)
   local thePlan = plan.build(records, { heads = resp.heads, instruments = resp.instruments, mode = resp.mode })
   namedWarnings(thePlan.warnings)
-  if (scan.merged or 0) > 0 then extra[#extra + 1] = { type = "merged-notes", count = scan.merged } end
   -- A run that charts nothing keeps an existing chart: removing it would need Dorico's delete dialog.
   if #thePlan.sections == 0 then
-    return result(false, "warning", report.summary(thePlan, false, extra, chart ~= nil))
+    return result(false, "warning", report.summary(thePlan, false, nil, chart ~= nil))
   end
 
   local slots = chartlayout.slots(thePlan.sections)
@@ -200,7 +156,6 @@ function main.chart(ctx)
   local built = chartlayout.build(thePlan.sections, {
     shapes = resp.shapes, colours = resp.colours, heads = resp.heads, headNames = headNames,
   })
-  for _, w in ipairs(built.warnings) do extra[#extra + 1] = w end
   local musicKeys = {}
   for _, pl in ipairs(scan.players) do musicKeys[#musicKeys + 1] = pl.key end
   local okWrite, wrote = safe.call(log, "write", writechart.write, app, built,
@@ -208,7 +163,7 @@ function main.chart(ctx)
   if not okWrite then return result(false, "error", string.format(M.writeFailed, failure(wrote), log.path)) end
 
   -- 9. report
-  return result(true, "info", report.summary(thePlan, chart ~= nil, extra))
+  return result(true, "info", report.summary(thePlan, chart ~= nil, built.warnings))
 end
 
 function main.run(ctx)

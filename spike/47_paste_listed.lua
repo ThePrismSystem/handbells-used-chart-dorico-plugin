@@ -39,6 +39,14 @@ local function tally(flow)
   return out
 end
 
+-- The first event of a parsed dump that a selection can start from (a note, grace note or rest).
+local function firstEvent(parsed)
+  for _, ev in ipairs(parsed.events) do
+    if ev.kind == "note" or ev.kind == "grace" or ev.kind == "rest" then return ev.id end
+  end
+  return nil
+end
+
 probe.run("47_paste_listed", function(p)
   local cases = require("cases")
   local commands = require("hbuc.commands")
@@ -72,7 +80,7 @@ probe.run("47_paste_listed", function(p)
     local owners = doc.voiceOwners(flow)
     local first = owners[1]
     local d = doc.dumpOf(first.stream)
-    local firstId = dump.firstEventId(d)
+    local firstId = firstEvent(d)
     doc.select(app, log, flow.id, firstId, doc.blockIdOf(first.stream, firstId, d))
     doc.command(app, log, "Edit.SelectToStartOfFlow")
     doc.command(app, log, "Edit.SelectAtEndOfFlow")

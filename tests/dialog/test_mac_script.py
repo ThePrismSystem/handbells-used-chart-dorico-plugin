@@ -99,32 +99,18 @@ class MacScriptTests(unittest.TestCase):
         self.assertIn("settingsWidth(fittedWidth(", source, "measured by AppKit in the real dialog")
 
     def test_choice_response_maps_buttons(self):
-        choice = '{buttons: [{id: "export", label: "Export"}, {id: "cancel", label: "Cancel"}], cancel: "cancel"}'
-        self.assertEqual(self.evaluate(f"choiceResponse({choice}, 1000)"), {"choice": "export"},
+        choice = '{buttons: [{id: "combine", label: "Combine"}, {id: "cancel", label: "Cancel"}], cancel: "cancel"}'
+        self.assertEqual(self.evaluate(f"choiceResponse({choice}, 1000)"), {"choice": "combine"},
                          "NSAlertFirstButtonReturn is the first button")
         self.assertEqual(self.evaluate(f"choiceResponse({choice}, 1001)"), {"choice": "cancel"})
         self.assertEqual(self.evaluate(f"choiceResponse({choice}, 999)"), {"choice": "cancel"},
                          "anything else is the cancel button")
 
-    def test_pick_response_lists_paths(self):
-        self.assertEqual(self.evaluate('pickResponse(["/Users/a/Flows from B & C/x.musicxml"])'),
-                         {"files": ["/Users/a/Flows from B & C/x.musicxml"]})
-        self.assertEqual(self.evaluate("pickResponse([])"), {"files": []})
-
-    def test_run_takes_the_choice_and_pick_modes(self):
+    def test_run_takes_the_choice_mode_and_no_picker(self):
         source = MAC_JS.read_text(encoding="utf-8")
         body = source[source.index("function run(argv)"):]
         self.assertIn('"--choice"', body)
-        self.assertIn('"--pick"', body)
-        self.assertIn("multipleSelectionsAllowed: true", source)
-        self.assertIn("-128", source, "a cancelled picker answers no files")
-
-    def test_the_picker_comes_to_the_front(self):
-        # Dorico is frozen while it waits, so a picker opening behind it would look like a hang (showAlert's reason)
-        source = MAC_JS.read_text(encoding="utf-8")
-        picker = source[source.index("function showPicker"):source.index("function installEditMenu")]
-        self.assertIn("activate(app)", picker)
-        self.assertIn("standard.activate()", picker)
+        self.assertNotIn('"--pick"', body)
 
     def test_results_alert_takes_its_label_and_escape(self):
         source = MAC_JS.read_text(encoding="utf-8")

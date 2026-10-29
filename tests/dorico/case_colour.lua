@@ -1,12 +1,14 @@
--- Colours the first note of the fixture's first voice by command, as the Properties panel does, before a read. In a
--- run of its own, so the paste route's Edit.Undo can't take it back.
+-- Colours the first note of the fixture's first voice red by command, as the Properties panel does, before a read.
+-- Lua can't read a colour set that way, but the saved copy the read uses has it.
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
 for name in pairs(package.loaded) do
   if name:match("^hbuc") or package.searchpath(name, mine) then package.loaded[name] = nil end
 end
-if not package.path:find(mine, 1, true) then package.path = mine .. ";" .. package.path end
+-- first, whatever came before: the plug-in's entry file (test_run.py's RealDialog) leaves its install on the
+-- path, and an older install there would be loaded instead
+if package.path:sub(1, #mine + 1) ~= mine .. ";" then package.path = mine .. ";" .. package.path end
 local probe = require("probe")
 
 probe.run("case_colour", function(p)

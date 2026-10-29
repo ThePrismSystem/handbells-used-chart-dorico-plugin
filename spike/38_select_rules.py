@@ -7,7 +7,7 @@ stream. Each is then selected through the Remote API with two candidates, and Do
 selected:
   * the instance id the dump prints as "Start block id", minus 1000 (the rule the plug-in used at first);
   * the block id of that instance, read from stream.blockInstances.
-Each copy is closed unsaved. The findings are in docs/spike-findings.md.
+Each copy is closed unsaved.
 """
 import sys
 import time

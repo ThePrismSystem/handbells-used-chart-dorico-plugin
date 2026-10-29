@@ -1,7 +1,6 @@
 -- Gives notes the notehead sets they already have again, but through Dorico's own command
 -- (Edit.SetNoteheadSetOverride), as the Notations menu does. Lua can't read a set given that way
--- (spike/44_noteheads.lua), so the notes stand in for a score whose noteheads were changed in Dorico. In a run of
--- its own, so a later read's Edit.Undo can't take it back.
+-- (spike/44_noteheads.lua), so the notes stand in for a score whose noteheads were changed in Dorico.
 --   args.sets: the set ids to give again (default: every set but the default one)
 --   args.first: {count, to}: the first count of those notes get set to instead
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
@@ -10,7 +9,9 @@ local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plug
 for name in pairs(package.loaded) do
   if name:match("^hbuc") or package.searchpath(name, mine) then package.loaded[name] = nil end
 end
-if not package.path:find(mine, 1, true) then package.path = mine .. ";" .. package.path end
+-- first, whatever came before: the plug-in's entry file (test_run.py's RealDialog) leaves its install on the
+-- path, and an older install there would be loaded instead
+if package.path:sub(1, #mine + 1) ~= mine .. ";" then package.path = mine .. ";" .. package.path end
 local probe = require("probe")
 
 probe.run("case_heads", function(p)

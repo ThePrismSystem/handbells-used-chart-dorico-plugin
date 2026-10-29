@@ -1,17 +1,14 @@
-// Handbells Used Chart: the settings dialog, the results window, and the MusicXML step's message and file picker on
-// a Mac, in JavaScript for Automation with the AppKit bridge. Nothing to install or compile, so it runs the same on
-// Apple silicon and Intel Macs.
+// Handbells Used Chart: the settings dialog, the results window, and the questions asked before the dialog on a Mac,
+// in JavaScript for Automation with the AppKit bridge. Nothing to install or compile, so it runs the same on Apple
+// silicon and Intel Macs.
 // Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits until it closes.
 //
 //   osascript -l JavaScript mac.js <request.json> <response.json>   the settings dialog
 //   osascript -l JavaScript mac.js --message <message.json>        the results window: {"title", "kind", "text"}
 //   osascript -l JavaScript mac.js --choice <choice.json> <response.json>   a message with buttons: {"choice": id}
-//   osascript -l JavaScript mac.js --pick <pick.json> <response.json>       a file picker: {"files": [...]}
 //
 // The request is what hbuc/request.lua builds, and the response has dialog/windows.ps1's shape (see its header),
 // written as UTF-8. An answer is always written: if the dialog cannot be shown, a cancel carrying the error.
-// The picker uses only the pick's title and folder: it preselects nothing, lists every file, and answers the paths
-// with no "filesBytes", since a Mac's Lua opens a path as it is.
 //
 // The parts above run() touch no AppKit, so tests/dialog/test_mac_script.py runs them under Node. AppKit constants
 // are written as numbers, since the bridge may not know newer names; each is named where it is used.
@@ -118,10 +115,6 @@ function cancelResponse(model, error) {
 function choiceResponse(choice, code) {
   const button = toList(field(choice, "buttons"))[code - 1000];
   return { choice: button ? text(field(button, "id")) : text(field(choice, "cancel")) };
-}
-
-function pickResponse(paths) {
-  return { files: toList(paths).map(String) };
 }
 
 // Picking a notehead puts the colour most of its notes carry into that instrument's colour field.
@@ -410,24 +403,6 @@ function showChoice(app, choice) {
   return alert.runModal;
 }
 
-// Standard Additions' file chooser, which hands back paths. A cancel throws error -128, which means no files.
-function showPicker(app, pick) {
-  const standard = Application.currentApplication();
-  standard.includeStandardAdditions = true;
-  // brought to the front as the alerts are: Dorico is frozen while it waits, so one behind it would look like a hang
-  activate(app);
-  standard.activate();
-  const options = { withPrompt: text(field(pick, "title")), multipleSelectionsAllowed: true };
-  const folder = text(field(pick, "folder"));
-  if (folder) options.defaultLocation = Path(folder);
-  try {
-    return toList(standard.chooseFile(options)).map(function (p) { return p.toString(); });
-  } catch (error) {
-    if (error.errorNumber === -128) return [];
-    throw error;
-  }
-}
-
 // Text fields take Cmd-X, C, V, A and Z through the main menu's key equivalents, and an app that osascript starts
 // has no menu: give it an Edit menu. An accessory app shows no menu bar, but the keys still go through it.
 function installEditMenu(app) {
@@ -455,7 +430,7 @@ function run(argv) {
       field(message, "ok"));
     return;
   }
-  // These two always answer, as the settings dialog does: a failure answers Cancel or no files.
+  // This always answers, as the settings dialog does: a failure answers the cancel button.
   if (argv[0] === "--choice") {
     let choice = {};
     try {
@@ -463,14 +438,6 @@ function run(argv) {
       writeText(argv[2], JSON.stringify(choiceResponse(choice, showChoice(app, choice))));
     } catch (error) {
       writeText(argv[2], JSON.stringify({ choice: text(field(choice, "cancel")), error: String(error) }));
-    }
-    return;
-  }
-  if (argv[0] === "--pick") {
-    try {
-      writeText(argv[2], JSON.stringify(pickResponse(showPicker(app, JSON.parse(readText(argv[1]))))));
-    } catch (error) {
-      writeText(argv[2], JSON.stringify({ files: [], error: String(error) }));
     }
     return;
   }

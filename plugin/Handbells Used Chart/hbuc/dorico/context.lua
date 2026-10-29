@@ -27,7 +27,6 @@ function context.real(root)
   ctx.dialog = function(req) return require("hbuc.dorico.dialog").ask(ctx, req) end
   ctx.show = function(kind, text) require("hbuc.dorico.dialog").show(ctx, kind, text) end
   ctx.choose = function(choice) return require("hbuc.dorico.dialog").choose(ctx, choice) end
-  ctx.pick = function(pick) return require("hbuc.dorico.dialog").pick(ctx, pick) end
   return ctx
 end
 

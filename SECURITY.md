@@ -18,15 +18,9 @@ Fixes go into the latest release.
 When you choose **Script > Handbells Used Chart**:
 
 1. The plug-in checks the Dorico version, that the project has been saved, and that the full score is open. It then
-   reads the music and shows its dialog. To read noteheads and colours, it pastes a copy of the music into temporary
-   flows, and takes them away again before the dialog opens. Nothing else in the project changes before you click
-   OK, or Remove chart in the message below.
-   - If some noteheads were changed in Dorico itself, Lua can't read which notehead each one is, so a message asks
-     for a MusicXML export of the score before the dialog opens. Its Export MusicXML button opens Dorico's own export
-     dialog, where you choose what to export and where. A file picker follows, unless no new export turns up beside
-     the project. The plug-in only reads the files you choose, and uses a file only if its notes match the score's.
-     When the score has a chart, the message also has a Remove chart button. It does what OK does with the chart set
-     to be removed (step 3), without the dialog, and leaves your remembered choices as they were.
+   reads the music and shows its dialog. To read noteheads and colours, it has Dorico save a copy of the project
+   into the plug-in's temp folder, reads the copy and deletes it. The project, its file and its undo history stay as
+   they were, and nothing in the project changes before you click OK.
 2. If you click Cancel, the run ends there.
 3. If you click OK, it remembers your choices and saves the project. Then it draws or updates the chart, or removes
    it, and sets the full-score layout options listed under
@@ -53,11 +47,10 @@ The dialog and the results window are drawn by Windows PowerShell 5.1, which com
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-in>\dialog\windows.ps1" -Request "<temp>\request.json" -Response "<temp>\response.json"
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-in>\dialog\windows.ps1" -Message "<temp>\message.json"
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-in>\dialog\windows.ps1" -Choice "<temp>\choice.json" -Response "<temp>\response.json"
-powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-in>\dialog\windows.ps1" -Pick "<temp>\pick.json" -Response "<temp>\response.json"
 ```
 
-The last two run only when the score has noteheads changed in Dorico: `-Choice` is the message that asks for a
-MusicXML export, and `-Pick` the file picker.
+`-Choice` runs only when the music uses two or more notehead sets of one shape and one of them has fewer than 5
+notes: it asks whether to chart them together.
 
 The options do the following:
 
@@ -73,8 +66,7 @@ The options do the following:
 which are part of Windows, to draw the window. It also declares one Windows function, `SetProcessDPIAware` from
 `user32.dll`, so the window is drawn sharp on a scaled display. It reads the request file, shows the dialog and writes
 your choices to the response file. For the results window, it reads the message file and writes nothing. For the
-MusicXML message, it writes the button you pressed; for the picker, Windows' own Open dialog, it writes the paths
-you chose and opens nothing.
+question, it writes the button you pressed.
 
 ### On a Mac
 
@@ -84,13 +76,11 @@ The dialog is drawn by `osascript`, macOS's own script runner, with JavaScript f
 /usr/bin/osascript -l JavaScript '<plug-in>/dialog/mac.js' '<temp>/request.json' '<temp>/response.json' 2>'<temp>/osascript.log'
 /usr/bin/osascript -l JavaScript '<plug-in>/dialog/mac.js' --message '<temp>/message.json' 2>'<temp>/osascript.log'
 /usr/bin/osascript -l JavaScript '<plug-in>/dialog/mac.js' --choice '<temp>/choice.json' '<temp>/response.json' 2>'<temp>/osascript.log'
-/usr/bin/osascript -l JavaScript '<plug-in>/dialog/mac.js' --pick '<temp>/pick.json' '<temp>/response.json' 2>'<temp>/osascript.log'
 ```
 
 [`dialog/mac.js`](plugin/Handbells%20Used%20Chart/dialog/mac.js) uses Cocoa to draw the window. Like the Windows
-script, it reads the request file and writes the response file, or reads the message file. The `--choice` and
-`--pick` modes are the MusicXML message and the file picker. The picker is macOS's own Choose File dialog, from
-`osascript`'s Standard Additions; it hands back the paths you chose and opens nothing.
+script, it reads the request file and writes the response file, or reads the message file. The `--choice` mode is
+the question about notehead sets.
 
 Two more commands can run on a Mac:
 
@@ -106,23 +96,22 @@ Two more commands can run on a Mac:
   records the latest run; it's emptied when a run starts.
 - Its temp folder, `%TEMP%\hbuc\` on Windows and `$TMPDIR/hbuc/` on a Mac (`/tmp/hbuc/` if `TMPDIR` isn't set),
   which holds:
-  - the dialog's request, response and message files, and the MusicXML message's and picker's;
+  - the dialog's request, response and message files, and the question's;
   - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart, the
     flow headings and whether flows start on a new page;
+  - `reading.dorico`, a copy of the open project that Dorico saves there so the plug-in can read each note's notehead
+    and colour from it. The plug-in deletes it once it has read it. If it can't, the run log says so, and the next
+    run deletes it first;
   - `osascript.log` on a Mac;
   - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
     set (on a Mac with none of them set, `/tmp/hbuc/`).
 - The open project, which it saves before it changes anything.
-- Only when the score has noteheads changed in Dorico:
-  - the MusicXML files you choose in the picker, which it reads;
-  - the project's folder, whose `Flows from …` folders it lists (names, times and sizes) to find the export Dorico
-    has just written there. Dorico writes the export itself, where its export dialog says.
 
 [`hbuc/guards.lua`](plugin/Handbells%20Used%20Chart/hbuc/guards.lua) decides where the folders are. The plug-in
-writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`, and reads the MusicXML files through
-`files.lua` too. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text, writes a
-MusicXML export when `hbuc/dorico/musicxmlstep.lua` runs File > Export with MusicXML chosen, and saves the project
-when `hbuc/main.lua` runs File > Save. The call test pins each of these calls.
+writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`, and reads and deletes the copy of the
+project through `files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text,
+saves the project when `hbuc/main.lua` runs File > Save, and saves the copy in the temp folder when
+`hbuc/dorico/savedcopy.lua` calls `app:save`. The call test pins each of these calls.
 
 ## No network
 

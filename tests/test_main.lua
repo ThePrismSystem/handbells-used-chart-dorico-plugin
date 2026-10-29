@@ -1,13 +1,11 @@
 -- main.run's last resort, with main.chart replaced: what the user is told depends on whether the project had been
--- saved when the run failed. Then main.chart's MusicXML step, with Dorico and the layer-2 modules stubbed.
-local constants = require("hbuc.constants")
+-- saved when the run failed. Then main.chart, with Dorico and the layer-2 modules stubbed.
 local main = require("hbuc.main")
 
-local M = constants.MESSAGES
-
--- o: {step = musicxmlstep.run's outcome, scan = readscore.scan's, chart = true when one is there, respond = the
--- dialog's answer to the request, choose = the answer to a question (by default its cancel)}. Returns main.chart's
--- outcome, the files written, the commands run, the request the dialog got and the questions asked.
+-- o: {scan = readscore.scan's result, scanError = what it raises instead, chart = true when one is there, respond =
+-- the dialog's answer to the request, choose = the answer to a question (by default its cancel)}. Returns
+-- main.chart's outcome, the files written, the commands run, the request the dialog got, the questions asked and the
+-- options the read got.
 local function chartRun(o)
   local writes, commands, asked = {}, {}, { choices = {} }
   local stubs = {
@@ -27,8 +25,11 @@ local function chartRun(o)
     ["hbuc.dorico.findchart"] = { find = function()
       return o.chart and { status = "ok", flowId = "9", marker = { chartPlayers = {} } } or { status = "none" }
     end },
-    ["hbuc.dorico.readscore"] = { scan = function() return o.scan end },
-    ["hbuc.dorico.musicxmlstep"] = { run = function() return o.step end },
+    ["hbuc.dorico.readscore"] = { scan = function(_, opts)
+      asked.scanOpts = opts
+      if o.scanError then error(o.scanError, 0) end
+      return o.scan
+    end },
     ["hbuc.dorico.removechart"] = { remove = function() return { removed = true } end },
     ["hbuc.dorico.writechart"] = { write = function() return {} end },
     ["hbuc.dorico.safe"] = { call = function(_, _, fn, ...) return pcall(fn, ...) end },
@@ -55,38 +56,44 @@ local function chartRun(o)
   local ok, out = pcall(function() return require("hbuc.main").chart(ctx) end)
   for name, m in pairs(saved) do package.loaded[name] = m end
   if not ok then error(out, 0) end
-  return out, writes, commands, asked.req, asked.choices
+  return out, writes, commands, asked.req, asked.choices, asked.scanOpts
 end
 
--- Flows 1 and 2, each with one note of A's whose head was changed in Dorico; B has no notes.
+-- A, with a C5 and a D5, and B with nothing.
 local function scan()
-  local dumped = {
-    { flowId = "1", instrument = "A", spelling = "C5", pos = 0, grace = false },
-    { flowId = "2", instrument = "A", spelling = "D5", pos = 0, grace = false },
-  }
-  local read = {}
-  for i, d in ipairs(dumped) do
-    read[i] = { flowId = d.flowId, instrument = "A", spelling = d.spelling, pos = 0, grace = false, head = "", colour = "",
-      headUnreadable = true, colourUnreadable = false }
+  local records = {}
+  for i, pitch in ipairs({ 72, 74 }) do
+    records[i] = { pitch = pitch, diatonic = 34 + i, head = "noteheadset.default", colour = "", instrument = "A",
+      grace = false }
   end
-  return { players = { { key = "k1", name = "A" }, { key = "k2", name = "B" } }, records = {}, unread = 0, merged = 0,
-    dumped = dumped, read = read, flowNumbers = { ["1"] = 1, ["2"] = 2 } }
+  return { players = { { key = "k1", name = "A" }, { key = "k2", name = "B" } }, records = records }
 end
 
--- Flow 1's export, with notes on: a diamond C5 at 0, and whatever else.
-local function flowOne(...)
-  local notes = { { pos = 0, pitch = 72, diatonic = 35, grace = false, head = "diamond", colour = "" }, ... }
-  return { parts = { { name = "A", notes = notes } } }
+-- A's notes with these heads, as {id, count} pairs
+local function headsScan(...)
+  local s = scan()
+  s.records = {}
+  for _, pair in ipairs({ ... }) do
+    for _ = 1, pair[2] do
+      s.records[#s.records + 1] = { pitch = 72, diatonic = 35, head = pair[1], colour = "", instrument = "A",
+        grace = false }
+    end
+  end
+  return s
 end
+
+local function offered(req)
+  local out = {}
+  for _, h in ipairs(req.noteheads) do out[h.id] = true end
+  return out
+end
+
+local DIAMOND, OLD = "noteheadset.diamondNoteheads", "noteheadset.oldDiamondNoteheads"
 
 -- B, which has no notes, is the only instrument chosen: the run stops at its report without drawing.
 local function chooseB(req)
   return { version = req.version, runId = req.runId, cancelled = false, instruments = { "B" }, mode = req.modes[1],
     heads = {}, shapes = {}, colours = {}, remove = false, atPitch = {} }
-end
-
-local function has(text, line)
-  return text:find(line, 1, true) ~= nil
 end
 
 local function runWith(chart)
@@ -112,66 +119,43 @@ return {
     t:eq(out.text, "The chart could not be finished: boom\n\nUse File > Revert to return to the project as it was"
       .. " before the run. The run log is at run.log.")
   end,
-  the_musicxml_step_ends_the_run_on_cancel_or_error = function(t)
-    local out, _, _, req = chartRun({ scan = scan(), step = { status = "cancel" } })
-    t:eq(out.kind, "info")
-    t:eq(out.text, "")
-    t:eq(req, nil, "no dialog")
-    out = chartRun({ scan = scan(), step = { status = "error", text = "No good." } })
+  the_read_gets_the_full_score_and_the_temp_folder = function(t)
+    local out, _, _, req, _, opts = chartRun({ scan = scan(), respond = chooseB })
+    t:eq(opts.layoutId, "full", "the full score layout, which the guards made sure is on screen")
+    t:eq(opts.tempDir, "t/")
+    t:ok(req, "then the dialog")
+    t:eq(out.kind, "warning", "B has nothing to chart")
+  end,
+  a_read_that_fails_says_so_and_asks_nothing = function(t)
+    local out, writes, _, req, choices = chartRun({ scanError = "zip: CRC mismatch for score.dtn" })
     t:eq(out.kind, "error")
-    t:eq(out.text, "No good.")
-  end,
-  a_file_that_pairs_with_no_flow_changes_nothing = function(t)
-    local other = { parts = { { name = "A", notes = { { pos = 4, pitch = 72, diatonic = 35, grace = false } } } } }
-    local out, writes, commands, req = chartRun({ scan = scan(), step = { status = "files", files = { other } } })
-    t:eq(out.text, string.format(M.musicxmlMismatch, 1), "names the first flow that needs one")
+    t:eq(out.text, "The plug-in could not read this project's music, so nothing was changed: zip: CRC mismatch for"
+      .. " score.dtn\n\nThe run log is at run.log.")
     t:eq(req, nil, "no dialog")
-    t:eq(next(writes), nil, "nothing written")
-    t:eq(#commands, 2, "Write mode only, no save")
+    t:eq(#choices, 0, "no question")
+    t:eq(next(writes), nil, "no settings written")
   end,
-  the_files_heads_reach_the_dialog_and_a_flow_without_one_is_named = function(t)
-    local out, _, _, req, choices = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
-      respond = chooseB })
-    t:eq(#choices, 1, "asked about flow 2's note, and kept it separate")
-    local ids = {}
-    for _, h in ipairs(req.noteheads) do ids[h.id] = true end
-    t:ok(ids["noteheadset.diamondNoteheads"], "flow 1's head, from the file")
-    t:ok(ids["noteheadset.notInMusicXML"], "flow 2's, which no file holds")
-    t:ok(has(out.text, string.format(M.musicxmlMissingFlow, "2", constants.NOT_IN_MUSICXML_NAME)), out.text)
-    t:ok(not has(out.text, "couldn't be found"), "every changed note in flow 1 was in its file")
+  a_rare_set_can_join_the_common_one_before_the_dialog = function(t)
+    local _, _, _, req, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }), respond = chooseB,
+      choose = function() return "combine" end })
+    t:eq(#choices, 1, "one question")
+    t:ok(choices[1].text:find("Old-Style Diamond Noteheads: 1 note", 1, true), choices[1].text)
+    t:ok(offered(req)[DIAMOND], "the diamond is offered")
+    t:ok(not offered(req)[OLD], "and the old-style one went in with it")
   end,
-  a_note_musicxml_couldnt_name_can_join_a_notehead_before_the_dialog = function(t)
-    local out, _, _, req, choices = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
-      respond = chooseB, choose = function() return "noteheadset.diamondNoteheads" end })
-    t:eq(choices[1].text, string.format(M.musicxmlUnnamedNote, "D5") .. "\n\n"
-      .. string.format(M.musicxmlGroupWithOne, "Diamond Noteheads", constants.NOT_IN_MUSICXML_NAME),
-      "flow 2's note, by the pitch Lua has, since no file holds it")
-    local ids = {}
-    for _, h in ipairs(req.noteheads) do ids[h.id] = true end
-    t:ok(ids["noteheadset.diamondNoteheads"])
-    t:ok(not ids["noteheadset.notInMusicXML"], "it went in with the diamonds")
-    t:ok(has(out.text, string.format(M.musicxmlMissingFlow, "2", "Diamond Noteheads")), out.text)
+  keep_separate_offers_both = function(t)
+    local _, _, _, req = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }), respond = chooseB })
+    t:ok(offered(req)[DIAMOND] and offered(req)[OLD], "both offered")
   end,
   a_question_that_cannot_be_shown_says_so = function(t)
-    local out, _, _, req = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
+    local out, _, _, req = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }),
       choose = function() return nil end })
     t:eq(out.kind, "error")
-    t:eq(out.text, constants.DIALOG.dialogFailed)
+    t:eq(out.text, require("hbuc.constants").DIALOG.dialogFailed)
     t:eq(req, nil, "no dialog")
   end,
-  changed_notes_a_paired_file_lacks_are_counted = function(t)
-    local s = scan()
-    s.dumped[2].flowId, s.read[2].flowId = "1", "1"
-    s.read[2].pos = 5
-    local out = chartRun({ scan = s, step = { status = "files",
-      files = { flowOne({ pos = 0, pitch = 74, diatonic = 36, grace = false }) } }, respond = chooseB })
-    t:ok(has(out.text, string.format(M.musicxmlUnmatched, 1, constants.NOT_IN_MUSICXML_NAME)), out.text)
-  end,
-  remove_from_the_musicxml_message_skips_the_dialog_and_the_settings = function(t)
-    local out, writes, commands, req = chartRun({ scan = scan(), step = { status = "remove" }, chart = true })
-    t:eq(out.text, M.chartWasRemoved)
-    t:eq(req, nil, "no dialog")
-    t:eq(writes["d/settings.json"], nil, "the choices are left as they were")
-    t:eq(commands[#commands], "File.Save", "saved before the removal")
+  common_sets_ask_nothing = function(t)
+    local _, _, _, _, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 5 }), respond = chooseB })
+    t:eq(#choices, 0)
   end,
 }

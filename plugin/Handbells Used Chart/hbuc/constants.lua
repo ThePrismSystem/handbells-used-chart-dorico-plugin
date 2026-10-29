@@ -17,11 +17,9 @@ constants.KIND_NAME = {
 -- Separates an instrument's name from its chart's label: "Handbells I - Handbells Used: 25".
 constants.LABEL_DASH = " - "
 
+-- The set Dorico draws a note with when it has no notehead set override.
+constants.DEFAULT_HEAD = "noteheadset.default"
 constants.NO_NOTEHEAD = "(no notehead)"
--- Noteheads read from a MusicXML export (shapes.fromMusicXML): one changed in Dorico to a set the export can't
--- express, and a value no built-in set writes.
-constants.NOT_IN_MUSICXML_NAME = "Changed in Dorico (not in MusicXML)"
-constants.MUSICXML_HEAD_NAME = "%s (MusicXML)"
 constants.SHAPE_MATCH = "(match notehead)"
 constants.SHAPES = { "Round", "Diamond", "Square", "Triangle", "Inverted triangle", "Half circle", "Cone" }
 
@@ -64,8 +62,6 @@ constants.MESSAGES = {
   saveFailed = "The project could not be saved, so nothing was drawn or removed. Save it with File > Save, then run"
     .. " the plug-in again.",
   readFailed = "The plug-in could not read this project's music, so nothing was changed: %s\n\nThe run log is at %s.",
-  scratchLeft = "The plug-in could not take away the temporary flow it used to read the music. Delete flow %d in"
-    .. " Setup mode. Nothing else was changed.",
   writeFailed = "The chart could not be finished: %s\n\nUse File > Revert to return to the project as it was before"
     .. " the run. The run log is at %s.",
   -- an error the run's own steps did not catch, before the project was saved (after it, writeFailed)
@@ -75,41 +71,11 @@ constants.MESSAGES = {
   chartRemovedOptionsLeft = "The existing chart was removed, but the full score's layout options could not be put"
     .. " back as they were: check its flow headings, whether flows start on a new page, hidden staves and staff labels"
     .. " in Layout Options.",
-  -- the MusicXML step, for scores whose noteheads were changed in Dorico
-  musicxmlNeeded = "Some noteheads in this score were changed in Dorico, and a plug-in can't read which notehead each"
-    .. " one is. To tell handbells, handchimes and the other kinds apart, the plug-in reads them from a MusicXML export"
-    .. " of the score instead.\n\nExport MusicXML opens Dorico's export dialog. Its starting settings are fine, so"
-    .. " click OK there. Choose file is for an export you've already made.",
-  musicxmlNotFound = "No new MusicXML export turned up in a \"Flows from …\" folder beside the project. If you exported"
-    .. " it somewhere else, click Choose file and pick it there.",
-  musicxmlCompressed = "That file is compressed MusicXML (.mxl), which the plug-in can't read. Export again with"
-    .. " \"Export uncompressed XML (.musicxml)\" selected.",
-  musicxmlUnreadable = "%s isn't a MusicXML file the plug-in can read, so nothing was changed.",
-  musicxmlCannotOpen = "The plug-in couldn't open %s, so nothing was changed. If its name or its folder's has"
-    .. " characters outside Windows' code page, rename it or export to another folder, and try again.",
-  musicxmlOlder = "This export is older than the project's last save, so it may not show noteheads changed since."
-    .. " Use it anyway?",
-  musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Run the plug-in"
-    .. " again, click Export MusicXML, and choose the new export's full-score file.",
-  -- the question about a few such notes (xmlnotes.groupQuestion): a note is "C#4 in bar 32", with "(Piano 1)" after
-  -- it when two players have them, and the last %s is NOT_IN_MUSICXML_NAME
-  musicxmlUnnamedNote = "One note's notehead was changed in Dorico to a set MusicXML doesn't record, so the plug-in"
-    .. " can't tell which it is: %s.",
-  musicxmlUnnamedNotes = "%d notes' noteheads were changed in Dorico to sets MusicXML doesn't record, so the plug-in"
-    .. " can't tell which they are: %s.",
-  musicxmlGroupWithOne = "Include it with %s, or keep it separate as %s?",
-  musicxmlGroupWithMany = "Include them with %s, or keep them separate as %s?",
-  musicxmlGroupChooseOne = "Include it with one of the noteheads the score uses, or keep it separate as %s?",
-  musicxmlGroupChooseMany = "Include them with one of the noteheads the score uses, or keep them separate as %s?",
-  musicxmlNoteInBar = "%s in bar %s",
-  musicxmlNoteOfPlayer = "%s (%s)",
-  -- lines of the results window (hbuc.report); the last %s is NOT_IN_MUSICXML_NAME
-  musicxmlMissingFlow = "Flow %s has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are"
-    .. " listed as %s",
-  musicxmlMissingFlows = "Flows %s have noteheads changed in Dorico but no matching MusicXML file, so those noteheads"
-    .. " are listed as %s",
-  musicxmlUnmatched = "%d note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they"
-    .. " are listed as %s",
+  -- the question about notehead sets of one shape when one is rare (hbuc.combine): the first %s is the shape in
+  -- lower case, the second one line per set, the third the set they would all take
+  combineNoteheads = "The music uses more than one %s notehead:\n\n%s\n\nCombine them all as %s, or keep them separate?",
+  combineOneNote = "%s: 1 note",
+  combineNotes = "%s: %d notes",
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.
@@ -134,20 +100,14 @@ constants.DIALOG = {
   writtenHeader = "Written as",
   writtenHandbells = "Handbells instrument (sounds an octave higher)",
   writtenAtPitch = "At pitch (e.g. Piano or Organ)",
-  -- the Mac dialog's alert when it cannot show itself; nothing is changed
+  -- the Mac dialog's alert when it can't show itself, and the run's message when a question before the dialog
+  -- can't be shown; nothing is changed
   dialogFailed = "The dialog could not be shown, so nothing was changed.",
   cancel = "Cancel",
   ok = "OK",
-  -- the MusicXML step's buttons and picker
-  exportMusicXML = "Export MusicXML",
-  chooseFile = "Choose file",
-  removeChart = "Remove chart",
-  useAnyway = "Use it anyway",
-  back = "Back",
-  includeWith = "Include with %s",
+  -- the combine question's buttons (hbuc.combine)
+  combine = "Combine",
   keepSeparate = "Keep separate",
-  pickTitle = "Choose the MusicXML export (with several flows, select every file)",
-  pickFilter = "MusicXML",
 }
 
 -- Handbells are always black, so they have no colour field.

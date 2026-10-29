@@ -1,21 +1,28 @@
--- Records from what the dumps say exists and what could be read with noteheads and colours (directly, or from a
--- pasted copy that merges unisons and carries one temporary note of its own).
+-- Records from the dumped notes (which notes exist, and whose they are) and the notehead and colour entries a saved
+-- copy of the project holds for each, matched by event id.
 local reading = require("hbuc.reading")
 
-local function dumped(instrument, spelling, grace)
-  return { instrument = instrument, spelling = spelling, grace = grace or false }
+local function note(id, instrument, spelling, grace)
+  return { id = id, instrument = instrument, spelling = spelling, grace = grace or false, instance = 1010 }
 end
 
-local function read(instrument, spelling, head, colour, grace)
-  return { instrument = instrument, spelling = spelling, head = head or "", colour = colour or "", grace = grace or false }
+local function entry(property, value, layout, instance)
+  return { property = property, value = value, layout = layout or -1, instance = instance or -1 }
+end
+
+local function head(value, layout, instance) return entry("kNoteheadSetOverride", value, layout, instance) end
+local function colour(value, layout, instance) return entry("kEventColour", value, layout, instance) end
+
+local function errorOf(fn)
+  local ok, err = pcall(fn)
+  return not ok and tostring(err) or nil
 end
 
 return {
-  read_notes_become_records = function(t)
-    local records, unread = reading.records({ dumped("A", "C5") },
-      { read("A", "C5", "noteheadset.diamondNoteheads", "#c80000") })
+  a_saved_head_and_colour_reach_the_record = function(t)
+    local records = reading.records({ note(1, "A", "C5") },
+      { [1] = { head("noteheadset.diamondNoteheads"), colour("#c80000") } }, 0)
     t:eq(#records, 1)
-    t:eq(unread, 0)
     local r = records[1]
     t:eq(r.pitch, 72)
     t:eq(r.diatonic, 35)
@@ -24,73 +31,49 @@ return {
     t:eq(r.instrument, "A")
     t:eq(r.grace, false)
   end,
-  blank_head_is_the_default_set = function(t)
-    local records = reading.records({ dumped("A", "D5") }, { read("A", "D5") })
+  a_note_with_no_entries_has_the_default_set = function(t)
+    local records = reading.records({ note(1, "A", "D5") }, { [1] = {} }, 0)
     t:eq(records[1].head, "noteheadset.default")
-    t:eq(reading.DEFAULT_HEAD, "noteheadset.default")
     t:eq(records[1].colour, "")
   end,
-  a_colour_lua_cannot_read_is_marked = function(t)
-    -- a colour set by command reads back as "", but the note lists the property
-    local n = read("A", "C5", "noteheadset.diamondNoteheads")
-    n.colourUnreadable = true
-    local records = reading.records({ dumped("A", "C5"), dumped("A", "D5") }, { n, read("A", "D5") })
-    t:eq(records[1].colour, "")
-    t:eq(records[1].colourUnreadable, true)
-    t:eq(records[2].colourUnreadable, false, "a note with no colour")
+  the_full_score_and_the_notes_instance_decide = function(t)
+    local saved = { [1] = { head("X", 0, 1010), head("Y") } }
+    t:eq(reading.records({ note(1, "A", "C5") }, saved, 0)[1].head, "X", "set for the full score, in this instance")
+    t:eq(reading.records({ note(1, "A", "C5") }, saved, 3)[1].head, "Y", "another layout's value doesn't apply")
   end,
   grace_notes_are_kept = function(t)
-    local records = reading.records({ dumped("A", "B5", true) }, { read("A", "B5", "", "", true) })
+    local records = reading.records({ note(1, "A", "B5", true) }, { [1] = {} }, 0)
     t:eq(#records, 1)
     t:eq(records[1].grace, true)
   end,
-  extra_read_notes_are_dropped = function(t)
-    local records, unread = reading.records({ dumped("A", "D5") }, { read("A", "D5"), read("A", "C5") })
-    t:eq(#records, 1, "the temporary paste note has no dump note")
-    t:eq(unread, 0)
+  every_note_is_a_record = function(t)
+    local records = reading.records({ note(1, "A", "G#5"), note(2, "A", "G#5"), note(3, "B", "Ab5") },
+      { [1] = {}, [2] = {}, [3] = {} }, 0)
+    t:eq(#records, 3, "unisons and enharmonics alike")
+    t:eq(records[1].pitch, records[3].pitch)
   end,
-  merged_unisons_are_not_unread = function(t)
-    local records, unread = reading.records({ dumped("A", "G#5"), dumped("A", "G#5") }, { read("A", "G#5") })
-    t:eq(#records, 1)
-    t:eq(unread, 0)
+  notes_with_values_only_for_another_instance_are_counted = function(t)
+    local records, elsewhere = reading.records({ note(1, "A", "C5"), note(2, "A", "D5") },
+      { [1] = { head("X", -1, 1011) }, [2] = { colour("#c80000", -1, 1011) } }, 0)
+    t:eq(records[1].head, "noteheadset.default")
+    t:eq(records[2].colour, "")
+    t:eq(elsewhere, 2)
+    t:eq(select(2, reading.records({ note(1, "A", "C5") }, { [1] = { head("X") } }, 0)), 0, "none")
   end,
-  missing_pairs_are_unread = function(t)
-    local records, unread = reading.records({ dumped("A", "C5"), dumped("B", "E3"), dumped("B", "E3") },
-      { read("A", "C5") })
-    t:eq(unread, 2)
-    t:eq(#records, 3)
-    local missing = 0
-    for _, r in ipairs(records) do
-      if r.pitch == nil then
-        missing = missing + 1
-        t:eq(r.instrument, "B")
-      end
-    end
-    t:eq(missing, 2)
+  a_note_with_no_instance_reads_values_for_any = function(t)
+    local n = note(1, "A", "C5")
+    n.instance = nil
+    t:eq(reading.records({ n }, { [1] = { head("X") } }, 0)[1].head, "X")
   end,
-  same_spelling_other_instrument_is_separate = function(t)
-    local _, unread = reading.records({ dumped("B", "C5") }, { read("A", "C5") })
-    t:eq(unread, 1)
+  -- with no instance from the dumps, which of the note's values is its own can't be told
+  a_note_with_no_instance_and_a_value_for_one_fails = function(t)
+    local n = note(7, "A", "C5")
+    n.instance = nil
+    local err = errorOf(function() return reading.records({ n }, { [7] = { head("X", -1, 1010) } }, 0) end)
+    t:ok(err and err:find("note 7 has no block instance", 1, true), tostring(err))
   end,
-  merged_unisons_are_counted = function(t)
-    local records, unread, merged = reading.records(
-      { dumped("A", "G#5"), dumped("A", "G#5"), dumped("A", "G#5"), dumped("A", "C5") },
-      { read("A", "G#5"), read("A", "C5") })
-    t:eq(#records, 2)
-    t:eq(unread, 0)
-    t:eq(merged, 2, "two of the three G#5s were read as one")
-  end,
-  counts_match_only_when_every_pair_does = function(t)
-    local d = { dumped("A", "G#5"), dumped("A", "G#5"), dumped("B", "C5") }
-    t:eq(reading.countsMatch(d, { read("A", "G#5"), read("A", "G#5"), read("B", "C5") }), true)
-    t:eq(reading.countsMatch(d, { read("A", "G#5"), read("B", "C5") }), false, "events listed fewer notes")
-    t:eq(reading.countsMatch(d, { read("A", "G#5"), read("A", "G#5"), read("A", "G#5"), read("B", "C5") }), false)
-  end,
-  enharmonics_are_different_pairs = function(t)
-    local records, unread = reading.records({ dumped("A", "G#5"), dumped("A", "Ab5") },
-      { read("A", "G#5"), read("A", "Ab5") })
-    t:eq(#records, 2)
-    t:eq(unread, 0)
-    t:eq(records[1].pitch, records[2].pitch)
+  a_note_missing_from_the_copy_fails = function(t)
+    local err = errorOf(function() return reading.records({ note(7, "A", "C5") }, {}, 0) end)
+    t:ok(err and err:find("note 7 is not in the saved copy of the project", 1, true), tostring(err))
   end,
 }

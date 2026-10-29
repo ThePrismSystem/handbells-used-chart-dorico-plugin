@@ -4,13 +4,16 @@
 --   args.expect: "drawn", "replaced", "sameHead", "noChart", "notFull", "saveFailed" or "cancelled"
 --   args.startMode: a Dorico mode to be in first (kEngraveMode...); args.startLayout: a layout to show first
 --   args.blockSave: File.Save does nothing
+--   args.choose: the button id to answer any question before the dialog with (by default, its cancel)
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
 for name in pairs(package.loaded) do
   if name:match("^hbuc") or package.searchpath(name, mine) then package.loaded[name] = nil end
 end
-if not package.path:find(mine, 1, true) then package.path = mine .. ";" .. package.path end
+-- first, whatever came before: the plug-in's entry file (test_run.py's RealDialog) leaves its install on the
+-- path, and an older install there would be loaded instead
+if package.path:sub(1, #mine + 1) ~= mine .. ";" then package.path = mine .. ";" .. package.path end
 local probe = require("probe")
 
 probe.run("case_run", function(p)
@@ -21,7 +24,7 @@ probe.run("case_run", function(p)
   local files = require("hbuc.dorico.files")
   local findchart = require("hbuc.dorico.findchart")
   local main = require("hbuc.main")
-  local readscore = require("hbuc.dorico.readscore")
+
   local M = constants.MESSAGES
 
   local answer = p.args.answer
@@ -43,6 +46,7 @@ probe.run("case_run", function(p)
         mode = req.modes[1], heads = heads, shapes = shapes, colours = colours, remove = answer == "remove",
         atPitch = atPitch }
     end,
+    choose = p.args.choose and function() return p.args.choose end,
   })
   -- where the user left Dorico: another mode, or a part on screen
   if p.args.startMode then
@@ -67,14 +71,17 @@ probe.run("case_run", function(p)
           return real:doCommand(command)
         end
       end
-      return real[k]
+      -- luabind refuses a method called on the proxy (app:save, for one): call it on the app itself
+      local v = real[k]
+      if type(v) == "function" then return function(_, ...) return v(real, ...) end end
+      return v
     end })
   end
   local settingsPath = ctx.folders.data .. "settings.json"
   if p.args.freshSettings then os.remove(settingsPath) end
   local project = cases.runFolder() .. "scratch.dorico"
   local savedBefore = files.modified(project)
-  local summaryBefore = readscore.summary(ctx.app.currentScore)
+  local summaryBefore = cases.summary(ctx.app.currentScore)
 
   local out = main.run(ctx)
   local text = (p.facts.shown[1] or {}).text or ""
@@ -143,7 +150,7 @@ probe.run("case_run", function(p)
   elseif expect == "cancelled" then
     p:check("shows nothing", #p.facts.shown == 0, #p.facts.shown)
     p:check("not saved", not saved)
-    p:check("music unchanged", readscore.summary(ctx.app.currentScore) == summaryBefore)
+    p:check("music unchanged", cases.summary(ctx.app.currentScore) == summaryBefore)
     p:check("settings not written", files.read(settingsPath) == nil)
     p:check("no chart", found.status == "none")
   end

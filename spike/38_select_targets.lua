@@ -10,13 +10,21 @@ end
 if not package.path:find(mine, 1, true) then package.path = mine .. ";" .. package.path end
 local probe = require("probe")
 
+-- The first event of a parsed dump that a selection can start from (a note, grace note or rest), and its block
+-- instance.
+local function firstEvent(parsed)
+  for _, ev in ipairs(parsed.events) do
+    if ev.kind == "note" or ev.kind == "grace" or ev.kind == "rest" then return ev.id, ev.instance end
+  end
+  return nil
+end
+
 probe.run("38_select_targets", function(p)
-  local dump = require("hbuc.dump")
   local doc = require("hbuc.dorico.doc")
   local app = DoApp.DoApp()
   local targets = {}
   local function add(flow, s, label)
-    local first, instance = dump.firstEventId(doc.dumpOf(s))
+    local first, instance = firstEvent(doc.dumpOf(s))
     if first then
       local instances = {}
       for _, bi in ipairs(s.blockInstances) do

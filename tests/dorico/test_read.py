@@ -23,103 +23,87 @@ FIXTURE_HISTOGRAM = {
     "noteheadset.triangleUpNoteheads|": 2,
 }
 FIXTURE_PLAYERS = ["Handbells (A)", "Handbells (B)", "Organ"]
+FIXTURE_HEADS = {
+    "noteheadset.default": 43, "noteheadset.Xnoteheads": 1, "noteheadset.diamondNoteheads": 6,
+    "noteheadset.rectangular": 4, "noteheadset.triangleDownNoteheads": 2, "noteheadset.triangleUpNoteheads": 2,
+}
+
+
+def dumped_notes(summary):
+    """The note count of every flow, from case_read's "<id>=<notes>n/<players>p,..." summary."""
+    return sum(int(part.split("=")[1].split("n/")[0]) for part in summary.split(","))
 
 
 class ReadTests(unittest.TestCase):
-    def test_fixture_reads_directly(self):
+    def test_fixture_reads(self):
         run_case(self, "case_read.lua", FIXTURE, {"expect": {
-            "players": FIXTURE_PLAYERS, "records": 58, "pastedFlows": 0, "histogram": FIXTURE_HISTOGRAM}})
+            "players": FIXTURE_PLAYERS, "records": 58, "histogram": FIXTURE_HISTOGRAM}})
 
-    def test_fixture_paste_route_matches_direct(self):
-        run_case(self, "case_read.lua", FIXTURE, {"forcePaste": True, "expect": {
-            "players": FIXTURE_PLAYERS, "records": 58, "pastedFlows": 1, "histogram": FIXTURE_HISTOGRAM}})
+    def test_saved_copy_reads_heads_set_by_command(self):
+        # Every one of the fixture's changed heads given again by Dorico's own command, which Lua can't read: the
+        # saved copy has them all, each in the note's own block instance.
+        with harness.scratch(self, "case_heads.lua") as (client, result):
+            self.assertEqual(result["facts"]["redone"], 15, "every changed head")
+            facts = harness.run_more(self, client, "case_savedcopy.lua")["facts"]
+            self.assertEqual(facts["heads"], FIXTURE_HEADS)
 
-    def paste_matches_direct(self, args):
-        # The copied range starts on the first staff with a note or rest. Pasted any higher in the scratch flow,
-        # every staff's notes would be credited to the player above, and case_read would find notes unread.
-        with harness.scratch(self, "case_tacet.lua", args=args) as (client, _):
-            direct = harness.run_more(self, client, "case_read.lua")["facts"]
-            pasted = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})["facts"]
-            self.assertEqual((direct["pastedFlows"], pasted["pastedFlows"]), (0, 1))
-            self.assertEqual(pasted["byInstrument"], direct["byInstrument"])
-            self.assertEqual(pasted["positions"], direct["positions"])
+    def test_heads_set_by_command_are_read(self):
+        with harness.scratch(self, "case_heads.lua") as (client, _):
+            harness.run_more(self, client, "case_read.lua", {"expect": {"records": 58, "histogram": FIXTURE_HISTOGRAM}})
 
-    def test_paste_route_when_the_first_player_is_tacet(self):
-        self.paste_matches_direct({})
-
-    def test_paste_route_when_the_first_treble_staff_is_empty(self):
-        self.paste_matches_direct({"topOnly": True})
-
-    def test_paste_route_keeps_positions_when_the_music_starts_late(self):
-        # the copy starts at the flow's start, not at its first note, so a late start isn't moved up
-        self.paste_matches_direct({"lead": 4})
-
-    def test_fixture_paste_route_keeps_positions(self):
-        with harness.scratch(self, "case_read.lua") as (client, direct):
-            pasted = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})["facts"]
-            self.assertEqual(pasted["positions"], direct["facts"]["positions"])
-
-    def test_a_notehead_set_by_command_is_marked_unreadable(self):
-        # Dorico's own command stores the set in a form Lua reads as "", like the default set. The note still lists
-        # the property, so the read flags it for a MusicXML export, on both routes.
-        with harness.scratch(self, "case_heads.lua", args={"sets": ["noteheadset.diamondNoteheads"]}) as (client, result):
-            self.assertEqual(result["facts"]["redone"], 6, "the fixture's six diamond notes")
-            for args in ({}, {"forcePaste": True}):
-                facts = harness.run_more(self, client, "case_read.lua", args)["facts"]
-                self.assertEqual(facts["headUnreadable"], 6, args)
-
-    def test_a_colour_set_by_command_is_marked_unreadable(self):
-        # It reads back as "", like no colour. The note still lists the property, so the read can tell the two apart
-        # and keep the note out of the colour the dialog suggests.
+    def test_a_colour_set_by_command_is_read(self):
+        # case_colour reds the first note (a plain C5) the way the Properties panel does
         with harness.scratch(self, "case_colour.lua") as (client, _):
-            for args in ({}, {"forcePaste": True}):
-                facts = harness.run_more(self, client, "case_read.lua", args)["facts"]
-                self.assertEqual(facts["colourUnreadable"], 1, args)
-                self.assertEqual(facts["histogram"], FIXTURE_HISTOGRAM, "and its head and colour read as before")
+            want = dict(FIXTURE_HISTOGRAM)
+            want["noteheadset.default|"] -= 1
+            want["noteheadset.default|#ff0000"] = 1
+            harness.run_more(self, client, "case_read.lua", {"expect": {"histogram": want}})
 
-    def test_smith_reads_through_the_paste_route_and_leaves_no_trace(self):
-        result = run_case(self, "case_read.lua", inputs.ensure("smith"), timeout=600)
-        facts = result["facts"]
-        self.assertGreater(facts["pastedFlows"], 0)
-        # The case checks that no note is unread and the music is unchanged. Unisons between voices of one staff
-        # merge in the copy, so there may be fewer records than dumped notes, never more.
-        dumped = sum(int(part.split("=")[1].split("n/")[0]) for part in facts["summary"].split(","))
-        self.assertLessEqual(facts["records"], dumped)
-        self.assertGreater(facts["records"], dumped * 0.9)
+    def test_a_colour_set_in_a_part_stays_in_the_part(self):
+        # With a part on screen, the Properties panel's local scope sets a colour for that layout only. A read from
+        # the part sees it, which shows it was set; a read from the full score, as a run makes, doesn't.
+        with harness.scratch(self, "case_layouts.lua") as (client, result):
+            facts = result["facts"]
+            score, part, full = facts["scratchScoreID"], facts["firstPartLayout"], facts["fullLayout"]
 
-    def test_a_user_edit_before_the_read_survives_and_still_undoes(self):
-        # The copy is taken away with Edit.Undo: the user's own last edit, made before the run, must outlive it and
-        # still be the next thing Edit.Undo takes back.
+            def show(layout):
+                view = client.status().get("activeViewContainerID")
+                client.command(f"Window.SwitchToLayout?OpenScoreID={score}&ScoreLayoutViewContainerID={view}"
+                               f"&LayoutID={layout}")
+                client.settle()
+
+            show(part)
+            harness.run_more(self, client, "case_colour.lua")
+            in_part = harness.run_more(self, client, "case_read.lua")["facts"]
+            self.assertEqual(in_part["layoutId"], part, "read with the part on screen")
+            self.assertEqual(in_part["histogram"].get("noteheadset.default|#ff0000"), 1, "the colour was set")
+            show(full)
+            in_full = harness.run_more(self, client, "case_read.lua", {"expect": {"histogram": FIXTURE_HISTOGRAM}})
+            self.assertEqual(in_full["facts"]["layoutId"], full)
+
+    def test_smith_reads_every_note_and_leaves_no_trace(self):
+        # The case checks that the music and its flows are as they were. Every dumped note is a record, unisons
+        # between voices of one staff included.
+        facts = run_case(self, "case_read.lua", inputs.ensure("smith"), timeout=600)["facts"]
+        self.assertEqual(facts["records"], dumped_notes(facts["summary"]))
+
+    def test_liszt_reads_every_note(self):
+        # the paste route this replaced merged 12 unisons between voices
+        facts = run_case(self, "case_read.lua", inputs.ensure("liszt"), timeout=600)["facts"]
+        self.assertEqual(facts["records"], 1906)
+
+    def test_the_read_leaves_the_users_edit_and_its_undo_alone(self):
         with harness.scratch(self, "case_titles.lua") as (client, before):
             original = before["facts"]["titles"]["1"]
             # an edit of the user's, made before the run as its own undo step (a script run, like a menu action;
             # the same rename sent through the Remote API is refused with kError)
             harness.run_more(self, client, "case_titles.lua", {"renameFirstFlow": "User Edit"})
-            harness.run_more(self, client, "case_read.lua", {"forcePaste": True})
+            harness.run_more(self, client, "case_read.lua")
             after = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
             self.assertEqual(after["1"], "User Edit", "the user's edit survived the read")
             client.command("Edit.Undo")
             undone = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
-            self.assertEqual(undone["1"], original, "and is still the user's to undo")
-
-    def test_a_user_edit_survives_a_read_of_several_flows(self):
-        # A second Edit.Undo in one run takes back the user's previous action too (spike/29_undo_experiments.py E9),
-        # so several flows read through the copy must be taken away with a single undo.
-        with harness.scratch(self, "case_titles.lua") as (client, before):
-            original = before["facts"]["titles"]["1"]
-            harness.run_more(self, client, "case_titles.lua", {"secondFlow": True})
-            harness.run_more(self, client, "case_titles.lua", {"renameFirstFlow": "User Edit"})
-            read = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})
-            self.assertEqual(read["facts"]["pastedFlows"], 2)
-            after = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
-            self.assertEqual(after["1"], "User Edit", "the user's edit survived the read")
-            client.command("Edit.Undo")
-            undone = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
-            self.assertEqual(undone["1"], original, "and is still the user's to undo")
-
-    def test_liszt_merged_unisons_are_not_lost(self):
-        result = run_case(self, "case_read.lua", inputs.ensure("liszt"), timeout=600)
-        self.assertEqual(result["facts"]["pastedFlows"], 1)
+            self.assertEqual(undone["1"], original, "the read added no undo step of its own")
 
 
 if __name__ == "__main__":

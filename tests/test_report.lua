@@ -55,34 +55,9 @@ return {
   the_unread_notes_line_is_gone = function(t)
     t:eq(report.warningLines({ { type = "unread-notes", count = 3 } }), "", "collect's unreadable count says it once")
   end,
-  merged_and_unwritable_lines = function(t)
-    t:eq(report.warningLines({ { type = "merged-notes", count = 2 } }),
-      "2 note(s) sounded in unison with another voice and were read as one: if those voices use different"
-        .. " noteheads, check the chart")
+  unwritable_line = function(t)
     t:eq(report.warningLines({ { type = "unwritable", names = { "G#8", "C9" } } }),
       "Bells too high to draw on the SMB staff were skipped: G#8, C9")
-  end,
-  flows_missing_from_the_musicxml_export_are_named = function(t)
-    -- a flow Dorico's export left out, or one whose file no longer matches it: either way, no file of its own
-    t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 1, 3 } } }),
-      "Flows 1, 3 have noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
-        .. " Changed in Dorico (not in MusicXML)")
-    t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 1 } } }),
-      "Flow 1 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
-        .. " Changed in Dorico (not in MusicXML)")
-  end,
-  musicxml_lines_name_the_notehead_such_notes_were_grouped_with = function(t)
-    t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 2 }, as = "Diamond Noteheads" } }),
-      "Flow 2 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
-        .. " Diamond Noteheads")
-    t:eq(report.warningLines({ { type = "musicxml-unmatched", count = 1, as = "Diamond Noteheads" } }),
-      "1 note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they are listed as"
-        .. " Diamond Noteheads")
-  end,
-  changed_notes_the_musicxml_file_lacks_are_counted = function(t)
-    t:eq(report.warningLines({ { type = "musicxml-unmatched", count = 2 } }),
-      "2 note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they are listed as"
-        .. " Changed in Dorico (not in MusicXML)")
   end,
   nothing_charted_says_the_chart_was_left = function(t)
     local plan = { sections = {}, warnings = {}, emptyNames = {} }
@@ -107,9 +82,6 @@ return {
     t:eq(string.format(M.untestedDorico, "5.1.81"),
       "Handbells Used Chart needs Dorico 6. This is Dorico 5.1.81, so nothing was changed.")
     t:eq(M.chartKept, "The chart was kept, because its flow was not deleted.")
-    t:eq(string.format(M.scratchLeft, 3),
-      "The plug-in could not take away the temporary flow it used to read the music. Delete flow 3 in Setup mode."
-        .. " Nothing else was changed.")
   end,
   warnings_missing_fields_still_make_lines = function(t)
     t:eq(report.warningLines({ { type = "missing-notehead", names = { "Half circle" } } }),

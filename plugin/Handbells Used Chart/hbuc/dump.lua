@@ -54,18 +54,11 @@ function dump.notes(parsed)
   local notes = {}
   for _, ev in ipairs(parsed.events) do
     if (ev.kind == "note" or ev.kind == "grace") and ev.spelling then
-      notes[#notes + 1] = { spelling = ev.spelling, grace = ev.kind == "grace", id = ev.id, pos = ev.pos }
+      notes[#notes + 1] = { spelling = ev.spelling, grace = ev.kind == "grace", id = ev.id, pos = ev.pos,
+        instance = ev.instance }
     end
   end
   return notes
-end
-
--- The first event a selection can start from (a note, grace note or rest), and its block instance.
-function dump.firstEventId(parsed)
-  for _, ev in ipairs(parsed.events) do
-    if ev.kind == "note" or ev.kind == "grace" or ev.kind == "rest" then return ev.id, ev.instance end
-  end
-  return nil
 end
 
 return dump
