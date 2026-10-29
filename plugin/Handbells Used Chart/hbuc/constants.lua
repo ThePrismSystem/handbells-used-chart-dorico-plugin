@@ -89,6 +89,13 @@ constants.MESSAGES = {
     .. " Use it anyway?",
   musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Run the plug-in"
     .. " again, click Export MusicXML, and choose the new export's full-score file.",
+  -- lines of the results window (hbuc.report); the last %s is NOT_IN_MUSICXML_NAME
+  musicxmlMissingFlow = "Flow %s has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are"
+    .. " listed as %s",
+  musicxmlMissingFlows = "Flows %s have noteheads changed in Dorico but no matching MusicXML file, so those noteheads"
+    .. " are listed as %s",
+  musicxmlUnmatched = "%d note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they"
+    .. " are listed as %s",
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.

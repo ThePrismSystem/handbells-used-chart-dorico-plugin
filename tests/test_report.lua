@@ -71,6 +71,11 @@ return {
       "Flow 1 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
         .. " Changed in Dorico (not in MusicXML)")
   end,
+  changed_notes_the_musicxml_file_lacks_are_counted = function(t)
+    t:eq(report.warningLines({ { type = "musicxml-unmatched", count = 2 } }),
+      "2 note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they are listed as"
+        .. " Changed in Dorico (not in MusicXML)")
+  end,
   nothing_charted_says_the_chart_was_left = function(t)
     local plan = { sections = {}, warnings = {}, emptyNames = {} }
     t:eq(report.summary(plan, false, {}, true), M.noBellsFound .. string.rep(string.char(10), 2) .. M.chartLeftAsItWas)

@@ -10,6 +10,7 @@ end
 -- One branch per warning type; a type this code does not know is dropped rather than taking the run down
 -- inside the code meant to explain a problem.
 function report.warningLines(warnings)
+  local M = constants.MESSAGES
   local lines = {}
   for _, w in ipairs(warnings) do
     local line = ""
@@ -31,11 +32,12 @@ function report.warningLines(warnings)
     elseif w.type == "musicxml-missing" then
       local flows = {}
       for i, n in ipairs(w.flows or {}) do flows[i] = tostring(n) end
-      local several = #flows > 1
       -- left out of the export, or its file no longer matches: either way it has no file of its own
-      line = (several and "Flows " or "Flow ") .. table.concat(flows, ", ") .. (several and " have" or " has")
-        .. " noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as "
-        .. constants.NOT_IN_MUSICXML_NAME
+      line = string.format(#flows > 1 and M.musicxmlMissingFlows or M.musicxmlMissingFlow, table.concat(flows, ", "),
+        constants.NOT_IN_MUSICXML_NAME)
+    elseif w.type == "musicxml-unmatched" then
+      -- the file paired, but a changed note Lua read has no note of its own in it
+      line = string.format(M.musicxmlUnmatched, w.count, constants.NOT_IN_MUSICXML_NAME)
     elseif w.type == "unwritable" then
       -- The SMB staff (a Glockenspiel) sounds two octaves up, past MIDI's top note for the highest bells.
       line = "Bells too high to draw on the SMB staff were skipped: " .. report.joinNames(w.names)

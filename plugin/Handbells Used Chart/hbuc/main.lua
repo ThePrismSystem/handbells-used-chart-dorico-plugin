@@ -1,7 +1,8 @@
 -- One run of the plug-in, start to finish. Every effect goes through ctx (hbuc.dorico.context): the Dorico app, the
--- dialog, the message window, the folders and the log, so tests can run it with a scripted dialog. Nothing in the
--- project changes before the user clicks OK and the project is saved, except the reading copy, which is taken away
--- again before the dialog opens.
+-- dialog, the MusicXML step's message and file picker, the message window, the folders and the log, so tests can
+-- run it with a scripted dialog. Nothing in the project changes before the user clicks OK (or Remove chart in the
+-- MusicXML step's message) and the project is saved, except the reading copy, which is taken away again before the
+-- dialog opens.
 local chartlayout = require("hbuc.chartlayout")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
@@ -91,15 +92,17 @@ function main.chart(ctx)
     return result(false, "error", string.format(M.readFailed, failure(scan), log.path))
   end
 
-  -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export, or the run stops here
-  local removeOnly, notExported = false, nil
+  -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export. Its message can also
+  -- remove the chart, without the dialog.
+  local req, resp
+  local extra = {}
   if #xmlnotes.flowsNeeding(scan.read) > 0 then
     local got = musicxmlstep.run(ctx, { chartExists = chart ~= nil, projectPath = projectPath })
     if got.status == "error" then return result(false, "error", got.text) end
     if got.status == "remove" then
-      removeOnly = true
+      resp = { remove = true }
     elseif got.status == "files" then
-      local read, missing, paired = xmlnotes.apply(scan.dumped, scan.read, got.files)
+      local read, missing, paired, unmatched = xmlnotes.apply(scan.dumped, scan.read, got.files)
       -- No flow in any chosen file: the wrong file, or an export older than the music. A flow some files skip
       -- (one Dorico's export left out) keeps its changed heads apart, and the report names it.
       if #paired == 0 then
@@ -108,8 +111,9 @@ function main.chart(ctx)
       if #missing > 0 then
         local numbers = {}
         for i, id in ipairs(missing) do numbers[i] = scan.flowNumbers[id] or 0 end
-        notExported = { type = "musicxml-missing", flows = numbers }
+        extra[#extra + 1] = { type = "musicxml-missing", flows = numbers }
       end
+      if unmatched > 0 then extra[#extra + 1] = { type = "musicxml-unmatched", count = unmatched } end
       scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
     else
       log:line("cancelled at the MusicXML step")
@@ -120,10 +124,7 @@ function main.chart(ctx)
   -- 4. the dialog, unless the MusicXML step's message already asked for the chart to be removed
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
-  local req, resp
-  if removeOnly then
-    resp = { remove = true }
-  else
+  if not resp then
     local names = {}
     for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
     -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
@@ -174,8 +175,6 @@ function main.chart(ctx)
   local records = transpose.atPitch(scan.records, resp.atPitch)
   local thePlan = plan.build(records, { heads = resp.heads, instruments = resp.instruments, mode = resp.mode })
   namedWarnings(thePlan.warnings)
-  local extra = {}
-  if notExported then extra[#extra + 1] = notExported end
   if (scan.merged or 0) > 0 then extra[#extra + 1] = { type = "merged-notes", count = scan.merged } end
   -- A run that charts nothing keeps an existing chart: removing it would need Dorico's delete dialog.
   if #thePlan.sections == 0 then
