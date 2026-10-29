@@ -21,20 +21,16 @@ local WRAPPABLE = {
   kTonalityDivisionEvent = true, kDynamicGroupEvent = true,
 }
 
-local function lists(e, property)
-  for _, name in ipairs(e.propertyTable:getPropertyNames()) do
-    if name == property then return true end
-  end
-  return false
-end
-
 -- A property's value, and whether the note has one Lua can't read. A colour or notehead set in Dorico (by command,
 -- the Properties panel or the Notations menu) reads back as "", like none at all, but the note still lists the
 -- property.
 local function valueOf(e, ctx, property)
   local value = tostring(e.propertyTable:get(property, ctx))
   if value ~= "" then return value, false end
-  return "", lists(e, property)
+  for _, name in ipairs(e.propertyTable:getPropertyNames()) do
+    if name == property then return "", true end
+  end
+  return "", false
 end
 
 -- The note and grace note events of a readable list, with notehead set and colour.
