@@ -6,7 +6,9 @@ local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plug
 for name in pairs(package.loaded) do
   if name:match("^hbuc") or package.searchpath(name, mine) then package.loaded[name] = nil end
 end
-if not package.path:find(mine, 1, true) then package.path = mine .. ";" .. package.path end
+-- first, whatever came before: the plug-in's entry file (test_run.py's RealDialog) leaves its install on the
+-- path, and an older install there would be loaded instead
+if package.path:sub(1, #mine + 1) ~= mine .. ";" then package.path = mine .. ";" .. package.path end
 local probe = require("probe")
 
 probe.run("case_remove", function(p)

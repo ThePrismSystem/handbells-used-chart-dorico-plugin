@@ -59,6 +59,28 @@ class ReadTests(unittest.TestCase):
             want["noteheadset.default|#ff0000"] = 1
             harness.run_more(self, client, "case_read.lua", {"expect": {"histogram": want}})
 
+    def test_a_colour_set_in_a_part_stays_in_the_part(self):
+        # With a part on screen, the Properties panel's local scope sets a colour for that layout only. A read from
+        # the part sees it, which shows it was set; a read from the full score, as a run makes, doesn't.
+        with harness.scratch(self, "case_layouts.lua") as (client, result):
+            facts = result["facts"]
+            score, part, full = facts["scratchScoreID"], facts["firstPartLayout"], facts["fullLayout"]
+
+            def show(layout):
+                view = client.status().get("activeViewContainerID")
+                client.command(f"Window.SwitchToLayout?OpenScoreID={score}&ScoreLayoutViewContainerID={view}"
+                               f"&LayoutID={layout}")
+                client.settle()
+
+            show(part)
+            harness.run_more(self, client, "case_colour.lua")
+            in_part = harness.run_more(self, client, "case_read.lua")["facts"]
+            self.assertEqual(in_part["layoutId"], part, "read with the part on screen")
+            self.assertEqual(in_part["histogram"].get("noteheadset.default|#ff0000"), 1, "the colour was set")
+            show(full)
+            in_full = harness.run_more(self, client, "case_read.lua", {"expect": {"histogram": FIXTURE_HISTOGRAM}})
+            self.assertEqual(in_full["facts"]["layoutId"], full)
+
     def test_smith_reads_every_note_and_leaves_no_trace(self):
         # The case checks that the music and its flows are as they were. Every dumped note is a record, unisons
         # between voices of one staff included.
