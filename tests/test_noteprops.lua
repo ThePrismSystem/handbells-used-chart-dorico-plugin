@@ -14,6 +14,22 @@ local function fixtureNotes()
   return noteprops.fromTree(dtn.decode(zip.entry(bytes, "score.dtn")))
 end
 
+-- A tree holding one note (event 7) coloured red with this context.
+local function colouredNote(layoutText, instanceText)
+  return dtn.decode(require("dtn_build").tree({ "kScore", nil, { { "NoteEventDefinition", nil, {
+    { "eventID", "7" },
+    { "propertyTable", nil, { { "entries", nil, { { "entry", nil, {
+      { "propertyType", "kEventColour" }, { "value", 'string: "#ffff0000"' },
+      { "context", nil, { { "layoutIDWithFrameChainID", layoutText }, { "blockInstanceID", instanceText } } },
+    } } } } } },
+  } } } }))
+end
+
+local function errorOf(fn)
+  local ok, err = pcall(fn)
+  return not ok and tostring(err) or nil
+end
+
 local function head(value, layout, instance)
   return { property = "kNoteheadSetOverride", value = value, layout = layout, instance = instance }
 end
@@ -33,6 +49,24 @@ return {
     t:eq(noteprops.colour(notes[191], 0, 1010), "", "an uncoloured note")
     t:eq(noteprops.head(notes[209], 0, 1010), "noteheadset.diamondNoteheads", "a red diamond, set from Lua")
     t:eq(noteprops.colour(notes[209], 0, 1010), "#c80000")
+  end,
+  a_context_as_dorico_writes_it = function(t)
+    local e = noteprops.fromTree(colouredNote("steamVariantList:list: {int: 3}, {int: -1}, {bool: false}", "1010"))[7][1]
+    t:eq(e.layout, 3)
+    t:eq(e.instance, 1010)
+    t:eq(e.value, "#ffff0000")
+  end,
+  -- Read as "every layout" or "any instance", a context in a form not seen before could put a part's value on the
+  -- full score: the read stops instead.
+  a_layout_that_cannot_be_read_fails = function(t)
+    local err = errorOf(function() return noteprops.fromTree(colouredNote("layout three", "1010")) end)
+    t:ok(err and err:find("noteprops: ", 1, true), tostring(err))
+  end,
+  an_instance_that_cannot_be_read_fails = function(t)
+    local err = errorOf(function()
+      return noteprops.fromTree(colouredNote("steamVariantList:list: {int: 3}, {int: -1}, {bool: false}", "x"))
+    end)
+    t:ok(err and err:find("noteprops: ", 1, true), tostring(err))
   end,
   only_the_two_properties_are_kept = function(t)
     for _, e in ipairs(fixtureNotes()[209]) do

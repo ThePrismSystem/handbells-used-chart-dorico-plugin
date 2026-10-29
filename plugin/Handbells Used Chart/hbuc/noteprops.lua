@@ -18,10 +18,20 @@ local function entryOf(tree, e)
   local layout, instance = -1, -1
   local context = dtn.child(tree, e, "context")
   if context then
+    -- Read as -1, a context in a form not seen before could put a part's value on the full score, so it stops the
+    -- read instead.
     local l, b = dtn.child(tree, context, "layoutIDWithFrameChainID"), dtn.child(tree, context, "blockInstanceID")
-    -- "steamVariantList:list: {int: 0}, {int: -1}, {bool: false}": the first int is the layout
-    if l then layout = tonumber(dtn.value(tree, l):match("{int: (%-?%d+)}")) or -1 end
-    if b then instance = tonumber(dtn.value(tree, b)) or -1 end
+    if l then
+      -- "steamVariantList:list: {int: 0}, {int: -1}, {bool: false}": the first int is the layout
+      local text = dtn.value(tree, l)
+      layout = tonumber(text:match("^steamVariantList:list: {int: (%-?%d+)}"))
+      if not layout then error("noteprops: a layout the plug-in can't read: " .. text, 0) end
+    end
+    if b then
+      local text = dtn.value(tree, b)
+      instance = tonumber(text)
+      if not instance then error("noteprops: a block instance the plug-in can't read: " .. text, 0) end
+    end
   end
   return { property = property, value = raw:match('^string: "(.*)"$') or raw, layout = layout, instance = instance }
 end
