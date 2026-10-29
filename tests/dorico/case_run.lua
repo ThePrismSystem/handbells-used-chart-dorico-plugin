@@ -4,6 +4,7 @@
 --   args.expect: "drawn", "replaced", "sameHead", "noChart", "notFull", "saveFailed" or "cancelled"
 --   args.startMode: a Dorico mode to be in first (kEngraveMode...); args.startLayout: a layout to show first
 --   args.blockSave: File.Save does nothing
+--   args.choose: the button id to answer any question before the dialog with (by default, its cancel)
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -43,6 +44,7 @@ probe.run("case_run", function(p)
         mode = req.modes[1], heads = heads, shapes = shapes, colours = colours, remove = answer == "remove",
         atPitch = atPitch }
     end,
+    choose = p.args.choose and function() return p.args.choose end,
   })
   -- where the user left Dorico: another mode, or a part on screen
   if p.args.startMode then

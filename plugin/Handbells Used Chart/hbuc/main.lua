@@ -3,6 +3,7 @@
 -- dialog. Nothing in the project changes before the user clicks OK and the project is saved. The read only saves a
 -- copy into the temp folder.
 local chartlayout = require("hbuc.chartlayout")
+local combine = require("hbuc.combine")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
 local guards = require("hbuc.guards")
@@ -82,6 +83,14 @@ function main.chart(ctx)
   local okRead, scan = safe.call(log, "read", readscore.scan, app,
     { log = log, skipFlowId = chart and chart.flowId, skipKeys = skipKeys, layoutId = fullId, tempDir = temp })
   if not okRead then return result(false, "error", string.format(M.readFailed, failure(scan), log.path)) end
+
+  -- 3b. a rare notehead set beside a common one of the same shape: the user says whether they chart together
+  for _, group in ipairs(combine.groups(scan.records)) do
+    local answer = ctx.choose(combine.question(group))
+    log:line("combine", group.shape, tostring(answer))
+    if not answer then return result(false, "error", constants.DIALOG.dialogFailed) end
+    if answer == "combine" then combine.apply(scan.records, group) end
+  end
 
   -- 4. the dialog
   local settingsPath = ctx.folders.data .. "settings.json"

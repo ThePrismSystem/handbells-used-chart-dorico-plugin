@@ -67,6 +67,27 @@ local function scan()
   return { players = { { key = "k1", name = "A" }, { key = "k2", name = "B" } }, records = records }
 end
 
+-- A's notes with these heads, as {id, count} pairs
+local function headsScan(...)
+  local s = scan()
+  s.records = {}
+  for _, pair in ipairs({ ... }) do
+    for _ = 1, pair[2] do
+      s.records[#s.records + 1] = { pitch = 72, diatonic = 35, head = pair[1], colour = "", instrument = "A",
+        grace = false }
+    end
+  end
+  return s
+end
+
+local function offered(req)
+  local out = {}
+  for _, h in ipairs(req.noteheads) do out[h.id] = true end
+  return out
+end
+
+local DIAMOND, OLD = "noteheadset.diamondNoteheads", "noteheadset.oldDiamondNoteheads"
+
 -- B, which has no notes, is the only instrument chosen: the run stops at its report without drawing.
 local function chooseB(req)
   return { version = req.version, runId = req.runId, cancelled = false, instruments = { "B" }, mode = req.modes[1],
@@ -102,5 +123,28 @@ return {
     t:eq(opts.tempDir, "t/")
     t:ok(req, "then the dialog")
     t:eq(out.kind, "warning", "B has nothing to chart")
+  end,
+  a_rare_set_can_join_the_common_one_before_the_dialog = function(t)
+    local _, _, _, req, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }), respond = chooseB,
+      choose = function() return "combine" end })
+    t:eq(#choices, 1, "one question")
+    t:ok(choices[1].text:find("Old-Style Diamond Noteheads: 1 note", 1, true), choices[1].text)
+    t:ok(offered(req)[DIAMOND], "the diamond is offered")
+    t:ok(not offered(req)[OLD], "and the old-style one went in with it")
+  end,
+  keep_separate_offers_both = function(t)
+    local _, _, _, req = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }), respond = chooseB })
+    t:ok(offered(req)[DIAMOND] and offered(req)[OLD], "both offered")
+  end,
+  a_question_that_cannot_be_shown_says_so = function(t)
+    local out, _, _, req = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }),
+      choose = function() return nil end })
+    t:eq(out.kind, "error")
+    t:eq(out.text, require("hbuc.constants").DIALOG.dialogFailed)
+    t:eq(req, nil, "no dialog")
+  end,
+  common_sets_ask_nothing = function(t)
+    local _, _, _, _, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 5 }), respond = chooseB })
+    t:eq(#choices, 0)
   end,
 }

@@ -73,6 +73,11 @@ constants.MESSAGES = {
   chartRemovedOptionsLeft = "The existing chart was removed, but the full score's layout options could not be put"
     .. " back as they were: check its flow headings, whether flows start on a new page, hidden staves and staff labels"
     .. " in Layout Options.",
+  -- the question about notehead sets of one shape when one is rare (hbuc.combine): the first %s is the shape in
+  -- lower case, the second one line per set, the third the set they would all take
+  combineNoteheads = "The music uses more than one %s notehead:\n\n%s\n\nCombine them all as %s, or keep them separate?",
+  combineOneNote = "%s: 1 note",
+  combineNotes = "%s: %d notes",
   -- the MusicXML step, for scores whose noteheads were changed in Dorico
   musicxmlNeeded = "Some noteheads in this score were changed in Dorico, and a plug-in can't read which notehead each"
     .. " one is. To tell handbells, handchimes and the other kinds apart, the plug-in reads them from a MusicXML export"
@@ -143,6 +148,7 @@ constants.DIALOG = {
   useAnyway = "Use it anyway",
   back = "Back",
   includeWith = "Include with %s",
+  combine = "Combine",
   keepSeparate = "Keep separate",
   pickTitle = "Choose the MusicXML export (with several flows, select every file)",
   pickFilter = "MusicXML",
