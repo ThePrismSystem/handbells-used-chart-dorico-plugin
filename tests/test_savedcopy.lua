@@ -67,6 +67,21 @@ return {
     local err = errorOf(function() return savedcopy.read(app(nil, true), log, tempDir()) end)
     t:ok(err and err:find("could not be read", 1, true), tostring(err))
   end,
+  -- The copy is the whole project, so one left behind goes in the log, and the read still goes on.
+  a_copy_that_cannot_be_deleted_is_logged = function(t)
+    local dir, lines = tempDir(), {}
+    local stuck = setmetatable({ remove = function() return false, "in use" end }, { __index = files })
+    package.loaded["hbuc.dorico.files"], package.loaded["hbuc.dorico.savedcopy"] = stuck, nil
+    local ok, notes = pcall(function()
+      return require("hbuc.dorico.savedcopy").read(app(fixture(), true),
+        { line = function(_, ...) lines[#lines + 1] = table.concat({ ... }, " ") end }, dir)
+    end)
+    package.loaded["hbuc.dorico.files"], package.loaded["hbuc.dorico.savedcopy"] = files, savedcopy
+    files.remove(dir .. "reading.dorico")
+    t:ok(ok and notes[209], "the read goes on: " .. tostring(notes))
+    local said = table.concat(lines, "\n")
+    t:ok(said:find("the saved copy could not be deleted: in use", 1, true), said)
+  end,
   a_copy_that_is_not_a_project = function(t)
     local dir = tempDir()
     local err = errorOf(function() return savedcopy.read(app("not a zip", true), log, dir) end)

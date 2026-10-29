@@ -25,9 +25,14 @@ function files.write(path, text)
   f:close()
 end
 
--- A missing file is no error: callers remove what may or may not be there.
+local ENOENT = 2
+
+-- true when path is gone. A missing file counts, since callers remove what may or may not be there; otherwise false
+-- and why.
 function files.remove(path)
-  os.remove(path)
+  local removed, why, code = os.remove(path)
+  if removed or code == ENOENT then return true end
+  return false, why
 end
 
 -- Makes every missing folder along path (forward slashes, as guards.folders gives them).

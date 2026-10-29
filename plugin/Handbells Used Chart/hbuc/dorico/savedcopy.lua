@@ -23,12 +23,18 @@ local function readCopy(app, log, path)
   return notes
 end
 
+-- The copy is the whole project, so one left behind goes in the log. The next run removes it first.
+local function remove(log, path)
+  local removed, why = files.remove(path)
+  if not removed then log:line("the saved copy could not be deleted: " .. tostring(why)) end
+end
+
 -- {[eventId] = entries} (hbuc.noteprops.fromTree) for every note and grace note in the project.
 function savedcopy.read(app, log, tempDir)
   local path = tempDir .. "reading.dorico"
-  files.remove(path)
+  remove(log, path)
   local ok, notes = pcall(readCopy, app, log, path)
-  files.remove(path)
+  remove(log, path)
   if not ok then error(notes, 0) end
   return notes
 end
