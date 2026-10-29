@@ -31,7 +31,7 @@ ALLOWED = {
     },
     "Handbells Used Chart/hbuc/dorico/dialog.lua": {
         "os.execute": 2,  # starts the dialog script (PowerShell or osascript), and /bin/sleep 1 while a Mac waits
-        "os.remove": 2,  # the last run's osascript.log and response file
+        "os.remove": 3,  # the last run's osascript.log and response file, for the dialog and for the message or picker
     },
     "Handbells Used Chart/hbuc/dorico/doc.lua": {
         "os.remove": 1,  # the last text export, before File.Export.Text writes a new one

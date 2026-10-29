@@ -69,6 +69,52 @@ function dialog.ask(ctx, req)
   return raw
 end
 
+-- One exchange in a mode of the script's other than the settings dialog: payload goes to <temp>/<mode>.json, the
+-- script runs with -<Mode> (Windows) or --<mode> (Mac), and its decoded answer comes back, or nil.
+local function exchange(ctx, mode, payload)
+  local path = ctx.folders.temp .. mode .. ".json"
+  local responsePath = ctx.folders.temp .. "response.json"
+  files.write(path, json.encode(payload))
+  os.remove(responsePath)
+  local ok, elapsed = run(ctx, "-" .. mode:sub(1, 1):upper() .. mode:sub(2) .. " " .. shell.quoteWindows(path)
+    .. " -Response " .. shell.quoteWindows(responsePath),
+    "--" .. mode .. " " .. shell.quoteSh(path) .. " " .. shell.quoteSh(responsePath))
+  local text = files.read(responsePath)
+  if not ctx.isWindows and ok and shell.shouldWait(elapsed, text ~= nil) then text = waitForAnswer(ctx, responsePath) end
+  if not text then
+    ctx.log:line("no answer")
+    return nil
+  end
+  local decoded, raw = pcall(json.decode, text)
+  if not decoded or type(raw) ~= "table" then
+    ctx.log:line("unreadable answer", tostring(raw))
+    return nil
+  end
+  return raw
+end
+
+-- A message with several buttons. choice: {title, text, buttons = {{id, label}}, cancel = id}. Returns the pressed
+-- button's id, or nil when there was no answer.
+function dialog.choose(ctx, choice)
+  local raw = exchange(ctx, "choice", choice)
+  local id = raw and raw.choice
+  return type(id) == "string" and id or nil
+end
+
+-- A file picker. pick: {title, folder, file (preselected, on Windows), filter = {name, extensions}}. Returns the
+-- chosen paths, none for a cancel.
+function dialog.pick(ctx, pick)
+  local raw = exchange(ctx, "pick", pick)
+  local list, out = raw and raw.files, {}
+  if type(list) == "string" then list = { list } end
+  if type(list) == "table" then
+    for _, p in ipairs(list) do
+      if type(p) == "string" then out[#out + 1] = p end
+    end
+  end
+  return out
+end
+
 -- kind: "info", "warning" or "error".
 function dialog.show(ctx, kind, text)
   ctx.log:line("message", kind, text)
