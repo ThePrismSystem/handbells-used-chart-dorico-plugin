@@ -61,18 +61,25 @@ local function afterExport(ctx, projectDir)
   return { folder = folder, files = names }
 end
 
--- The parsed files, or "back" (to the message), or an error outcome.
-local function readChosen(ctx, paths, projectPath, exported)
+-- A message or picker that couldn't be shown: the run says so rather than ending as if cancelled.
+local function failed()
+  return { status = "error", text = D.dialogFailed }
+end
+
+-- The parsed files, or "back" (to the message), or an error outcome. shown: the paths as the picker showed them,
+-- for messages.
+local function readChosen(ctx, paths, shown, projectPath, exported)
   local parsed = {}
-  for _, path in ipairs(paths) do
+  for i, path in ipairs(paths) do
+    local name = nameOf(shown[i] or path)
     local text = files.read(path)
-    if not text then return { status = "error", text = string.format(M.musicxmlCannotOpen, nameOf(path)) } end
+    if not text then return { status = "error", text = string.format(M.musicxmlCannotOpen, name) } end
     local result, why = musicxml.parse(text)
     if why == "compressed" or path:lower():match("%.mxl$") then
       ctx.show("warning", M.musicxmlCompressed)
       return "back"
     end
-    if not result then return { status = "error", text = string.format(M.musicxmlUnreadable, nameOf(path)) } end
+    if not result then return { status = "error", text = string.format(M.musicxmlUnreadable, name) } end
     parsed[#parsed + 1] = result
   end
   -- An export made before noteheads were changed still matches the notes, so a chosen file older than the last
@@ -84,6 +91,7 @@ local function readChosen(ctx, paths, projectPath, exported)
       if made and made < saved then
         local go = ctx.choose({ title = D.resultsTitle, text = M.musicxmlOlder,
           buttons = { { id = "use", label = D.useAnyway }, { id = "back", label = D.back } }, cancel = "back" })
+        if not go then return failed() end
         if go ~= "use" then return "back" end
         break
       end
@@ -98,6 +106,7 @@ function musicxmlstep.run(ctx, args)
   local projectDir = folderOf(args.projectPath)
   while true do
     local answer = message(ctx, args.chartExists)
+    if not answer then return failed() end
     if answer == "remove" then return { status = "remove" } end
     if answer ~= "export" and answer ~= "choose" then return { status = "cancel" } end
     local start
@@ -108,10 +117,11 @@ function musicxmlstep.run(ctx, args)
       start = { folder = latest and folderOf(latest.path) or projectDir }
     end
     if start then
-      local paths = ctx.pick({ title = D.pickTitle, folder = start.folder, files = start.files,
+      local paths, shown = ctx.pick({ title = D.pickTitle, folder = start.folder, files = start.files,
         filter = { name = D.pickFilter, extensions = { "musicxml", "xml" } } })
+      if not paths then return failed() end
       if #paths == 0 then return { status = "cancel" } end
-      local outcome = readChosen(ctx, paths, args.projectPath, answer == "export")
+      local outcome = readChosen(ctx, paths, shown or {}, args.projectPath, answer == "export")
       if outcome ~= "back" then return outcome end
     end
   end

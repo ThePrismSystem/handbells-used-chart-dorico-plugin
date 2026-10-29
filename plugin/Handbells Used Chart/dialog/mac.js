@@ -1,5 +1,6 @@
-// Handbells Used Chart: the settings dialog and the results window on a Mac, in JavaScript for Automation with the
-// AppKit bridge. Nothing to install or compile, so it runs the same on Apple silicon and Intel Macs.
+// Handbells Used Chart: the settings dialog, the results window, and the MusicXML step's message and file picker on
+// a Mac, in JavaScript for Automation with the AppKit bridge. Nothing to install or compile, so it runs the same on
+// Apple silicon and Intel Macs.
 // Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits until it closes.
 //
 //   osascript -l JavaScript mac.js <request.json> <response.json>   the settings dialog
@@ -9,6 +10,8 @@
 //
 // The request is what hbuc/request.lua builds, and the response has dialog/windows.ps1's shape (see its header),
 // written as UTF-8. An answer is always written: if the dialog cannot be shown, a cancel carrying the error.
+// The picker uses only the pick's title and folder: it preselects nothing, lists every file, and answers the paths
+// with no "filesBytes", since a Mac's Lua opens a path as it is.
 //
 // The parts above run() touch no AppKit, so tests/dialog/test_mac_script.py runs them under Node. AppKit constants
 // are written as numbers, since the bridge may not know newer names; each is named where it is used.
@@ -110,7 +113,6 @@ function cancelResponse(model, error) {
   return response;
 }
 
-// Picking a notehead puts the colour most of its notes carry into that instrument's colour field.
 // A choice alert's answer: NSAlertFirstButtonReturn (1000) is the first button, and so on. Anything else is the
 // cancel button, as closing the Windows window is.
 function choiceResponse(choice, code) {
@@ -122,6 +124,7 @@ function pickResponse(paths) {
   return { files: toList(paths).map(String) };
 }
 
+// Picking a notehead puts the colour most of its notes carry into that instrument's colour field.
 function colourFor(model, headIndex) {
   return text(field(model.colours, model.headIds[headIndex]));
 }

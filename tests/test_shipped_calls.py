@@ -31,7 +31,8 @@ ALLOWED = {
     },
     "Handbells Used Chart/hbuc/dorico/dialog.lua": {
         "os.execute": 2,  # starts the dialog script (PowerShell or osascript), and /bin/sleep 1 while a Mac waits
-        "os.remove": 3,  # the last run's osascript.log and response file, for the dialog and for the message or picker
+        "os.remove": 2,  # the last run's osascript.log, and the response file before the settings dialog, the
+        # MusicXML message or the picker
     },
     "Handbells Used Chart/hbuc/dorico/doc.lua": {
         "os.remove": 1,  # the last text export, before File.Export.Text writes a new one
@@ -41,7 +42,7 @@ ALLOWED = {
         "command File.Export": 1,  # opens Dorico's MusicXML export, which writes where its dialog says
     },
     "Handbells Used Chart/hbuc/dorico/files.lua": {
-        "io.open": 2,  # reads and writes the plug-in's own files
+        "io.open": 2,  # reads and writes the plug-in's own files, and reads the MusicXML files chosen in the picker
         "os.execute": 1,  # /bin/mkdir -p for the plug-in's folders on a Mac
         "require lfs": 1,  # LuaFileSystem, which ships with Dorico on Windows
         "lfs.attributes": 5,  # whether a folder exists, when the project file and a MusicXML export last changed

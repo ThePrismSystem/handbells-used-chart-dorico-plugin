@@ -296,6 +296,32 @@ class DialogTests(unittest.TestCase):
         self.assertEqual([Path(p) for p in answer["files"]], [folder / name])
         self.assertEqual([bytes.fromhex(h) for h in answer["filesBytes"]], [str(folder / name).encode("mbcs")])
 
+    def test_pick_takes_utf8_paths_too(self):
+        # the project's folder comes from Dorico's text export in UTF-8, unlike the names lfs lists
+        folder = self.tmp / "Flows from Noël"
+        folder.mkdir()
+        name = "Noël - Full score - 01 Noël.musicxml"
+        (folder / name).write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        lua_folder = str(folder).replace("\\", "/") + "/"
+        proc = self.open_mode("Pick", {"title": title, "folder": "", "folderBytes": lua_folder.encode("utf-8").hex(),
+                                       "files": [], "filesBytes": [name.encode("utf-8").hex()],
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml"]}}, title)
+        self.assertTrue(click(title, "Open"))
+        self.assertEqual([Path(p) for p in self.response_json(proc)["files"]], [folder / name])
+
+    def test_choice_and_pick_answer_when_they_fail(self):
+        # a file that isn't JSON stops the script before any window opens: it still answers, with the reason
+        for flag, answer in (("Choice", {"choice": None}), ("Pick", {"files": [], "filesBytes": []})):
+            spec = self.tmp / f"{flag.lower()}.json"
+            spec.write_text("not json", encoding="utf-8")
+            self.response.unlink(missing_ok=True)
+            proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                                     "-File", str(PS1), f"-{flag}", str(spec), "-Response", str(self.response)])
+            got = self.response_json(proc)
+            self.assertTrue(got.pop("error", ""), flag)
+            self.assertEqual(got, answer, flag)
+
     def test_pick_cancel_returns_no_files(self):
         _, answer = self.pick("Cancel")
         self.assertEqual(answer, {"files": [], "filesBytes": []})

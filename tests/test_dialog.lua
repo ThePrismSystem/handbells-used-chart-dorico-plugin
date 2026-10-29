@@ -52,6 +52,16 @@ local CHOICE = { title = "T", text = "Some text", buttons = { { id = "export", l
   { id = "cancel", label = "Cancel" } }, cancel = "cancel" }
 
 return {
+  ask_file_and_command = function(t)
+    local req = { version = "1", runId = "r" }
+    local got, written, ran = exchange(true, function(d, ctx) return d.ask(ctx, req) end,
+      '{"cancelled":true,"error":"no window"}')
+    t:eq(got.error, "no window", "the settings dialog's answer comes back as it is, failure or not")
+    t:eq(json.decode(written["t/request.json"]).runId, "r")
+    t:ok(ran:find('-Request "t\\request.json" -Response "t\\response.json"', 1, true), ran)
+    local _, _, mac = exchange(false, function(d, ctx) return d.ask(ctx, req) end, '{"cancelled":true}')
+    t:ok(mac:find("'t/request.json' 't/response.json'", 1, true), mac)
+  end,
   choice_file_and_command = function(t)
     local got, written, ran = exchange(true, function(d, ctx) return d.choose(ctx, CHOICE) end, '{"choice":"export"}')
     t:eq(got, "export")
@@ -86,22 +96,34 @@ return {
     t:eq(sent.folderBytes, "433a2f466c6f77732066726f6d204e6feb6c2f")
     t:eq(sent.filesBytes[1], "4e6feb6c2e6d75736963786d6c")
     t:eq(got[1], "C:/Flows from No\235l/No\235l.musicxml", "the code page bytes, which io.open takes")
+    local both = exchange(true, function(d, ctx) return { d.pick(ctx, { title = "Pick" }) } end,
+      json.encode({ files = { "C:/No\195\171l.musicxml" }, filesBytes = { "433a2f4e6feb6c2e6d75736963786d6c" } }))
+    t:eq(both[1][1], "C:/No\235l.musicxml")
+    t:eq(both[2][1], "C:/No\195\171l.musicxml", "and each path in UTF-8, for messages")
   end,
-  a_script_error_is_logged = function(t)
-    -- mac.js answers Cancel or no files when its window fails, with the error alongside
+  a_cancelled_pick_is_no_files = function(t)
+    local got = exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end,
+      '{"files":[],"filesBytes":[]}')
+    t:eq(type(got), "table")
+    t:eq(#got, 0)
+  end,
+  a_script_error_is_a_failure_and_logged = function(t)
+    -- the scripts answer Cancel or no files when their window fails, with the error alongside
     local logged = {}
     t:eq(exchange(false, function(d, ctx) return d.choose(ctx, CHOICE) end, '{"choice":"cancel","error":"no AppKit"}',
-      logged), "cancel")
+      logged), nil)
     local found = false
     for _, line in ipairs(logged) do
       if line:find("no AppKit", 1, true) then found = true end
     end
     t:ok(found, "run.log has the script's error: " .. table.concat(logged, " | "))
+    t:eq(exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end,
+      '{"files":[],"filesBytes":[],"error":"boom"}'), nil)
   end,
-  no_answer_is_a_cancel = function(t)
+  no_answer_is_a_failure = function(t)
     t:eq(exchange(true, function(d, ctx) return d.choose(ctx, CHOICE) end, nil), nil)
-    t:eq(#exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end, nil), 0)
-    t:eq(#exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end, "not json"), 0)
+    t:eq(exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end, nil), nil)
+    t:eq(exchange(true, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end, "not json"), nil)
   end,
   message_carries_the_ok_label = function(t)
     local msg, ran = showWith(true)

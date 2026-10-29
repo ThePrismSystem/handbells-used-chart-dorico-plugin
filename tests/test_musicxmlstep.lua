@@ -6,8 +6,9 @@ local SCORE = '<score-partwise><part-list><score-part id="P1"><part-name>A</part
   .. '<part id="P1"><measure><note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note>'
   .. "</measure></part></score-partwise>"
 
--- o: {answers = {...} (the message's answers, in order), picks = {{paths}...}, texts = {[path] = text},
--- exports = {before, after} (listings, nil for no lfs), modified = {[path] = time}}.
+-- o: {answers = {...} (the message's answers, in order; none left is a window that failed), picks = {{paths...,
+-- shown = {...}} or false for a picker that failed}, texts = {[path] = text}, exports = {before, after} (listings, nil
+-- for no lfs), modified = {[path] = time}}.
 -- Returns the outcome and what was asked: choices, picks, commands, shown.
 local function step(o)
   local asked = { choices = {}, picks = {}, commands = {}, shown = {} }
@@ -37,7 +38,9 @@ local function step(o)
     end,
     pick = function(pick)
       asked.picks[#asked.picks + 1] = pick
-      return picks[#asked.picks] or {}
+      local paths = picks[#asked.picks]
+      if paths == false then return nil end
+      return paths or {}, paths and paths.shown
     end,
     show = function(kind, text) asked.shown[#asked.shown + 1] = { kind = kind, text = text } end,
   }
@@ -61,13 +64,29 @@ local PART = { path = "C:/p/Flows from Bells/Bells - Handbells - 01 Bells.musicx
 local OLD_ELSEWHERE = { path = "C:/p/Flows from Old/Old - Full score - 01 Old.musicxml", modified = 50, size = 5000 }
 
 return {
-  cancel_and_no_answer_end_the_step = function(t)
+  cancel_ends_the_step = function(t)
     local out, asked = step({ answers = { "cancel" } })
     t:eq(out.status, "cancel")
     t:eq(#asked.picks, 0)
-    t:eq(step({ answers = {} }).status, "cancel", "no answer at all")
     t:eq(asked.choices[1].text, constants.MESSAGES.musicxmlNeeded)
     t:eq(asked.choices[1].cancel, "cancel")
+  end,
+  a_window_that_fails_says_so = function(t)
+    local function failed(o, what)
+      local out = step(o)
+      t:eq(out.status, "error", what)
+      t:eq(out.text, constants.DIALOG.dialogFailed, what)
+    end
+    failed({ answers = {} }, "the message")
+    failed({ answers = { "choose" }, exports = { {} }, picks = { false } }, "the picker")
+    failed({ answers = { "choose" }, exports = { { OLD } }, picks = { { OLD.path } }, texts = { [OLD.path] = SCORE },
+      modified = { [OLD.path] = 100, ["C:/p/Bells.dorico"] = 150 } }, "the question about an older file")
+  end,
+  messages_name_a_file_as_the_picker_showed_it = function(t)
+    -- on Windows the path Lua opens is in the code page, and the one the picker showed is in UTF-8
+    local out = step({ answers = { "choose" }, exports = { {} },
+      picks = { { "C:/p/No\235l.musicxml", shown = { "C:/p/No\195\171l.musicxml" } } } })
+    t:eq(out.text, string.format(constants.MESSAGES.musicxmlCannotOpen, "No\195\171l.musicxml"))
   end,
   remove_is_offered_only_with_a_chart = function(t)
     local _, asked = step({ answers = { "cancel" } })
