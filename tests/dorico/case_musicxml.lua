@@ -5,6 +5,8 @@
 --   args.pick: "preselected" (the files the picker selects) or "organ" (the Organ part's file from the export, a
 --     player whose heads weren't changed); else none
 --   args.expect: "drawn", "asksNothing", "mismatch" or "removed"
+--   args.asked: for "drawn", how many questions come (default 1: the message; 2 with the one about notes MusicXML
+--     couldn't name)
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -69,8 +71,14 @@ probe.run("case_musicxml", function(p)
 
   local expect = p.args.expect
   if expect == "drawn" then
-    p:check("asked once", #p.facts.choices == 1, #p.facts.choices)
+    local questions = p.args.asked or 1
+    p:check("asked " .. questions, #p.facts.choices == questions, #p.facts.choices)
+    if questions > 1 then
+      local question = p.facts.choices[2].text
+      p:check("names the note by its bar", question:find(" in bar ", 1, true) ~= nil, question)
+    end
     p:check("the dropdown lists the diamond", heads["noteheadset.diamondNoteheads"] == true)
+    p:check("and nothing apart from it", heads["noteheadset.notInMusicXML"] == nil)
     p:check("a chart is there", found.status == "ok", found.status)
     p:check("reports the handchimes", text:find("Handchimes Used: 6", 1, true) ~= nil, text)
   elseif expect == "asksNothing" then

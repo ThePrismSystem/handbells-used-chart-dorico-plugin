@@ -91,6 +91,18 @@ constants.MESSAGES = {
     .. " Use it anyway?",
   musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Run the plug-in"
     .. " again, click Export MusicXML, and choose the new export's full-score file.",
+  -- the question about a few such notes (xmlnotes.groupQuestion): a note is "C#4 in bar 32", with "(Piano 1)" after
+  -- it when two players have them, and the last %s is NOT_IN_MUSICXML_NAME
+  musicxmlUnnamedNote = "One note's notehead was changed in Dorico to a set MusicXML doesn't record, so the plug-in"
+    .. " can't tell which it is: %s.",
+  musicxmlUnnamedNotes = "%d notes' noteheads were changed in Dorico to sets MusicXML doesn't record, so the plug-in"
+    .. " can't tell which they are: %s.",
+  musicxmlGroupWithOne = "Include it with %s, or keep it separate as %s?",
+  musicxmlGroupWithMany = "Include them with %s, or keep them separate as %s?",
+  musicxmlGroupChooseOne = "Include it with one of the noteheads the score uses, or keep it separate as %s?",
+  musicxmlGroupChooseMany = "Include them with one of the noteheads the score uses, or keep them separate as %s?",
+  musicxmlNoteInBar = "%s in bar %s",
+  musicxmlNoteOfPlayer = "%s (%s)",
   -- lines of the results window (hbuc.report); the last %s is NOT_IN_MUSICXML_NAME
   musicxmlMissingFlow = "Flow %s has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are"
     .. " listed as %s",
@@ -132,6 +144,8 @@ constants.DIALOG = {
   removeChart = "Remove chart",
   useAnyway = "Use it anyway",
   back = "Back",
+  includeWith = "Include with %s",
+  keepSeparate = "Keep separate",
   pickTitle = "Choose the MusicXML export (with several flows, select every file)",
   pickFilter = "MusicXML",
 }

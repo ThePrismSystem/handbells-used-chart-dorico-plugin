@@ -185,6 +185,12 @@ Diamond handchimes in the same score share that entry. To keep them apart, give 
 such as Diamond or White Diamond for handchimes. The sets in the other two rows are listed as X Noteheads and Slash
 Noteheads. Every other built-in set comes through as itself. The table is from Dorico 6.2.30.
 
+When four notes or fewer end up as "Changed in Dorico (not in MusicXML)" and the score uses other noteheads, a message
+asks about them before the dialog opens. It names each note by its pitch as written and its bar, such as "C#4 in bar
+32", and adds the player when two players have such notes. You can include them with one of the score's other
+noteheads, which the message offers by name, or keep them separate. A note with no note of its own in the export is
+named by its sounding pitch alone. With five or more such notes, nothing is asked and they stay separate.
+
 ### Colours
 
 The colour fields take a six-digit hex value, with or without the `#` (`c80000`, `#C80000`). A blank field charts in

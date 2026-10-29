@@ -42,6 +42,13 @@ class MusicXMLTests(unittest.TestCase):
         with harness.scratch(self, "case_heads.lua", args=CHIMES) as (client, _):
             self.exporting(client, {"choose": ["export"], "pick": "preselected", "expect": "drawn"})
 
+    def test_a_note_musicxml_cannot_name_joins_a_notehead_found(self):
+        # Wide Diamond exports no <notehead>: the one chime set to it is asked about, and joins the other five
+        args = {**CHIMES, "first": {"count": 1, "to": "noteheadset.wideDiamondNoteheads"}}
+        with harness.scratch(self, "case_heads.lua", args=args) as (client, _):
+            self.exporting(client, {"choose": ["export", "noteheadset.diamondNoteheads"], "pick": "preselected",
+                                    "expect": "drawn", "asked": 2})
+
     def test_another_players_part_is_refused(self):
         # the chimes are Handbells (A)'s: the Organ's part holds none of its notes
         with harness.scratch(self, "case_heads.lua", args=CHIMES) as (client, _):

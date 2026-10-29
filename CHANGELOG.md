@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export dialog, and reads those noteheads from it, along with any colours set the same way. It uses a file only
   where its notes match the score's, player by player, and changes nothing when no file matches. Some notehead sets
   don't survive MusicXML; the README lists which.
+- When up to four notes have noteheads changed in Dorico to a set MusicXML doesn't record, the plug-in names each one
+  by pitch and bar and asks whether to include them with one of the score's other noteheads or keep them separate.
 
 ## [0.1.0] - 2026-10-26
 

@@ -3,9 +3,17 @@
 -- changed score, another player's part or another piece is never used. Parts pair with players by their notes.
 -- Dorico names each part after its player, but two players can share a name.
 local bellname = require("hbuc.bellname")
+local constants = require("hbuc.constants")
 local shapes = require("hbuc.shapes")
 
 local xmlnotes = {}
+
+local M, D = constants.MESSAGES, constants.DIALOG
+
+-- At most this many notes that MusicXML couldn't name are asked about: a few are likely a stray choice of set,
+-- and more the arranger's own.
+local MOST_TO_ASK = 4
+local KEEP_SEPARATE = "separate"
 
 -- Positions to a thousandth of a quarter: the dumps and the file reach a triplet's 1/3 by different sums.
 local function key(pos, pitch, diatonic, grace)
@@ -156,6 +164,7 @@ function xmlnotes.apply(dumped, read, files)
           -- one the file has no note for still mustn't read as a plain head
           n.head = x and shapes.fromMusicXML(x.head, x.filled) or shapes.NOT_IN_MUSICXML
           n.headUnreadable = false
+          if x then n.bar, n.written = x.bar, x.written end
           if pairing and not x then unmatched = unmatched + 1 end
         end
         if x and n.colourUnreadable and x.colour ~= "" then
@@ -166,6 +175,68 @@ function xmlnotes.apply(dumped, read, files)
     end
   end
   return newRead, missing, paired, unmatched
+end
+
+-- The notes apply named as not in MusicXML, in the music's order: flow by flow, then by position.
+local function unnamedNotes(read)
+  local out, flowRank, at = {}, {}, {}
+  for i, n in ipairs(read) do
+    flowRank[n.flowId] = flowRank[n.flowId] or i
+    if n.head == shapes.NOT_IN_MUSICXML then
+      out[#out + 1] = n
+      at[n] = i
+    end
+  end
+  table.sort(out, function(a, b)
+    if flowRank[a.flowId] ~= flowRank[b.flowId] then return flowRank[a.flowId] < flowRank[b.flowId] end
+    if (a.pos or 0) ~= (b.pos or 0) then return (a.pos or 0) < (b.pos or 0) end
+    return at[a] < at[b]
+  end)
+  return out
+end
+
+-- The question about a few notes whose noteheads were changed in Dorico to a set MusicXML doesn't record: whether
+-- they belong with one of heads, the noteheads the score uses (request.choices). Each note is named by its written
+-- pitch and bar, from the file (just the pitch Lua has when the file had no note for it), and by its player when
+-- there are two. Nil when there are none, more than MOST_TO_ASK, or no other notehead to offer.
+function xmlnotes.groupQuestion(read, heads)
+  local notes, offer = unnamedNotes(read), {}
+  for _, id in ipairs(heads) do
+    if id ~= shapes.NOT_IN_MUSICXML then offer[#offer + 1] = id end
+  end
+  if #notes == 0 or #notes > MOST_TO_ASK or #offer == 0 then return nil end
+  local players, playerCount = {}, 0
+  for _, n in ipairs(notes) do
+    if not players[n.instrument] then players[n.instrument], playerCount = true, playerCount + 1 end
+  end
+  local names = {}
+  for i, n in ipairs(notes) do
+    local name = n.written or n.spelling
+    if n.bar then name = string.format(M.musicxmlNoteInBar, name, n.bar) end
+    if playerCount > 1 then name = string.format(M.musicxmlNoteOfPlayer, name, n.instrument) end
+    names[i] = name
+  end
+  local one, separate = #notes == 1, constants.NOT_IN_MUSICXML_NAME
+  local text = one and string.format(M.musicxmlUnnamedNote, names[1])
+    or string.format(M.musicxmlUnnamedNotes, #notes, table.concat(names, ", "))
+  local buttons = {}
+  if #offer == 1 then
+    local name = shapes.displayName(offer[1])
+    text = text .. "\n\n" .. string.format(one and M.musicxmlGroupWithOne or M.musicxmlGroupWithMany, name, separate)
+    buttons[1] = { id = offer[1], label = string.format(D.includeWith, name) }
+  else
+    text = text .. "\n\n" .. string.format(one and M.musicxmlGroupChooseOne or M.musicxmlGroupChooseMany, separate)
+    for i, id in ipairs(offer) do buttons[i] = { id = id, label = shapes.displayName(id) } end
+  end
+  buttons[#buttons + 1] = { id = KEEP_SEPARATE, label = D.keepSeparate }
+  return { title = D.resultsTitle, text = text, buttons = buttons, cancel = KEEP_SEPARATE }
+end
+
+-- Gives the notes apply named as not in MusicXML the head chosen for them, in read itself.
+function xmlnotes.group(read, head)
+  for _, n in ipairs(read) do
+    if n.head == shapes.NOT_IN_MUSICXML then n.head = head end
+  end
 end
 
 return xmlnotes

@@ -156,10 +156,13 @@ local function readPart(part)
               local head = child(el, "notehead")
               local colour = colourOf(el.attrs.color)
               if colour == "" and head then colour = colourOf(head.attrs.color) end
+              local alter = numberOf(child(pitch, "alter"), 0)
+              local sign = alter > 0 and "#" or "b"
               notes[#notes + 1] = {
                 pos = onset,
-                pitch = (octave + 1) * 12 + SEMITONE[step] + numberOf(child(pitch, "alter"), 0) + tr.chromatic
-                  + 12 * tr.octaves,
+                bar = measure.attrs.number,
+                written = step .. (alter % 1 == 0 and sign:rep(math.abs(alter)) or "") .. tostring(octave),
+                pitch = (octave + 1) * 12 + SEMITONE[step] + alter + tr.chromatic + 12 * tr.octaves,
                 diatonic = octave * 7 + STEP[step] + tr.diatonic + 7 * tr.octaves,
                 grace = grace,
                 head = textOf(head),
@@ -182,8 +185,9 @@ local function readPart(part)
   return notes
 end
 
--- {parts = {{id, name, notes = {{pos, pitch, diatonic, grace, head, filled, colour}}}}}, or nil and why:
--- "compressed" (an .mxl), "notMusicXML" or "empty" (no parts).
+-- {parts = {{id, name, notes = {{pos, bar, written, pitch, diatonic, grace, head, filled, colour}}}}}, or nil and why:
+-- "compressed" (an .mxl), "notMusicXML" or "empty" (no parts). bar is the measure's number, as text, and written the
+-- pitch as the score shows it, such as "C#4".
 function musicxml.parse(text)
   if type(text) ~= "string" then return nil, "notMusicXML" end
   if text:sub(1, 4) == "PK\3\4" then return nil, "compressed" end

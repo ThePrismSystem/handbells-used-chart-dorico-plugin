@@ -33,11 +33,12 @@ function report.warningLines(warnings)
       local flows = {}
       for i, n in ipairs(w.flows or {}) do flows[i] = tostring(n) end
       -- left out of the export, or its file no longer matches: either way it has no file of its own
+      -- as: the notehead such notes were grouped with, when the user chose one
       line = string.format(#flows > 1 and M.musicxmlMissingFlows or M.musicxmlMissingFlow, table.concat(flows, ", "),
-        constants.NOT_IN_MUSICXML_NAME)
+        w.as or constants.NOT_IN_MUSICXML_NAME)
     elseif w.type == "musicxml-unmatched" then
       -- the file paired, but a changed note Lua read has no note of its own in it
-      line = string.format(M.musicxmlUnmatched, w.count, constants.NOT_IN_MUSICXML_NAME)
+      line = string.format(M.musicxmlUnmatched, w.count, w.as or constants.NOT_IN_MUSICXML_NAME)
     elseif w.type == "unwritable" then
       -- The SMB staff (a Glockenspiel) sounds two octaves up, past MIDI's top note for the highest bells.
       line = "Bells too high to draw on the SMB staff were skipped: " .. report.joinNames(w.names)
