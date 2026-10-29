@@ -108,13 +108,25 @@ function main.chart(ctx)
       if #paired == 0 then
         return result(false, "error", string.format(M.musicxmlMismatch, scan.flowNumbers[missing[1]] or 0))
       end
+      scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
+      -- A few notes MusicXML couldn't name may belong with a notehead the score uses: the user says which.
+      local listedAs = constants.NOT_IN_MUSICXML_NAME
+      local question = xmlnotes.groupQuestion(read, request.choices(scan.records).heads)
+      if question then
+        local answer = ctx.choose(question)
+        if not answer then return result(false, "error", constants.DIALOG.dialogFailed) end
+        if answer ~= question.cancel then
+          xmlnotes.group(read, answer)
+          listedAs = shapes.displayName(answer)
+          scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
+        end
+      end
       if #missing > 0 then
         local numbers = {}
         for i, id in ipairs(missing) do numbers[i] = scan.flowNumbers[id] or 0 end
-        extra[#extra + 1] = { type = "musicxml-missing", flows = numbers }
+        extra[#extra + 1] = { type = "musicxml-missing", flows = numbers, as = listedAs }
       end
-      if unmatched > 0 then extra[#extra + 1] = { type = "musicxml-unmatched", count = unmatched } end
-      scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
+      if unmatched > 0 then extra[#extra + 1] = { type = "musicxml-unmatched", count = unmatched, as = listedAs } end
     else
       log:line("cancelled at the MusicXML step")
       return result(false, "info", "")

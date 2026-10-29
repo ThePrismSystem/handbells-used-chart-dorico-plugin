@@ -71,6 +71,14 @@ return {
       "Flow 1 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
         .. " Changed in Dorico (not in MusicXML)")
   end,
+  musicxml_lines_name_the_notehead_such_notes_were_grouped_with = function(t)
+    t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 2 }, as = "Diamond Noteheads" } }),
+      "Flow 2 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
+        .. " Diamond Noteheads")
+    t:eq(report.warningLines({ { type = "musicxml-unmatched", count = 1, as = "Diamond Noteheads" } }),
+      "1 note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they are listed as"
+        .. " Diamond Noteheads")
+  end,
   changed_notes_the_musicxml_file_lacks_are_counted = function(t)
     t:eq(report.warningLines({ { type = "musicxml-unmatched", count = 2 } }),
       "2 note(s) with noteheads changed in Dorico couldn't be found in the MusicXML export, so they are listed as"

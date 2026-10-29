@@ -6,10 +6,10 @@ local main = require("hbuc.main")
 local M = constants.MESSAGES
 
 -- o: {step = musicxmlstep.run's outcome, scan = readscore.scan's, chart = true when one is there, respond = the
--- dialog's answer to the request}. Returns main.chart's outcome, the files written, the commands run and the
--- request the dialog got.
+-- dialog's answer to the request, choose = the answer to a question (by default its cancel)}. Returns main.chart's
+-- outcome, the files written, the commands run, the request the dialog got and the questions asked.
 local function chartRun(o)
-  local writes, commands, asked = {}, {}, {}
+  local writes, commands, asked = {}, {}, { choices = {} }
   local stubs = {
     ["hbuc.textexport"] = { projectPath = function() return "C:/p/Bells.dorico" end },
     ["hbuc.chartlayout"] = { fullScoreLayout = function() return "full" end },
@@ -46,11 +46,16 @@ local function chartRun(o)
       asked.req = req
       return o.respond and o.respond(req) or nil
     end,
+    choose = function(question)
+      asked.choices[#asked.choices + 1] = question
+      if o.choose then return o.choose(question) end
+      return question.cancel
+    end,
   }
   local ok, out = pcall(function() return require("hbuc.main").chart(ctx) end)
   for name, m in pairs(saved) do package.loaded[name] = m end
   if not ok then error(out, 0) end
-  return out, writes, commands, asked.req
+  return out, writes, commands, asked.req, asked.choices
 end
 
 -- Flows 1 and 2, each with one note of A's whose head was changed in Dorico; B has no notes.
@@ -125,13 +130,34 @@ return {
     t:eq(#commands, 2, "Write mode only, no save")
   end,
   the_files_heads_reach_the_dialog_and_a_flow_without_one_is_named = function(t)
-    local out, _, _, req = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } }, respond = chooseB })
+    local out, _, _, req, choices = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
+      respond = chooseB })
+    t:eq(#choices, 1, "asked about flow 2's note, and kept it separate")
     local ids = {}
     for _, h in ipairs(req.noteheads) do ids[h.id] = true end
     t:ok(ids["noteheadset.diamondNoteheads"], "flow 1's head, from the file")
     t:ok(ids["noteheadset.notInMusicXML"], "flow 2's, which no file holds")
     t:ok(has(out.text, string.format(M.musicxmlMissingFlow, "2", constants.NOT_IN_MUSICXML_NAME)), out.text)
     t:ok(not has(out.text, "couldn't be found"), "every changed note in flow 1 was in its file")
+  end,
+  a_note_musicxml_couldnt_name_can_join_a_notehead_before_the_dialog = function(t)
+    local out, _, _, req, choices = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
+      respond = chooseB, choose = function() return "noteheadset.diamondNoteheads" end })
+    t:eq(choices[1].text, string.format(M.musicxmlUnnamedNote, "D5") .. "\n\n"
+      .. string.format(M.musicxmlGroupWithOne, "Diamond Noteheads", constants.NOT_IN_MUSICXML_NAME),
+      "flow 2's note, by the pitch Lua has, since no file holds it")
+    local ids = {}
+    for _, h in ipairs(req.noteheads) do ids[h.id] = true end
+    t:ok(ids["noteheadset.diamondNoteheads"])
+    t:ok(not ids["noteheadset.notInMusicXML"], "it went in with the diamonds")
+    t:ok(has(out.text, string.format(M.musicxmlMissingFlow, "2", "Diamond Noteheads")), out.text)
+  end,
+  a_question_that_cannot_be_shown_says_so = function(t)
+    local out, _, _, req = chartRun({ scan = scan(), step = { status = "files", files = { flowOne() } },
+      choose = function() return nil end })
+    t:eq(out.kind, "error")
+    t:eq(out.text, constants.DIALOG.dialogFailed)
+    t:eq(req, nil, "no dialog")
   end,
   changed_notes_a_paired_file_lacks_are_counted = function(t)
     local s = scan()

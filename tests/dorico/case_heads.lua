@@ -3,6 +3,7 @@
 -- (spike/44_noteheads.lua), so the notes stand in for a score whose noteheads were changed in Dorico. In a run of
 -- its own, so a later read's Edit.Undo can't take it back.
 --   args.sets: the set ids to give again (default: every set but the default one)
+--   args.first: {count, to}: the first count of those notes get set to instead
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -38,8 +39,9 @@ probe.run("case_heads", function(p)
             doc.select(app, ctx.log, flow.id, e.id, doc.blockIdOf(s, e.id, d))
             -- the same set given again leaves the value Lua set, which it can still read: clear it first
             doc.command(app, ctx.log, "Edit.ClearNoteheadSetOverride")
+            local first = p.args.first
             doc.command(app, ctx.log, commands.build("Edit.SetNoteheadSetOverride",
-              { { "NoteheadSetEntityID", head } }))
+              { { "NoteheadSetEntityID", (first and redone < first.count) and first.to or head } }))
             redone = redone + 1
           end
         end
