@@ -8,7 +8,8 @@ Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits un
   windows.ps1 -Pick <pick.json> -Response <response.json>         a file picker, answering {"files": [...]}
 
 A choice is {"title", "text", "buttons": [{"id", "label"}], "cancel": id}; closing the window or Esc answers the
-cancel id. A pick is {"title", "folder", "file", "filter": {"name", "extensions"}}; a cancel answers no files.
+cancel id. A pick is {"title", "folder", "files" (the first is preselected), "filter": {"name", "extensions"}}; a
+cancel answers no files.
 
 The request is what hbuc/request.lua builds. The response is the chosen options:
 {"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "newPage": bool,
@@ -195,17 +196,21 @@ if ($Pick) {
     $picker.Multiselect = $true
     $folder = [string](Field $spec "folder")
     if ($folder) { $picker.InitialDirectory = $folder.Replace("/", "\") }
-    $file = [string](Field $spec "file")
-    if ($file) { $picker.FileName = $file }
+    # ToList hands back its list as one object: assigned first, so that piping it goes item by item.
+    $preselected = ToList (Field $spec "files")
+    # several files are preselected the way the picker writes a multiple selection: each name quoted
+    if ($preselected.Count -eq 1) { $picker.FileName = [string]$preselected[0] }
+    if ($preselected.Count -gt 1) { $picker.FileName = ($preselected | ForEach-Object { '"' + [string]$_ + '"' }) -join " " }
     $filter = Field $spec "filter"
-    $patterns = @(ToList (Field $filter "extensions") | ForEach-Object { "*." + [string]$_ }) -join ";"
+    $extensions = ToList (Field $filter "extensions")
+    $patterns = ($extensions | ForEach-Object { "*." + [string]$_ }) -join ";"
     if ($patterns) { $picker.Filter = "{0} ({1})|{1}" -f [string](Field $filter "name"), $patterns }
     $owner.Show()
     $owner.Activate()
-    $files = @()
-    if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $files = @($picker.FileNames) }
+    $chosen = @()
+    if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $chosen = @($picker.FileNames) }
     $owner.Close()
-    Write-Response @{ files = $files }
+    Write-Response @{ files = $chosen }
     exit 0
 }
 

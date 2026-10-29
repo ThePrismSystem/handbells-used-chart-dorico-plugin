@@ -58,6 +58,7 @@ end
 local OLD = { path = "C:/p/Flows from Bells/Bells - Full score - 01 Bells.musicxml", modified = 100, size = 900 }
 local FULL = { path = "C:/p/Flows from Bells/Bells - Full score - 01 Bells.musicxml", modified = 200, size = 900 }
 local PART = { path = "C:/p/Flows from Bells/Bells - Handbells - 01 Bells.musicxml", modified = 200, size = 300 }
+local OLD_ELSEWHERE = { path = "C:/p/Flows from Old/Old - Full score - 01 Old.musicxml", modified = 50, size = 5000 }
 
 return {
   cancel_and_no_answer_end_the_step = function(t)
@@ -77,11 +78,14 @@ return {
     t:eq(out.status, "remove")
   end,
   export_runs_the_command_then_picks_the_full_score = function(t)
-    local out, asked = step({ answers = { "export" }, exports = { {}, { FULL, PART } },
+    local out, asked = step({ answers = { "export" }, exports = { { OLD_ELSEWHERE }, { OLD_ELSEWHERE, FULL, PART } },
       picks = { { FULL.path } }, texts = { [FULL.path] = SCORE } })
     t:eq(asked.commands[1], "File.Export?FilterID=MusicXMLExportFilter")
     t:eq(asked.picks[1].folder, "C:/p/Flows from Bells/")
-    t:eq(asked.picks[1].file, "Bells - Full score - 01 Bells.musicxml", "the largest file of the new export")
+    -- every file the export just wrote (not an older, larger one elsewhere), full score first: each flow has its
+    -- own, and the pairing ignores the parts'
+    t:eq(table.concat(asked.picks[1].files, "|"),
+      "Bells - Full score - 01 Bells.musicxml|Bells - Handbells - 01 Bells.musicxml")
     t:eq(out.status, "files")
     t:eq(#out.files, 1)
     t:eq(out.files[1].parts[1].name, "A")
@@ -96,13 +100,13 @@ return {
     local out, asked = step({ answers = { "export" }, picks = { {} } })
     t:eq(#asked.picks, 1)
     t:eq(asked.picks[1].folder, "C:/p/")
-    t:eq(asked.picks[1].file, nil)
+    t:eq(asked.picks[1].files, nil)
     t:eq(out.status, "cancel", "a cancelled picker ends the step")
   end,
   choose_starts_in_the_newest_export = function(t)
     local _, asked = step({ answers = { "choose" }, exports = { { OLD, PART } } })
     t:eq(asked.picks[1].folder, "C:/p/Flows from Bells/")
-    t:eq(asked.picks[1].file, nil, "nothing preselected")
+    t:eq(asked.picks[1].files, nil, "nothing preselected")
     t:eq(asked.picks[1].filter.extensions[1], "musicxml")
     local _, none = step({ answers = { "choose" }, exports = { {} } })
     t:eq(none.picks[1].folder, "C:/p/", "the project's folder when there is no export")

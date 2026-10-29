@@ -121,7 +121,7 @@ constants.DIALOG = {
   removeChart = "Remove chart",
   useAnyway = "Use it anyway",
   back = "Back",
-  pickTitle = "Choose the MusicXML export",
+  pickTitle = "Choose the MusicXML export (with several flows, select every file)",
   pickFilter = "MusicXML",
 }
 

@@ -259,13 +259,13 @@ class DialogTests(unittest.TestCase):
                          .returncode, 0)
         self.assertEqual(self.response_json(proc), {"choice": "cancel"})
 
-    def pick(self, button):
+    def pick(self, button, names=("a - Full score - 01 Flow.musicxml",)):
         folder = self.tmp / "Flows from Bells & Chimes"
         folder.mkdir()
-        (folder / "a - Full score - 01 Flow.musicxml").write_text("<score-partwise/>", encoding="utf-8")
+        for name in names:
+            (folder / name).write_text("<score-partwise/>", encoding="utf-8")
         title = "Choose the MusicXML export"
-        proc = self.open_mode("Pick", {"title": title, "folder": str(folder).replace("\\", "/"),
-                                       "file": "a - Full score - 01 Flow.musicxml",
+        proc = self.open_mode("Pick", {"title": title, "folder": str(folder).replace("\\", "/"), "files": list(names),
                                        "filter": {"name": "MusicXML", "extensions": ["musicxml", "xml"]}}, title)
         # UI Automation lists the picker under its owner, so presskey can't find it: click.ps1 finds it through Win32
         self.assertTrue(click(title, button))
@@ -274,6 +274,11 @@ class DialogTests(unittest.TestCase):
     def test_pick_returns_the_preselected_file(self):
         folder, answer = self.pick("Open")
         self.assertEqual([Path(p) for p in answer["files"]], [folder / "a - Full score - 01 Flow.musicxml"])
+
+    def test_pick_returns_every_preselected_file(self):
+        names = ("a - Full score - 01 Flow.musicxml", "a - Full score - 02 Other.musicxml")
+        folder, answer = self.pick("Open", names)
+        self.assertEqual(sorted(Path(p) for p in answer["files"]), sorted(folder / n for n in names))
 
     def test_pick_cancel_returns_no_files(self):
         _, answer = self.pick("Cancel")

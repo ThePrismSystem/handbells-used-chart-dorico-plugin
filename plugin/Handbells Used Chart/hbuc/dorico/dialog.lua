@@ -101,8 +101,8 @@ function dialog.choose(ctx, choice)
   return type(id) == "string" and id or nil
 end
 
--- A file picker. pick: {title, folder, file (preselected, on Windows), filter = {name, extensions}}. Returns the
--- chosen paths, none for a cancel.
+-- A file picker. pick: {title, folder, files (names preselected, on Windows), filter = {name, extensions}}. Returns
+-- the chosen paths, none for a cancel.
 function dialog.pick(ctx, pick)
   local raw = exchange(ctx, "pick", pick)
   local list, out = raw and raw.files, {}

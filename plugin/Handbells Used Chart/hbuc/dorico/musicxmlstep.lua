@@ -35,8 +35,9 @@ local function message(ctx, chartExists)
   return ctx.choose({ title = D.resultsTitle, text = M.musicxmlNeeded, buttons = buttons, cancel = "cancel" })
 end
 
--- Where the picker starts after Dorico's export: the folder of what it just wrote, with the largest file of it
--- picked (the full score holds every part). Nil when the export wrote nothing that can be seen.
+-- Where the picker starts after Dorico's export: the folder of what it just wrote, with every file of it picked,
+-- largest (a full score) first. Each flow has its own full-score file, and the pairing ignores the parts'. Nil when
+-- the export wrote nothing that can be seen.
 local function afterExport(ctx, projectDir)
   local before = files.exports(projectDir)
   local was = newest(before)
@@ -50,11 +51,14 @@ local function afterExport(ctx, projectDir)
   end
   local latest = newest(fresh)
   if not latest then return nil end
-  local folder, largest = folderOf(latest.path), nil
+  local folder, here = folderOf(latest.path), {}
   for _, e in ipairs(fresh) do
-    if folderOf(e.path) == folder and (not largest or (e.size or 0) > (largest.size or 0)) then largest = e end
+    if folderOf(e.path) == folder then here[#here + 1] = e end
   end
-  return { folder = folder, file = nameOf(largest.path) }
+  table.sort(here, function(a, b) return (a.size or 0) > (b.size or 0) end)
+  local names = {}
+  for i, e in ipairs(here) do names[i] = nameOf(e.path) end
+  return { folder = folder, files = names }
 end
 
 -- The parsed files, or "back" (to the message), or an error outcome.
@@ -102,7 +106,7 @@ function musicxmlstep.run(ctx, args)
       start = { folder = latest and folderOf(latest.path) or projectDir }
     end
     if start then
-      local paths = ctx.pick({ title = D.pickTitle, folder = start.folder, file = start.file,
+      local paths = ctx.pick({ title = D.pickTitle, folder = start.folder, files = start.files,
         filter = { name = D.pickFilter, extensions = { "musicxml", "xml" } } })
       if #paths == 0 then return { status = "cancel" } end
       local outcome = readChosen(ctx, paths, args.projectPath, answer == "export")

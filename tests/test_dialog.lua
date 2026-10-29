@@ -64,7 +64,7 @@ return {
   pick_returns_the_chosen_paths = function(t)
     local path = "C:/Users/\195\169/Bells & Chimes/a.musicxml"
     local got, written, ran = exchange(true, function(d, ctx)
-      return d.pick(ctx, { title = "Pick", folder = "C:/x/", file = "a.musicxml",
+      return d.pick(ctx, { title = "Pick", folder = "C:/x/", files = { "a.musicxml" },
         filter = { name = "MusicXML", extensions = { "musicxml", "xml" } } })
     end, json.encode({ files = { path } }))
     t:eq(#got, 1)
