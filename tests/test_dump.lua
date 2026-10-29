@@ -61,15 +61,17 @@ return {
     t:eq(d.events[2].instance, 1070)
     t:eq(d.blockId, nil, "no block id is guessed from the instance id")
   end,
-  first_event_gives_its_instance = function(t)
-    local d = dump.parse(lines({
+  notes_carry_their_block_instance = function(t)
+    -- a value set by command applies to the note's own block instance (hbuc.noteprops)
+    local notes = dump.notes(dump.parse(lines({
       RULE,
       "Start block id: 1061 position: 0",
       "0 (0) dur: 1: kNoteEvent (id:7932) at 0, duration 1  E5 (ends 1)",
-    }))
-    local id, instance = dump.firstEventId(d)
-    t:eq(id, 7932)
-    t:eq(instance, 1061)
+      "Start block id: 1070 position: 16",
+      "16 (16) dur: 1: kNoteEvent (id:8000) at 16, duration 1  C6 (ends 17)",
+    })))
+    t:eq(notes[1].instance, 1061)
+    t:eq(notes[2].instance, 1070)
   end,
   text_ends_before_its_paragraph_style = function(t)
     local d = dump.parse(lines({
@@ -106,20 +108,10 @@ return {
     t:eq(d.events[2].kind, "other")
     t:eq(#dump.notes(d), 1)
   end,
-  first_event_skips_texts = function(t)
-    local d = dump.parse(lines({
-      RULE,
-      "0 (0): kTextEvent (id:2735) at 0 : SOPRANO",
-      " (paragraph.defaulttext)",
-      "0 (0) dur: 1: kRestEvent (id:216) at 0, duration 1  ",
-      "11 (11) dur: 1: kNoteEvent (id:226) at 11, duration 1  G3 (ends 12)",
-    }))
-    t:eq(dump.firstEventId(d), 216)
-  end,
   empty_dump = function(t)
     local d = dump.parse(RULE .. "\n")
     t:eq(d.blockId, nil)
     t:eq(#d.events, 0)
-    t:eq(dump.firstEventId(d), nil)
+    t:eq(#dump.notes(d), 0)
   end,
 }

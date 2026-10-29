@@ -26,9 +26,6 @@ function report.warningLines(warnings)
       -- Raised while drawing: a chart shape Dorico has no notehead set for is drawn round instead.
       line = (w.instrument or "Some bells") .. " were drawn as round notes: Dorico has no " .. report.joinNames(w.names)
         .. " notehead set"
-    elseif w.type == "merged-notes" then
-      line = string.format("%d note(s) sounded in unison with another voice and were read as one: if those voices"
-        .. " use different noteheads, check the chart", w.count)
     elseif w.type == "musicxml-missing" then
       local flows = {}
       for i, n in ipairs(w.flows or {}) do flows[i] = tostring(n) end

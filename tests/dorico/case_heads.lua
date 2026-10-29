@@ -1,7 +1,6 @@
 -- Gives notes the notehead sets they already have again, but through Dorico's own command
 -- (Edit.SetNoteheadSetOverride), as the Notations menu does. Lua can't read a set given that way
--- (spike/44_noteheads.lua), so the notes stand in for a score whose noteheads were changed in Dorico. In a run of
--- its own, so a later read's Edit.Undo can't take it back.
+-- (spike/44_noteheads.lua), so the notes stand in for a score whose noteheads were changed in Dorico.
 --   args.sets: the set ids to give again (default: every set but the default one)
 --   args.first: {count, to}: the first count of those notes get set to instead
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")

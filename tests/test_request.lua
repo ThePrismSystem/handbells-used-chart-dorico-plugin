@@ -64,18 +64,6 @@ return {
     t:eq(options.mostUsedColour(c.tally, DIAMOND), "#c80000")
     t:eq(request.choices({ rec(SQUARE) }).defaultBell, "")
   end,
-  colours_lua_cannot_read_do_not_vote = function(t)
-    -- Coloured by command, as in the Properties panel: the notes have a colour, but it reads as "", which would
-    -- otherwise count as black.
-    local unreadable = rec(DIAMOND)
-    unreadable.colourUnreadable = true
-    local c = request.choices({ rec(DIAMOND, "#c80000"), unreadable, unreadable, rec(SQUARE), unreadable })
-    t:eq(options.mostUsedColour(c.tally, DIAMOND), "#c80000")
-    t:eq(c.heads[1], DIAMOND, "the head is still offered")
-    local only = request.choices({ unreadable })
-    t:eq(only.heads[1], DIAMOND)
-    t:eq(options.mostUsedColour(only.tally, DIAMOND), "", "nothing to suggest")
-  end,
   build_lists_noteheads_by_name = function(t)
     local req = build("")
     t:eq(req.version, constants.VERSION)

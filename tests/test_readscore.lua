@@ -1,195 +1,104 @@
--- Where the paste route pastes, against a fake score. The copied range starts on the staff of the flow's first note
--- or rest, so the paste has to start on that staff of the scratch flow too: pasted anywhere higher, every staff's
--- notes land one staff up and are credited to the wrong player.
+-- readscore.scan against a fake score: the dumps say which notes exist and whose they are, and the saved copy
+-- (hbuc.dorico.savedcopy, stubbed here) gives each one's notehead set and colour by event id.
 local RULE = "------------------------------"
 
-local function voice(id, spellings)
+-- A voice stream whose dump lists notes {id, spelling} from position 0, in block instance 1010.
+local function voice(notes)
   local lines = { RULE, "Start block id: 1010 position: 0" }
-  for i, sp in ipairs(spellings) do
+  for i, n in ipairs(notes) do
     lines[#lines + 1] = string.format("%d (%d) dur: 1: kNoteEvent (id:%d) at %d, duration 1  %s (ends %d)",
-      i - 1, i - 1, id * 100 + i, i - 1, sp, i)
+      i - 1, i - 1, n[1], i - 1, n[2], i)
   end
   local text = table.concat(lines, "\n") .. "\n"
-  return { id = id, events = {}, blockInstances = { { id = 1010, block = { id = 10 } } },
-    dump = function() return text end }
+  return { dump = function() return text end }
 end
 
-local function player(key)
-  return setmetatable({ instruments = { { id = key } } }, { __tostring = function() return "Player " .. key end })
+local function player(key, name)
+  return setmetatable({ instruments = { { id = key } } }, { __tostring = function() return name end })
 end
 
--- owners: the instrument key of each voice; notes: whether that voice has a note in the music flow. The scratch
--- flow gets scratchVoices voices for each player (one per staff, as Dorico makes a new flow).
-local function pasteTarget(owners, notes, scratchVoices)
-  local players, seen = {}, {}
-  for _, key in ipairs(owners) do
-    if not seen[key] then
-      seen[key] = true
-      players[#players + 1] = player(key)
-    end
-  end
-  local music = { id = 0, players = players, voiceStreams = {}, instruments = {}, staveStreams = {} }
-  for i, key in ipairs(owners) do
-    music.voiceStreams[i] = voice(i, notes[i] and { "C5" } or {})
-    music.instruments[i] = { id = key }
-    music.staveStreams[i] = {}
-  end
-  local pastedOn
-  local scratch = { id = 9, players = players, voiceStreams = {}, instruments = {}, removePlayer = function() end }
-  for _, pl in ipairs(players) do
-    local key = pl.instruments[1].id
-    for n = 1, scratchVoices[key] do
-      local s = voice(50 + #scratch.voiceStreams, {})
-      local label = key .. ":" .. n
-      s.createNote = function()
-        pastedOn = label
-        s.dump = function()
-          return RULE .. "\nStart block id: 1010 position: 0\n0 (0) dur: 1: kNoteEvent (id:999) at 0, duration 1"
-            .. "  C5 (ends 1)\n"
-        end
-        return { id = 999 }
-      end
-      scratch.voiceStreams[#scratch.voiceStreams + 1] = s
-      scratch.instruments[#scratch.instruments + 1] = { id = key }
-    end
-  end
-  local score = { players = players, flows = { music } }
-  local app = { currentScore = score }
-  function app.doCommand(_, c)
-    if c == "Project.Flow.New" then score.flows[#score.flows + 1] = scratch end
-    if c == "Edit.Undo" then score.flows[#score.flows] = nil end
-  end
+local function entry(property, value, layout, instance)
+  return { property = property, value = value, layout = layout or -1, instance = instance or -1 }
+end
 
-  local savedCore = DoCore
-  DoCore = {
-    PropertyContext = function() return {} end,
-    RhythmicLength = function(n) return n end,
-    MIDIPitchWithSpelling = { fromString = function(s) return s end },
-  }
+-- Players 1 ("Handbells") and 2 ("Chart"), flow 0 with Handbells' C5 (101) and D5 (102), and flow 9 (a chart) with
+-- Chart's E5 (900). saved: the stub's answer. Returns scan's result (or error), the stub's calls and the commands
+-- sent.
+local function scan(saved, opts)
+  local bells, chart = player(1, "Handbells"), player(2, "Chart")
+  local music = { id = 0, players = { bells }, voiceStreams = { voice({ { 101, "C5" }, { 102, "D5" } }) },
+    instruments = { { id = 1 } } }
+  local chartFlow = { id = 9, players = { chart }, voiceStreams = { voice({ { 900, "E5" } }) },
+    instruments = { { id = 2 } } }
+  local commands, calls = {}, {}
+  local app = { currentScore = { players = { bells, chart }, flows = { music, chartFlow } } }
+  function app.doCommand(_, c) commands[#commands + 1] = c end
+  local savedStub = package.loaded["hbuc.dorico.savedcopy"]
+  package.loaded["hbuc.dorico.savedcopy"] = { read = function(a, _, tempDir)
+    calls[#calls + 1] = { app = a, tempDir = tempDir }
+    return saved
+  end }
   package.loaded["hbuc.dorico.readscore"] = nil
-  local ok, err = pcall(function()
-    require("hbuc.dorico.readscore").scan(app, { log = { line = function() end }, forcePaste = true })
-  end)
-  DoCore = savedCore
-  if not ok then error(err, 0) end
-  return pastedOn
-end
-
--- The positions the paste route reads for a flow whose one voice holds C5 and D5 from position lead on. Dorico pastes
--- the copy's first note at the scratch flow's start, wherever it was in the music (tests/dorico/test_read.py), and
--- so does this fake.
-local function pastedPositions(lead)
-  local function line(id, pos, spelling)
-    return string.format("%d (%d) dur: 1: kNoteEvent (id:%d) at %d, duration 1  %s (ends %d)", pos, pos, id, pos,
-      spelling, pos + 1)
-  end
-  local function event(id, pos, spelling)
-    return setmetatable({ id = id, propertyTable = {
-      getPropertyNames = function() return {} end,
-      get = function() return "" end,
-    } }, { __tostring = function() return (line(id, pos, spelling):gsub("^.-: (kNoteEvent)", "%1")) end })
-  end
-  local pl = player(1)
-  local notes = voice(1, {})
-  local text = table.concat({ RULE, "Start block id: 1010 position: 0", line(101, lead, "C5"), line(102, lead + 1, "D5") },
-    "\n") .. "\n"
-  notes.dump = function() return text end
-  local music = { id = 0, players = { pl }, voiceStreams = { notes }, instruments = { { id = 1 } }, staveStreams = { {} } }
-  local top = voice(50, {})
-  top.createNote = function()
-    top.dump = function() return RULE .. "\nStart block id: 1010 position: 0\n" .. line(999, 0, "C5") .. "\n" end
-    return { id = 999 }
-  end
-  local scratch = { id = 9, players = { pl }, voiceStreams = { top }, instruments = { { id = 1 } },
-    removePlayer = function() end }
-  local score = { players = { pl }, flows = { music } }
-  local app = { currentScore = score }
-  function app.doCommand(_, c)
-    if c == "Project.Flow.New" then score.flows[#score.flows + 1] = scratch end
-    if c == "Edit.Paste" then top.events = { event(999, 0, "C5"), event(1, 0, "C5"), event(2, 1, "D5") } end
-    if c == "Edit.Undo" then score.flows[#score.flows] = nil end
-  end
-  local savedCore = DoCore
-  DoCore = {
-    PropertyContext = function() return {} end,
-    RhythmicLength = function(n) return n end,
-    MIDIPitchWithSpelling = { fromString = function(s) return s end },
-  }
+  local args = { log = { line = function() end }, skipFlowId = 9, skipKeys = { [2] = true }, layoutId = 0,
+    tempDir = "t/" }
+  for k, v in pairs(opts or {}) do args[k] = v end
+  local ok, result = pcall(function() return require("hbuc.dorico.readscore").scan(app, args) end)
+  package.loaded["hbuc.dorico.savedcopy"] = savedStub
   package.loaded["hbuc.dorico.readscore"] = nil
-  local ok, scan = pcall(function()
-    return require("hbuc.dorico.readscore").scan(app, { log = { line = function() end }, forcePaste = true })
-  end)
-  DoCore = savedCore
-  if not ok then error(scan, 0) end
-  local out = {}
-  for _, n in ipairs(scan.read) do out[#out + 1] = n.spelling .. "@" .. tostring(n.pos) end
-  return table.concat(out, ","), scan.pastedFlows
-end
-
--- A flow Lua can list directly: one player, one voice, a note whose notehead was changed in Dorico (the property is
--- listed, but reads as "") and a plain one.
-local function directScan()
-  local function value(text) return setmetatable({}, { __tostring = function() return text end }) end
-  local function event(text, names)
-    return setmetatable({ propertyTable = {
-      getPropertyNames = function() return names end,
-      get = function() return value("") end,
-    } }, { __tostring = function() return text end })
-  end
-  local stream = voice(1, { "C5", "D5" })
-  stream.events = {
-    event("kNoteEvent (id:101) at 0, duration 1  C5 (ends 1)", { "kNoteheadSetOverride" }),
-    event("kNoteEvent (id:102) at 1, duration 1  D5 (ends 2)", {}),
-  }
-  local pl = player(1)
-  local flow = { id = 7, players = { pl }, voiceStreams = { stream }, instruments = { { id = 1 } }, staveStreams = { {} } }
-  local app = { currentScore = { players = { pl }, flows = { flow } }, doCommand = function() end }
-  local savedCore = DoCore
-  DoCore = { PropertyContext = function() return {} end }
-  package.loaded["hbuc.dorico.readscore"] = nil
-  local ok, scan = pcall(function()
-    return require("hbuc.dorico.readscore").scan(app, { log = { line = function() end } })
-  end)
-  DoCore = savedCore
-  if not ok then error(scan, 0) end
-  return scan
+  return ok, result, calls, commands
 end
 
 return {
-  scan_returns_positions_flows_and_unreadable_heads = function(t)
-    local scan = directScan()
-    t:eq(scan.pastedFlows, 0, "read directly")
-    t:eq(#scan.read, 2)
-    t:eq(scan.read[1].headUnreadable, true, "listed, but read as nothing")
-    t:eq(scan.read[2].headUnreadable, false)
-    t:eq(scan.read[1].pos, 0)
-    t:eq(scan.read[2].pos, 1)
-    t:eq(scan.read[1].flowId, 7)
-    t:eq(#scan.dumped, 2)
-    t:eq(scan.dumped[2].pos, 1)
-    t:eq(scan.dumped[2].flowId, 7)
-    t:eq(scan.dumped[2].instrument, "Player 1")
-    t:eq(scan.flowNumbers[7], 1)
-    t:eq(scan.records[1].head, "noteheadset.default", "until a MusicXML export says otherwise")
+  heads_and_colours_come_from_the_saved_copy = function(t)
+    local ok, result, calls = scan({
+      [101] = { entry("kNoteheadSetOverride", "noteheadset.diamondNoteheads"), entry("kEventColour", "#c80000") },
+      [102] = {}, [900] = {},
+    })
+    t:ok(ok, tostring(result))
+    t:eq(#calls, 1, "one saved copy")
+    t:eq(calls[1].tempDir, "t/", "in the temp folder")
+    t:eq(#result.records, 2, "the chart flow's note is left out")
+    t:eq(result.records[1].head, "noteheadset.diamondNoteheads")
+    t:eq(result.records[1].colour, "#c80000")
+    t:eq(result.records[1].instrument, "Handbells")
+    t:eq(result.records[2].head, "noteheadset.default")
   end,
-  the_paste_route_reads_the_music_s_own_positions = function(t)
-    local positions, pasted = pastedPositions(0)
-    t:eq(pasted, 1, "through a copy")
-    t:eq(positions, "C5@0,D5@1")
-    t:eq(pastedPositions(4), "C5@4,D5@5", "music that starts after four beats' rest on every staff")
+  the_chart_player_is_left_out = function(t)
+    local _, result = scan({ [101] = {}, [102] = {}, [900] = {} }, { skipFlowId = -1 })
+    t:eq(#result.players, 1)
+    t:eq(result.players[1].name, "Handbells")
+    t:eq(#result.records, 2, "the chart player's note is not read")
   end,
-  the_top_staff_when_the_first_player_plays = function(t)
-    t:eq(pasteTarget({ 1, 1, 2, 2 }, { true, true, true, true }, { [1] = 2, [2] = 2 }), "1:1")
+  the_full_score_and_the_notes_instance_decide = function(t)
+    local _, result = scan({
+      [101] = { entry("kNoteheadSetOverride", "X", 0, 1010), entry("kNoteheadSetOverride", "Y") },
+      [102] = { entry("kNoteheadSetOverride", "Z", 0, 1011) }, [900] = {},
+    })
+    t:eq(result.records[1].head, "X", "layout 0, the note's instance 1010")
+    t:eq(result.records[2].head, "noteheadset.default", "another instance's value doesn't apply")
   end,
-  the_next_player_when_the_first_is_tacet = function(t)
-    t:eq(pasteTarget({ 1, 1, 2, 2 }, { false, false, true, true }, { [1] = 2, [2] = 2 }), "2:1")
+  the_read_changes_nothing = function(t)
+    local _, _, _, commands = scan({ [101] = {}, [102] = {}, [900] = {} })
+    t:eq(#commands, 0, "no command at all")
   end,
-  the_bass_staff_when_only_the_treble_is_empty = function(t)
-    -- a grand staff's voices are [treble, bass], in the music flow and in a new flow alike
-    t:eq(pasteTarget({ 1, 1, 2, 2 }, { false, true, true, true }, { [1] = 2, [2] = 2 }), "1:2")
+  no_notes_no_copy = function(t)
+    local bells = player(1, "Handbells")
+    local app = { currentScore = { players = { bells }, flows = { { id = 0, players = { bells },
+      voiceStreams = { voice({}) }, instruments = { { id = 1 } } } } } }
+    local called = false
+    local savedStub = package.loaded["hbuc.dorico.savedcopy"]
+    package.loaded["hbuc.dorico.savedcopy"] = { read = function() called = true return {} end }
+    package.loaded["hbuc.dorico.readscore"] = nil
+    local result = require("hbuc.dorico.readscore").scan(app, { log = { line = function() end }, layoutId = 0,
+      tempDir = "t/" })
+    package.loaded["hbuc.dorico.savedcopy"] = savedStub
+    package.loaded["hbuc.dorico.readscore"] = nil
+    t:eq(#result.records, 0)
+    t:ok(not called, "nothing to read, so no copy")
   end,
-  the_player_s_first_voice_when_its_voices_are_not_one_per_staff = function(t)
-    -- three voices on two staves: which staff the third is on can't be told, so the paste starts on the first
-    t:eq(pasteTarget({ 1, 1, 1, 2 }, { false, false, true, true }, { [1] = 2, [2] = 1 }), "1:1")
+  a_note_missing_from_the_copy_fails = function(t)
+    local ok, err = scan({ [101] = {} })
+    t:ok(not ok, "fails")
+    t:ok(tostring(err):find("note 102 is not in the saved copy", 1, true), tostring(err))
   end,
 }

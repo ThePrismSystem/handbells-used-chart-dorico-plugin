@@ -62,6 +62,18 @@ class ScriptedRuns(unittest.TestCase):
                                                          "spellings": ["F4", "A4", "C5"]}):
             pass
 
+    def test_one_undo_takes_back_only_the_chart(self):
+        # The read undoes nothing any more, so a run is an undo step of its own: one Edit > Undo takes the chart away
+        # and leaves the user's edit before it. (With the paste route's undo, the chart joined that edit's step.)
+        with harness.scratch(self, "case_titles.lua") as (client, _):
+            harness.run_more(self, client, "case_titles.lua", {"renameFirstFlow": "User Edit"})
+            harness.run_more(self, client, "case_run.lua", {"answer": "draw", "expect": "drawn", "freshSettings": True})
+            drawn = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
+            self.assertEqual(drawn.get("2"), "User Edit", "the chart's flow comes first")
+            client.command("Edit.Undo")
+            titles = harness.run_more(self, client, "case_titles.lua")["facts"]["titles"]
+            self.assertEqual(titles["all"], ["User Edit"], "the chart has gone and the user's edit stays")
+
     def test_cancel_changes_nothing(self):
         with harness.scratch(self, "case_run.lua", args={"answer": "cancel", "expect": "cancelled", "freshSettings": True}):
             pass

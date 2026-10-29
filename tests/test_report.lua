@@ -55,10 +55,7 @@ return {
   the_unread_notes_line_is_gone = function(t)
     t:eq(report.warningLines({ { type = "unread-notes", count = 3 } }), "", "collect's unreadable count says it once")
   end,
-  merged_and_unwritable_lines = function(t)
-    t:eq(report.warningLines({ { type = "merged-notes", count = 2 } }),
-      "2 note(s) sounded in unison with another voice and were read as one: if those voices use different"
-        .. " noteheads, check the chart")
+  unwritable_line = function(t)
     t:eq(report.warningLines({ { type = "unwritable", names = { "G#8", "C9" } } }),
       "Bells too high to draw on the SMB staff were skipped: G#8, C9")
   end,
@@ -107,9 +104,6 @@ return {
     t:eq(string.format(M.untestedDorico, "5.1.81"),
       "Handbells Used Chart needs Dorico 6. This is Dorico 5.1.81, so nothing was changed.")
     t:eq(M.chartKept, "The chart was kept, because its flow was not deleted.")
-    t:eq(string.format(M.scratchLeft, 3),
-      "The plug-in could not take away the temporary flow it used to read the music. Delete flow 3 in Setup mode."
-        .. " Nothing else was changed.")
   end,
   warnings_missing_fields_still_make_lines = function(t)
     t:eq(report.warningLines({ { type = "missing-notehead", names = { "Half circle" } } }),

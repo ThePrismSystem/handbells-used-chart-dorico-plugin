@@ -34,8 +34,7 @@ local function musicParts(score, skip)
 end
 
 -- opts: {mode, existing (find and update the chart there), instruments (names; default all), newPage (false: no
--- flow breaks), forcePaste (read through a copy, as for music stream.events can't list), lastStep (in place of
--- chartlayout.LAST_STEP, for spike/41_last_step.py)}.
+-- flow breaks), lastStep (in place of chartlayout.LAST_STEP, for spike/41_last_step.py)}.
 function chartcase.draw(p, ctx, opts)
   local app = ctx.app
   if opts.lastStep then chartlayout.LAST_STEP = opts.lastStep end
@@ -55,7 +54,7 @@ function chartcase.draw(p, ctx, opts)
   end
 
   local scan = readscore.scan(app, { log = ctx.log, skipFlowId = skipFlow, skipKeys = skipKeys,
-    forcePaste = opts.forcePaste })
+    layoutId = app.currentLayoutID, tempDir = ctx.folders.temp })
   local names, musicKeys = {}, {}
   for _, pl in ipairs(scan.players) do
     names[#names + 1] = pl.name

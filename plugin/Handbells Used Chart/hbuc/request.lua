@@ -22,8 +22,7 @@ function request.choices(records)
         seen[head] = true
         heads[#heads + 1] = head
       end
-      -- A colour Lua can't read (one set by command) would otherwise count as black.
-      if not r.colourUnreadable then options.tallyColour(tally, head, r.colour or "") end
+      options.tallyColour(tally, head, r.colour or "")
     end
   end
   return {

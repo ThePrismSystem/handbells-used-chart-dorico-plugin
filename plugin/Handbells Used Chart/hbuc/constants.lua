@@ -64,8 +64,6 @@ constants.MESSAGES = {
   saveFailed = "The project could not be saved, so nothing was drawn or removed. Save it with File > Save, then run"
     .. " the plug-in again.",
   readFailed = "The plug-in could not read this project's music, so nothing was changed: %s\n\nThe run log is at %s.",
-  scratchLeft = "The plug-in could not take away the temporary flow it used to read the music. Delete flow %d in"
-    .. " Setup mode. Nothing else was changed.",
   writeFailed = "The chart could not be finished: %s\n\nUse File > Revert to return to the project as it was before"
     .. " the run. The run log is at %s.",
   -- an error the run's own steps did not catch, before the project was saved (after it, writeFailed)

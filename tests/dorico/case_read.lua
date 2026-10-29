@@ -1,7 +1,6 @@
--- readscore.scan on a scratch copy: players, records, unread notes, the route taken, and that the music is the
+-- readscore.scan on a scratch copy: players, records, how long it took, and that the music and its flows are the
 -- same afterwards.
---   args.forcePaste: read through the pasted copy even where stream.events works
---   args.expect: optional {players = {...}, records = n, histogram = {["head|colour"] = n}, pastedFlows = n}
+--   args.expect: optional {players = {...}, records = n, histogram = {["head|colour"] = n}}
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -17,16 +16,15 @@ probe.run("case_read", function(p)
   local readscore = require("hbuc.dorico.readscore")
   local ctx = cases.context(p)
   local app = ctx.app
-  local before = readscore.summary(app.currentScore)
+  local before, flowsBefore = cases.summary(app.currentScore), #app.currentScore.flows
   local t0 = os.clock()
-  local scan = readscore.scan(app, { log = ctx.log, forcePaste = p.args.forcePaste })
+  local scan = readscore.scan(app, { log = ctx.log, layoutId = app.currentLayoutID, tempDir = ctx.folders.temp })
   p:fact("seconds", os.clock() - t0)
-  local after = readscore.summary(app.currentScore)
+  local after = cases.summary(app.currentScore)
 
-  local names, histogram, byInstrument, pitched, colourUnreadable = {}, {}, {}, 0, 0
+  local names, histogram, byInstrument, pitched = {}, {}, {}, 0
   for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
   for _, r in ipairs(scan.records) do
-    if r.colourUnreadable then colourUnreadable = colourUnreadable + 1 end
     if r.pitch then
       pitched = pitched + 1
       local k = r.head .. "|" .. r.colour
@@ -38,33 +36,16 @@ probe.run("case_read", function(p)
   p:fact("players", names)
   p:fact("records", #scan.records)
   p:fact("pitched", pitched)
-  p:fact("unread", scan.unread)
-  p:fact("pastedFlows", scan.pastedFlows)
   p:fact("histogram", histogram)
   p:fact("byInstrument", byInstrument)
-  p:fact("colourUnreadable", colourUnreadable)
-  local headUnreadable = 0
-  for _, n in ipairs(scan.read) do
-    if n.headUnreadable then headUnreadable = headUnreadable + 1 end
-  end
-  p:fact("headUnreadable", headUnreadable)
-  -- The MusicXML step matches the notes read to an export's by position, so the paste route's copy must keep them.
-  local positions = {}
-  for _, n in ipairs(scan.read) do
-    local k = table.concat({ n.instrument, n.spelling, n.grace and "grace" or "", string.format("%.3f", n.pos or -1) },
-      "|")
-    positions[k] = (positions[k] or 0) + 1
-  end
-  p:fact("positions", positions)
   p:fact("summary", after)
 
   p:check("the music is as it was", after == before, after .. " vs " .. before)
-  p:check("no note unread", scan.unread == 0, scan.unread)
+  p:check("no flow added or taken away", #app.currentScore.flows == flowsBefore, #app.currentScore.flows)
   local want = p.args.expect or {}
   if want.players then p:check("players", table.concat(names, "|") == table.concat(want.players, "|"),
     table.concat(names, "|")) end
   if want.records then p:check("record count", #scan.records == want.records, #scan.records) end
-  if want.pastedFlows then p:check("route", scan.pastedFlows == want.pastedFlows, scan.pastedFlows) end
   if want.histogram then
     local same = true
     for k, n in pairs(want.histogram) do if histogram[k] ~= n then same = false end end

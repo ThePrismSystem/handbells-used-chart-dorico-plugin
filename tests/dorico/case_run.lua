@@ -21,7 +21,7 @@ probe.run("case_run", function(p)
   local files = require("hbuc.dorico.files")
   local findchart = require("hbuc.dorico.findchart")
   local main = require("hbuc.main")
-  local readscore = require("hbuc.dorico.readscore")
+
   local M = constants.MESSAGES
 
   local answer = p.args.answer
@@ -74,7 +74,7 @@ probe.run("case_run", function(p)
   if p.args.freshSettings then os.remove(settingsPath) end
   local project = cases.runFolder() .. "scratch.dorico"
   local savedBefore = files.modified(project)
-  local summaryBefore = readscore.summary(ctx.app.currentScore)
+  local summaryBefore = cases.summary(ctx.app.currentScore)
 
   local out = main.run(ctx)
   local text = (p.facts.shown[1] or {}).text or ""
@@ -143,7 +143,7 @@ probe.run("case_run", function(p)
   elseif expect == "cancelled" then
     p:check("shows nothing", #p.facts.shown == 0, #p.facts.shown)
     p:check("not saved", not saved)
-    p:check("music unchanged", readscore.summary(ctx.app.currentScore) == summaryBefore)
+    p:check("music unchanged", cases.summary(ctx.app.currentScore) == summaryBefore)
     p:check("settings not written", files.read(settingsPath) == nil)
     p:check("no chart", found.status == "none")
   end

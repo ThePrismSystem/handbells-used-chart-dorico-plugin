@@ -1,5 +1,5 @@
--- Colours the first note of the fixture's first voice by command, as the Properties panel does, before a read. In a
--- run of its own, so the paste route's Edit.Undo can't take it back.
+-- Colours the first note of the fixture's first voice red by command, as the Properties panel does, before a read.
+-- Lua can't read a colour set that way, but the saved copy the read uses has it.
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
