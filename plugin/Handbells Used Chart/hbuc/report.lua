@@ -28,6 +28,13 @@ function report.warningLines(warnings)
     elseif w.type == "merged-notes" then
       line = string.format("%d note(s) sounded in unison with another voice and were read as one: if those voices"
         .. " use different noteheads, check the chart", w.count)
+    elseif w.type == "musicxml-missing" then
+      local flows = {}
+      for i, n in ipairs(w.flows or {}) do flows[i] = tostring(n) end
+      local several = #flows > 1
+      line = (several and "Flows " or "Flow ") .. table.concat(flows, ", ") .. " had noteheads changed in Dorico but "
+        .. (several and "weren't" or "wasn't") .. " in the MusicXML export, so those noteheads are listed as "
+        .. constants.NOT_IN_MUSICXML_NAME
     elseif w.type == "unwritable" then
       -- The SMB staff (a Glockenspiel) sounds two octaves up, past MIDI's top note for the highest bells.
       line = "Bells too high to draw on the SMB staff were skipped: " .. report.joinNames(w.names)

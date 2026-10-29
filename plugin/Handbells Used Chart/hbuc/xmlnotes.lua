@@ -82,7 +82,9 @@ local function take(queue, wantHead)
 end
 
 -- A copy of read in which each flow needing a file takes the noteheads and colours Lua couldn't read from the
--- first file that pairs with it, and the flows no file paired with.
+-- first file that pairs with it; then the flows no file paired with, and the flows one did. Dorico's export can
+-- leave a flow out (Goodbye Blue Sky's hand-made chart flow wasn't exported), so an unpaired flow's changed heads
+-- are named as not in MusicXML, which still keeps them apart from plain ones.
 function xmlnotes.apply(dumped, read, files)
   local newRead = {}
   for i, n in ipairs(read) do
@@ -90,7 +92,7 @@ function xmlnotes.apply(dumped, read, files)
     for k, v in pairs(n) do c[k] = v end
     newRead[i] = c
   end
-  local missing = {}
+  local missing, paired = {}, {}
   for _, flowId in ipairs(xmlnotes.flowsNeeding(read)) do
     local flowDumped = {}
     for _, n in ipairs(dumped) do
@@ -106,7 +108,14 @@ function xmlnotes.apply(dumped, read, files)
     end
     if not pairing then
       missing[#missing + 1] = flowId
+      for _, n in ipairs(newRead) do
+        if n.flowId == flowId and n.headUnreadable then
+          n.head = shapes.NOT_IN_MUSICXML
+          n.headUnreadable = false
+        end
+      end
     else
+      paired[#paired + 1] = flowId
       local queues = {}
       for instrument, i in pairs(pairing) do
         local byKey = {}
@@ -134,7 +143,7 @@ function xmlnotes.apply(dumped, read, files)
       end
     end
   end
-  return newRead, missing
+  return newRead, missing, paired
 end
 
 return xmlnotes

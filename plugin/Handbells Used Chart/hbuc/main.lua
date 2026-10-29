@@ -92,16 +92,23 @@ function main.chart(ctx)
   end
 
   -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export, or the run stops here
-  local removeOnly = false
+  local removeOnly, notExported = false, nil
   if #xmlnotes.flowsNeeding(scan.read) > 0 then
     local got = musicxmlstep.run(ctx, { chartExists = chart ~= nil, projectPath = projectPath })
     if got.status == "error" then return result(false, "error", got.text) end
     if got.status == "remove" then
       removeOnly = true
     elseif got.status == "files" then
-      local read, missing = xmlnotes.apply(scan.dumped, scan.read, got.files)
-      if #missing > 0 then
+      local read, missing, paired = xmlnotes.apply(scan.dumped, scan.read, got.files)
+      -- No flow in any chosen file: the wrong file, or an export older than the music. A flow some files skip
+      -- (one Dorico's export left out) keeps its changed heads apart, and the report names it.
+      if #paired == 0 then
         return result(false, "error", string.format(M.musicxmlMismatch, scan.flowNumbers[missing[1]] or 0))
+      end
+      if #missing > 0 then
+        local numbers = {}
+        for i, id in ipairs(missing) do numbers[i] = scan.flowNumbers[id] or 0 end
+        notExported = { type = "musicxml-missing", flows = numbers }
       end
       scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
     else
@@ -168,6 +175,7 @@ function main.chart(ctx)
   local thePlan = plan.build(records, { heads = resp.heads, instruments = resp.instruments, mode = resp.mode })
   namedWarnings(thePlan.warnings)
   local extra = {}
+  if notExported then extra[#extra + 1] = notExported end
   if (scan.merged or 0) > 0 then extra[#extra + 1] = { type = "merged-notes", count = scan.merged } end
   -- A run that charts nothing keeps an existing chart: removing it would need Dorico's delete dialog.
   if #thePlan.sections == 0 then

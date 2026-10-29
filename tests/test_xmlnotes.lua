@@ -118,10 +118,20 @@ return {
       read("7", "Piano 1", "D5", 0, { headUnreadable = true }) }
     local other = file(part("Flute", { { "A5", 0 } }))
     local partFile = file(EXPORT.parts[1])
-    local newRead, missing = xmlnotes.apply(d, r, { other, partFile, EXPORT })
+    local newRead, missing, paired = xmlnotes.apply(d, r, { other, partFile, EXPORT })
     t:eq(newRead[1].head, "noteheadset.diamondNoteheads", "flow 4 paired with the third file")
+    t:eq(table.concat(paired, ","), "4")
     t:eq(table.concat(missing, ","), "7")
-    t:eq(newRead[2].headUnreadable, true, "flow 7's note is left as it was")
+    -- Dorico's export can leave a flow out (Goodbye Blue Sky's hand-made chart flow): its changed heads are still
+    -- kept apart from plain ones
+    t:eq(newRead[2].head, "noteheadset.notInMusicXML", "flow 7's changed head")
+    t:eq(newRead[2].headUnreadable, false)
+  end,
+  no_file_pairs_with_any_flow = function(t)
+    local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }) }
+    local _, missing, paired = xmlnotes.apply(FLOW, r, { file(EXPORT.parts[1]) })
+    t:eq(#paired, 0)
+    t:eq(table.concat(missing, ","), "4")
   end,
   a_unison_merged_by_the_paste_still_pairs = function(t)
     local d = { dumped("1", "A", "C5", 0), dumped("1", "A", "C5", 0) }
