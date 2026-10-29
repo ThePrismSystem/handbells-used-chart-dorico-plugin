@@ -31,17 +31,22 @@ ALLOWED = {
     },
     "Handbells Used Chart/hbuc/dorico/dialog.lua": {
         "os.execute": 2,  # starts the dialog script (PowerShell or osascript), and /bin/sleep 1 while a Mac waits
-        "os.remove": 2,  # the last run's osascript.log and response file
+        "os.remove": 2,  # the last run's osascript.log, and the response file before the settings dialog, the
+        # MusicXML message or the picker
     },
     "Handbells Used Chart/hbuc/dorico/doc.lua": {
         "os.remove": 1,  # the last text export, before File.Export.Text writes a new one
         "command File.Export.Text": 1,  # Dorico writes the project's text export into the temp folder
     },
+    "Handbells Used Chart/hbuc/dorico/musicxmlstep.lua": {
+        "command File.Export": 1,  # opens Dorico's MusicXML export, which writes where its dialog says
+    },
     "Handbells Used Chart/hbuc/dorico/files.lua": {
-        "io.open": 2,  # reads and writes the plug-in's own files
+        "io.open": 2,  # reads and writes the plug-in's own files, and reads the MusicXML files chosen in the picker
         "os.execute": 1,  # /bin/mkdir -p for the plug-in's folders on a Mac
         "require lfs": 1,  # LuaFileSystem, which ships with Dorico on Windows
-        "lfs.attributes": 3,  # whether a folder exists, and when the project file last changed
+        "lfs.attributes": 5,  # whether a folder exists, when the project file and a MusicXML export last changed
+        "lfs.dir": 2,  # the project folder's "Flows from" folders, to find the MusicXML export Dorico just wrote
         "lfs.mkdir": 1,  # the plug-in's folders on Windows
     },
     "Handbells Used Chart/hbuc/dorico/safe.lua": {
@@ -52,11 +57,14 @@ ALLOWED = {
         "DllImport": 1,  # SetProcessDPIAware from user32.dll, so the dialog is sharp on scaled displays
         "IO.File.ReadAllText": 1,  # the request file
         "IO.File.WriteAllText": 1,  # the response file
+        "OpenFileDialog": 1,  # the picker for a MusicXML export, which returns the chosen paths and opens nothing
     },
     "Handbells Used Chart/dialog/mac.js": {
         "ObjC.import Cocoa": 1,  # AppKit, for the dialog's window
         "stringWithContentsOfFile": 1,  # the request file
         "writeToFile": 1,  # the response file
+        "currentApplication": 1,  # osascript's own Standard Additions, for the file picker
+        "chooseFile": 1,  # the picker for a MusicXML export, which returns the chosen paths and opens nothing
     },
 }
 
@@ -79,12 +87,14 @@ PS1_CALLS = [
     ("Remove-Item", r"(?i)\bRemove-Item\b"), ("Set-Content", r"(?i)\bSet-Content\b"),
     ("Add-Content", r"(?i)\bAdd-Content\b"), ("Out-File", r"(?i)\bOut-File\b"), ("New-Item", r"(?i)\bNew-Item\b"),
     ("Copy-Item", r"(?i)\bCopy-Item\b"), ("Move-Item", r"(?i)\bMove-Item\b"),
+    ("OpenFileDialog", r"\bOpenFileDialog\b"),
 ]
 JS_CALLS = [
     ("doShellScript", r"\bdoShellScript\b"), ("NSTask", r"\bNSTask\b"), ("Application()", r"\bApplication\s*\("),
     ("writeToFile", r"\bwriteToFile\w*"), ("stringWithContentsOfFile", r"\bstringWithContentsOfFile\w*"),
     ("NSFileManager", r"\bNSFileManager\b"), ("NSWorkspace", r"\bNSWorkspace\b"),
-    ("NSAppleScript", r"\bNSAppleScript\b"),
+    ("NSAppleScript", r"\bNSAppleScript\b"), ("chooseFile", r"\bchooseFile\b"),
+    ("currentApplication", r"\bcurrentApplication\b"),
 ]
 NETWORK_CALLS = [
     ("Invoke-WebRequest", r"(?i)\bInvoke-WebRequest\b|(?<![\w$-])iwr\b"),

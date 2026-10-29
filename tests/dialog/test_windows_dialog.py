@@ -234,6 +234,98 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(proc.wait(30), 0)
         self.assertEqual(fits, "yes", "the window and its OK button are on the screen")
 
+    def open_mode(self, flag, payload, title):
+        path = self.tmp / f"{flag.lower()}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                                 "-File", str(PS1), f"-{flag}", str(path), "-Response", str(self.response)])
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        self.assertTrue(wait_window(title), f"{title} did not open")
+        time.sleep(1)
+        return proc
+
+    CHOICE = {"title": "Noteheads changed in Dorico", "text": "Export the score as MusicXML.",
+              "buttons": [{"id": "export", "label": "Export MusicXML"}, {"id": "choose", "label": "Choose file"},
+                          {"id": "cancel", "label": "Cancel"}], "cancel": "cancel"}
+
+    def test_choice_returns_the_pressed_button(self):
+        proc = self.open_mode("Choice", self.CHOICE, self.CHOICE["title"])
+        self.assertTrue(click(self.CHOICE["title"], "Choose file"))
+        self.assertEqual(self.response_json(proc), {"choice": "choose"})
+
+    def test_choice_escape_is_its_cancel(self):
+        proc = self.open_mode("Choice", self.CHOICE, self.CHOICE["title"])
+        self.assertEqual(powershell("-File", str(PRESS_KEY), "-Window", self.CHOICE["title"], "-Key", "Escape")
+                         .returncode, 0)
+        self.assertEqual(self.response_json(proc), {"choice": "cancel"})
+
+    def pick(self, button, names=("a - Full score - 01 Flow.musicxml",)):
+        folder = self.tmp / "Flows from Bells & Chimes"
+        folder.mkdir()
+        for name in names:
+            (folder / name).write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        proc = self.open_mode("Pick", {"title": title, "folder": str(folder).replace("\\", "/"), "files": list(names),
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml", "xml"]}}, title)
+        # UI Automation lists the picker under its owner, so presskey can't find it: click.ps1 finds it through Win32
+        self.assertTrue(click(title, button))
+        return folder, self.response_json(proc)
+
+    def test_pick_returns_the_preselected_file(self):
+        folder, answer = self.pick("Open")
+        self.assertEqual([Path(p) for p in answer["files"]], [folder / "a - Full score - 01 Flow.musicxml"])
+
+    def test_pick_returns_every_preselected_file(self):
+        names = ("a - Full score - 01 Flow.musicxml", "a - Full score - 02 Other.musicxml")
+        folder, answer = self.pick("Open", names)
+        self.assertEqual(sorted(Path(p) for p in answer["files"]), sorted(folder / n for n in names))
+
+    def test_pick_takes_and_returns_code_page_paths(self):
+        # Dorico's Lua names files in the ANSI code page ("mbcs" here) and opens them only by those bytes
+        folder = self.tmp / "Flows from Noël"
+        folder.mkdir()
+        name = "Noël - Full score - 01 Noël.musicxml"
+        (folder / name).write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        lua_folder = str(folder).replace("\\", "/") + "/"
+        proc = self.open_mode("Pick", {"title": title, "folder": "", "folderBytes": lua_folder.encode("mbcs").hex(),
+                                       "files": [], "filesBytes": [name.encode("mbcs").hex()],
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml"]}}, title)
+        self.assertTrue(click(title, "Open"))
+        answer = self.response_json(proc)
+        self.assertEqual([Path(p) for p in answer["files"]], [folder / name])
+        self.assertEqual([bytes.fromhex(h) for h in answer["filesBytes"]], [str(folder / name).encode("mbcs")])
+
+    def test_pick_takes_utf8_paths_too(self):
+        # the project's folder comes from Dorico's text export in UTF-8, unlike the names lfs lists
+        folder = self.tmp / "Flows from Noël"
+        folder.mkdir()
+        name = "Noël - Full score - 01 Noël.musicxml"
+        (folder / name).write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        lua_folder = str(folder).replace("\\", "/") + "/"
+        proc = self.open_mode("Pick", {"title": title, "folder": "", "folderBytes": lua_folder.encode("utf-8").hex(),
+                                       "files": [], "filesBytes": [name.encode("utf-8").hex()],
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml"]}}, title)
+        self.assertTrue(click(title, "Open"))
+        self.assertEqual([Path(p) for p in self.response_json(proc)["files"]], [folder / name])
+
+    def test_choice_and_pick_answer_when_they_fail(self):
+        # a file that isn't JSON stops the script before any window opens: it still answers, with the reason
+        for flag, answer in (("Choice", {"choice": None}), ("Pick", {"files": [], "filesBytes": []})):
+            spec = self.tmp / f"{flag.lower()}.json"
+            spec.write_text("not json", encoding="utf-8")
+            self.response.unlink(missing_ok=True)
+            proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                                     "-File", str(PS1), f"-{flag}", str(spec), "-Response", str(self.response)])
+            got = self.response_json(proc)
+            self.assertTrue(got.pop("error", ""), flag)
+            self.assertEqual(got, answer, flag)
+
+    def test_pick_cancel_returns_no_files(self):
+        _, answer = self.pick("Cancel")
+        self.assertEqual(answer, {"files": [], "filesBytes": []})
+
     def test_message_window_closes_on_ok(self):
         message = self.tmp / "message.json"
         message.write_text(json.dumps({"title": RESULTS, "kind": "info", "text": "Handbells Used: 2\nSMBs Used: 1"}),

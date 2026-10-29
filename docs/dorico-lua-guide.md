@@ -75,6 +75,10 @@ it. Clear what you set.
 - Lua 5.2, with the standard `io`, `os`, `string`, `table`, `math` and `debug` libraries.
 - On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. Whether a Mac has it is unconfirmed,
   so the plug-in works without it there.
+- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8. `lfs.dir` listed a folder named
+  "Noël" with byte 235 (Windows-1252), and `io.open` opened the file by that name but not by its UTF-8 bytes. So a path
+  that came in as UTF-8 (from JSON, say) has to be converted before Lua can open it, and a file whose name has
+  characters outside the code page can't be opened at all.
 - No user interface at all. Section 8 is how to get one.
 - `os.execute` runs a command and **Dorico waits for it**, frozen, until it returns.
 
@@ -151,7 +155,7 @@ Events carry their details in a property table, read and written through `DoCore
 
 ```lua
 local ctx = DoCore.PropertyContext()
-local head = tostring(note.propertyTable:get("kNoteheadSetOverride", ctx))   -- "" when not set
+local head = tostring(note.propertyTable:get("kNoteheadSetOverride", ctx))   -- "": not set, or set in Dorico itself
 note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx)
 ```
 
@@ -161,6 +165,13 @@ note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx
   invalid Variant (`type` -1) whose text is `""`, the same as no colour. The note still lists `kEventColour` in
   `getPropertyNames()`, so you can tell "coloured, but unreadable" from "no colour". A colour set from Lua reads back
   as it was set, after a save and reopen and in a pasted copy too.
+- A notehead set chosen in Dorico (the Notations menu, the Properties panel, or the command
+  `Edit.SetNoteheadSetOverride?NoteheadSetEntityID=…`) can't be read either. `kNoteheadSetOverride` is listed and
+  reads as an invalid Variant, in the music and in a pasted copy alike. The Variant's `toString()` is `""` and its
+  `toInt()` throws, and every such Variant compares equal (`==`) to every other, whatever the set and even to an
+  unset one, so you can't even group the notes. Giving a note the set it already has, by command, leaves the value
+  Lua set: clear it first (`Edit.ClearNoteheadSetOverride`) to get the unreadable kind. This plug-in reads such
+  notes' noteheads from a MusicXML export instead (section 5, "Exporting MusicXML").
 - A read can lag the page. After a command recoloured a note whose colour had been set from Lua, the page showed the
   new colour while Lua still read the old one.
 - `set` returns `true` when Dorico took the value. That doesn't always mean the score changed (section 5).
@@ -231,8 +242,11 @@ holds only notes, reads that, and takes it away again:
    are `[treble, bass]`, so take the scratch voice of the same instrument and staff.
 5. The filter keeps note-attached lines with their notes, and a line makes `stream.events` throw again. Delete every
    event in the scratch flow whose kind has no Lua class: select each by id from the dump, then `Edit.Delete`.
-6. Now `stream.events` and `propertyTable:get` work: noteheads, colours and grace notes. Skip the temporary note by
-   its id.
+6. Now `stream.events` and `propertyTable:get` work: grace notes, and the noteheads and colours Lua can read at all
+   (section 2: not the ones set in Dorico itself, which the copy keeps unreadable). Skip the temporary note by its
+   id. The paste puts the copy's first note at position 0, even though the range starts at the start of the flow, so
+   when every staff starts with rests, every position reads that much early. Shift the copy by the difference
+   between the dumps' first note and its own.
 7. Take the scratch flow away with **one** `Edit.Undo` (section 7 explains why exactly one).
 
 It takes about 2 seconds a flow. Two catches:
@@ -397,10 +411,36 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
 - To show only some staves on a system, set `hideEmptyStavesPolicy = kAllSystems` with every player who must always
   show in `alwaysVisiblePlayers`.
 
+### Exporting MusicXML
+
+There's no silent export, but a script can open Dorico's own MusicXML export and wait for it:
+
+```lua
+app:doCommand("File.Export?FilterID=MusicXMLExportFilter")   -- opens "Export MusicXML"; returns when it closes
+```
+
+- The call blocks until the dialog closes, then the script carries on. It returns `nil` whether OK or Cancel was
+  pressed, so look for new files to tell them apart.
+- By default the dialog exports uncompressed `.musicxml`, every flow and every layout (full score and parts) as
+  separate files, into a new folder beside the project: `Flows from <title>/<project> - <layout> - <NN> <flow>.musicxml`.
+  Exporting into that folder again asks, file by file, whether to overwrite.
+- The export only sees the score as it was before the script run. A flow the same run made exported as an empty
+  `<score-partwise/>`; made in one run and exported in the next, it came out in full.
+- Pitches are written pitch, with `<transpose>` per staff (Dorico's Handbells: `octave-change` 1). Colours are
+  `color="#RRGGBB"` on `<note>`.
+- Of Dorico 6's 36 non-default built-in notehead sets, 17 export no `<notehead>` at all, among them Rectangular,
+  Old-Style Diamond and Wide Diamond. X, Large X and Diamond, and X and Diamond all export `x`, and the four slash sets
+  `slash`. Diamond exports `diamond`, White Diamond `diamond` with `filled="no"`, and the two triangles `triangle` and
+  `inverted triangle`. The README of this repository has the whole list.
+- Positions worked out from `divisions`, `duration`, `backup`, `forward` and `chord` matched `stream:dump()`'s note for
+  note on three scores, once a grace note is put at the next note's onset and a tied-over note
+  (`<tie type="stop"/>`) is left out.
+
 ### Things that didn't work
 
 - `copyRange` copies nothing, within a flow or across flows.
-- There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs.
+- There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs (but see
+  "Exporting MusicXML" above).
 - Saved projects are binary inside (`score.dtn`), so reading the project file isn't an option.
 
 ## 6. Commands
@@ -588,6 +628,9 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
+- So does a notehead set chosen in Dorico, and every such Variant equals every other. A MusicXML export has them
+  (section 5).
+- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
 - `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
   wrong block id selects nothing, silently.
@@ -614,6 +657,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | One run, start to finish | `plugin/Handbells Used Chart/hbuc/main.lua` |
 | Reading notes, the paste route, the single undo | `hbuc/dorico/readscore.lua`, `hbuc/dump.lua`, `hbuc/eventtext.lua`, `hbuc/reading.lua` |
 | The text export | `hbuc/dorico/doc.lua` (`exportText`), `hbuc/textexport.lua` |
+| Noteheads set in Dorico, through a MusicXML export | `hbuc/dorico/musicxmlstep.lua`, `hbuc/musicxml.lua`, `hbuc/xmlnotes.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
 | Player ids | `hbuc/dorico/doc.lua` (`playerIds`) |
 | Command strings | `hbuc/commands.lua` |

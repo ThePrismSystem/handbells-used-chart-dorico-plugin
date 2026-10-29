@@ -9,7 +9,7 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
-      globals: { ObjC: "readonly", $: "readonly" },
+      globals: { ObjC: "readonly", $: "readonly", Application: "readonly", Path: "readonly" },
     },
   },
   {

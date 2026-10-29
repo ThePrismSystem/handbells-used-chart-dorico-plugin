@@ -1,21 +1,25 @@
 -- One run of the plug-in, start to finish. Every effect goes through ctx (hbuc.dorico.context): the Dorico app, the
--- dialog, the message window, the folders and the log, so tests can run it with a scripted dialog. Nothing in the
--- project changes before the user clicks OK and the project is saved, except the reading copy, which is taken away
--- again before the dialog opens.
+-- dialog, the MusicXML step's message and file picker, the message window, the folders and the log, so tests can
+-- run it with a scripted dialog. Nothing in the project changes before the user clicks OK (or Remove chart in the
+-- MusicXML step's message) and the project is saved, except the reading copy, which is taken away again before the
+-- dialog opens.
 local chartlayout = require("hbuc.chartlayout")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
 local guards = require("hbuc.guards")
 local options = require("hbuc.options")
 local plan = require("hbuc.plan")
+local reading = require("hbuc.reading")
 local report = require("hbuc.report")
 local request = require("hbuc.request")
 local shapes = require("hbuc.shapes")
 local textexport = require("hbuc.textexport")
 local transpose = require("hbuc.transpose")
+local xmlnotes = require("hbuc.xmlnotes")
 local doc = require("hbuc.dorico.doc")
 local files = require("hbuc.dorico.files")
 local findchart = require("hbuc.dorico.findchart")
+local musicxmlstep = require("hbuc.dorico.musicxmlstep")
 local readscore = require("hbuc.dorico.readscore")
 local removechart = require("hbuc.dorico.removechart")
 local safe = require("hbuc.dorico.safe")
@@ -88,21 +92,52 @@ function main.chart(ctx)
     return result(false, "error", string.format(M.readFailed, failure(scan), log.path))
   end
 
-  -- 4. the dialog
+  -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export. Its message can also
+  -- remove the chart, without the dialog.
+  local req, resp
+  local extra = {}
+  if #xmlnotes.flowsNeeding(scan.read) > 0 then
+    local got = musicxmlstep.run(ctx, { chartExists = chart ~= nil, projectPath = projectPath })
+    if got.status == "error" then return result(false, "error", got.text) end
+    if got.status == "remove" then
+      resp = { remove = true }
+    elseif got.status == "files" then
+      local read, missing, paired, unmatched = xmlnotes.apply(scan.dumped, scan.read, got.files)
+      -- No flow in any chosen file: the wrong file, or an export older than the music. A flow some files skip
+      -- (one Dorico's export left out) keeps its changed heads apart, and the report names it.
+      if #paired == 0 then
+        return result(false, "error", string.format(M.musicxmlMismatch, scan.flowNumbers[missing[1]] or 0))
+      end
+      if #missing > 0 then
+        local numbers = {}
+        for i, id in ipairs(missing) do numbers[i] = scan.flowNumbers[id] or 0 end
+        extra[#extra + 1] = { type = "musicxml-missing", flows = numbers }
+      end
+      if unmatched > 0 then extra[#extra + 1] = { type = "musicxml-unmatched", count = unmatched } end
+      scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
+    else
+      log:line("cancelled at the MusicXML step")
+      return result(false, "info", "")
+    end
+  end
+
+  -- 4. the dialog, unless the MusicXML step's message already asked for the chart to be removed
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
-  local names = {}
-  for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
-  -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
-  local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
-  local req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
-    runId = runId })
-  local okAsk, raw = pcall(ctx.dialog, req)
-  if not okAsk then log:line("the dialog failed:", raw) end
-  local resp = okAsk and request.parse(raw, req) or nil
   if not resp then
-    log:line("cancelled")
-    return result(false, "info", "")
+    local names = {}
+    for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
+    -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
+    local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
+    req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
+      runId = runId })
+    local okAsk, raw = pcall(ctx.dialog, req)
+    if not okAsk then log:line("the dialog failed:", raw) end
+    resp = okAsk and request.parse(raw, req) or nil
+    if not resp then
+      log:line("cancelled")
+      return result(false, "info", "")
+    end
   end
 
   -- 5. choices that cannot work are refused before anything is saved
@@ -115,10 +150,11 @@ function main.chart(ctx)
     if #resp.instruments == 0 then return result(false, "error", M.noInstrumentSelected) end
   end
 
-  -- 6. remember the choices, and save: File > Revert then takes the whole run back
-  files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp)))
-  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read, such as one with
-  -- characters outside the system code page, cannot be checked and is trusted.)
+  -- 6. remember the choices (if the dialog was shown), and save: File > Revert then takes the whole run back
+  if req then files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp))) end
+  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read cannot be checked and
+  -- is trusted: on Windows, one with any character outside ASCII, since the text export gives it in UTF-8 and lfs
+  -- takes the code page.)
   local savedBefore = files.modified(projectPath)
   doc.command(app, log, "File.Save")
   -- From here on a failure is told to use File > Revert (main.run).
@@ -140,7 +176,6 @@ function main.chart(ctx)
   local records = transpose.atPitch(scan.records, resp.atPitch)
   local thePlan = plan.build(records, { heads = resp.heads, instruments = resp.instruments, mode = resp.mode })
   namedWarnings(thePlan.warnings)
-  local extra = {}
   if (scan.merged or 0) > 0 then extra[#extra + 1] = { type = "merged-notes", count = scan.merged } end
   -- A run that charts nothing keeps an existing chart: removing it would need Dorico's delete dialog.
   if #thePlan.sections == 0 then

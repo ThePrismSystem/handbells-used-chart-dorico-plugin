@@ -9,6 +9,18 @@ local function lines(list)
 end
 
 return {
+  notes_carry_their_position = function(t)
+    local notes = dump.notes(dump.parse(lines({
+      RULE,
+      "Start block id: 1010 position: 0",
+      "16 (16) dur: 1: kNoteEvent (id:209) at 16, duration 1  C5 (ends 17)",
+      "8 (8): kGraceNoteEvent (id:200) at 8  secondary pos -1/2 (-0.5), notated duration: 1/2 (0.5), B6 ",
+      "13/2 (6.5) dur: 1/2: kNoteEvent (id:210) at 13/2 (6.5), duration 1/2  D5 (ends 7)",
+    })))
+    t:eq(notes[1].pos, 16)
+    t:eq(notes[2].pos, 8, "a grace note sits at the position of the note it leads into")
+    t:eq(notes[3].pos, 6.5)
+  end,
   parses_notes_and_grace_notes = function(t)
     local d = dump.parse(lines({
       RULE,

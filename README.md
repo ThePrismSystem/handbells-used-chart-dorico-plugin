@@ -72,9 +72,9 @@ From a clone of this repository, `python tools/install.py` does the copying, and
 
 On OK, the plug-in saves the project first, so **File > Revert** takes the whole run back. It checks that the save
 happened and stops if it didn't, where it can. On a Mac where Dorico doesn't give scripts its file library (the run
-log says `lfs missing`), or for a file name with characters outside Windows' code page, it trusts the save. Then it
-draws the chart into a new flow named "Handbells Used Chart" at the start of the project. That flow carries the
-title on page 1. The music starts on page 2, or straight after the chart on page 1 if you untick "Start the music
+log says `lfs missing`), or for a project whose folder or file name has characters outside ASCII, it trusts the save.
+Then it draws the chart into a new flow named "Handbells Used Chart" at the start of the project. That flow carries
+the title on page 1. The music starts on page 2, or straight after the chart on page 1 if you untick "Start the music
 on a new page". In a project with one flow, the music flow's own heading is hidden so the title isn't printed
 twice. A results window then lists the sections drawn and anything skipped.
 
@@ -135,6 +135,55 @@ choice is remembered while the project still uses it.
 
 Notes with a notehead none of the five lists names are skipped, and the results window counts them and names the
 noteheads. Two kinds can't share a notehead: the plug-in says which one clashes and draws nothing.
+
+### Noteheads changed in Dorico
+
+A plug-in can't read a notehead set chosen in Dorico itself (with the Notations menu or the Properties panel). It can
+see that a note's notehead was changed, but not which set it was changed to. So when a score has such notes, a message
+comes up before the dialog and asks for a MusicXML export, which does record each note's notehead:
+
+- **Export MusicXML** opens Dorico's own export dialog. Its starting settings are fine: click OK. On Windows, a file
+  picker then opens in the folder Dorico wrote to, with every file it wrote already selected, so click Open. On a Mac
+  the picker opens in the project's folder, and you choose the files in the `Flows from …` folder there. If no new
+  export turns up in a `Flows from …` folder beside the project, because you cancelled or exported somewhere else,
+  the plug-in says so and the message comes back. Use Choose file for an export somewhere else.
+- **Choose file** goes straight to the picker, for an export you made earlier.
+- **Remove chart** appears when the score already has a chart. It saves the project and removes the chart, with no
+  export and no dialog.
+- **Cancel** changes nothing.
+
+If a file you choose is older than the project's last save, the plug-in asks before using it, since noteheads changed
+since then won't be in it. It can only ask when it can read the files' dates, which it can't on a Mac where Dorico has
+no LuaFileSystem, or on Windows when the project's folder or file name has accented letters or other characters
+outside ASCII. With such a project, the picker also opens in the project's folder after an export, with nothing
+selected.
+
+Choose the uncompressed `.musicxml` file of the full score. With several flows, choose each flow's full-score file, or
+every file the export made. The plug-in uses a file for one flow only, and only when it holds exactly the notes of
+each player whose noteheads it couldn't read. When two players play exactly the same notes, each takes the part named
+after it. If no flow matches any file you chose (an export of another piece, an older version, or a part without those
+players), nothing is changed. A flow with no file of its own, such as one Dorico's export left out, keeps its changed
+noteheads apart as "Changed in Dorico (not in MusicXML)", and the results window names it. A changed note that a
+matching file has no note for is listed the same way, and the results window counts those notes.
+
+A note takes its notehead or colour from a file only where the plug-in couldn't read it. A player whose noteheads were
+all read takes colours from the file only if the file has that player's part. On Windows, Dorico's scripts can only
+open a file whose name and folder use characters from Windows' code page; for any other file the plug-in says it
+couldn't open it.
+
+MusicXML can't express every Dorico notehead set, so some can't be told apart this way:
+
+| What the file says | Dorico notehead sets |
+| ------------------ | -------------------- |
+| No notehead at all | Rectangular, Old-Style Diamond, Wide Diamond, Circled, Figurenotes, Funk 7-shape, Larger, Moon, Ornate X, Pitch Name, Plus, Round White with Dot, Triangle Left, Triangle Right, Walker 4-shape, Walker 7-shape, X and Circle X |
+| `x`                | X, Large X and Diamond, X and Diamond |
+| `slash`            | Slash, Muted Slash, Oversized Slash, Small Slash |
+
+Notes changed in Dorico to a set in the first row are listed together as "Changed in Dorico (not in MusicXML)". The
+plug-in still tells them apart from plain noteheads, but not from each other, so square SMBs and Wide or Old-Style
+Diamond handchimes in the same score share that entry. To keep them apart, give one of them a set MusicXML keeps,
+such as Diamond or White Diamond for handchimes. The sets in the other two rows are listed as X Noteheads and Slash
+Noteheads. Every other built-in set comes through as itself. The table is from Dorico 6.2.30.
 
 ### Colours
 
@@ -212,7 +261,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 - **Colours set in the Properties panel** can't be read by a plug-in. The colour fields open on the colour most of a
   kind's notes have, counting only the colours the plug-in can read. If you coloured a kind's notes in the
   Properties panel, its field may open empty or on another colour, so type the colour in. The chart uses the colour
-  in the field.
+  in the field. When the plug-in reads a MusicXML export (because noteheads were changed in Dorico too), it takes
+  those colours from the export.
+- **Noteheads changed in Dorico** need a MusicXML export, and some notehead sets can't be told apart through it: see
+  [Noteheads changed in Dorico](#noteheads-changed-in-dorico).
 - One notehead per kind of bell. Notes with a second notehead style for the same kind are skipped and counted.
 - Tested on Windows only, until the first Mac check.
 

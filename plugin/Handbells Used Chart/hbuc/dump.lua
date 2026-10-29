@@ -54,7 +54,7 @@ function dump.notes(parsed)
   local notes = {}
   for _, ev in ipairs(parsed.events) do
     if (ev.kind == "note" or ev.kind == "grace") and ev.spelling then
-      notes[#notes + 1] = { spelling = ev.spelling, grace = ev.kind == "grace", id = ev.id }
+      notes[#notes + 1] = { spelling = ev.spelling, grace = ev.kind == "grace", id = ev.id, pos = ev.pos }
     end
   end
   return notes

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Support for scores whose noteheads were changed in Dorico itself (the Notations menu or the Properties panel),
+  which a plug-in can't read. The plug-in asks for a MusicXML export of the score, with a button that opens Dorico's
+  export dialog, and reads those noteheads from it, along with any colours set the same way. It uses a file only
+  where its notes match the score's, player by player, and changes nothing when no file matches. Some notehead sets
+  don't survive MusicXML; the README lists which.
+
 ## [0.1.0] - 2026-10-26
 
 The first version, for the first check on a Mac. It is not released yet: 1.0.0 follows that check.
