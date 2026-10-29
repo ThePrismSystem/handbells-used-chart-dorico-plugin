@@ -71,9 +71,9 @@ probe.run("case_musicxml", function(p)
 
   local expect = p.args.expect
   if expect == "drawn" then
-    local asked = p.args.asked or 1
-    p:check("asked " .. asked, #p.facts.choices == asked, #p.facts.choices)
-    if asked > 1 then
+    local questions = p.args.asked or 1
+    p:check("asked " .. questions, #p.facts.choices == questions, #p.facts.choices)
+    if questions > 1 then
       local question = p.facts.choices[2].text
       p:check("names the note by its bar", question:find(" in bar ", 1, true) ~= nil, question)
     end
