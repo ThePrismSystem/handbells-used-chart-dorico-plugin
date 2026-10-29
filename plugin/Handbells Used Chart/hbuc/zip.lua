@@ -58,7 +58,7 @@ function zip.entry(bytes, name)
   for _ = 1, count do
     if bytes:sub(p, p + 3) ~= "PK\1\2" then fail("bad central directory") end
     local nameLength = u16(bytes, p + 28)
-    local next = p + 46 + nameLength + u16(bytes, p + 30) + u16(bytes, p + 32)
+    local following = p + 46 + nameLength + u16(bytes, p + 30) + u16(bytes, p + 32)
     if bytes:sub(p + 46, p + 45 + nameLength) == name then
       local method, crc, size = u16(bytes, p + 10), u32(bytes, p + 16), u32(bytes, p + 24)
       local l = u32(bytes, p + 42) + 1
@@ -76,7 +76,7 @@ function zip.entry(bytes, name)
       if crc32(data) ~= crc then fail("CRC mismatch for " .. name) end
       return data
     end
-    p = next
+    p = following
   end
   return nil
 end

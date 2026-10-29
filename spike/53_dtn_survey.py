@@ -37,7 +37,7 @@ def note_properties(tree, event_id):
         return names[name] + ("=" + values[value] if values[value] else "") + (
             "(" + ",".join(text(k) for k in kids) + ")" if kids else "")
 
-    for i, (tag, name, value, kids) in enumerate(nodes):
+    for i, (_, name, _, _) in enumerate(nodes):
         if names[name] != "NoteEventDefinition":
             continue
         idn = child(i, "eventID")

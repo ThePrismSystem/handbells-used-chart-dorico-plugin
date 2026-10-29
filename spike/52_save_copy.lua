@@ -22,6 +22,7 @@ probe.run("52_save_copy", function(p)
   local cases = require("cases")
   local commands = require("hbuc.commands")
   local doc = require("hbuc.dorico.doc")
+  local lfs = require("lfs")
   local ctx = cases.context(p)
   local app, log = ctx.app, ctx.log
 

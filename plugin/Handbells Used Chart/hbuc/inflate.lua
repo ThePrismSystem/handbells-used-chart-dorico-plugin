@@ -190,7 +190,7 @@ function inflate.raw(data, start)
         lengths[i] = s
         i = i + 1
       else
-        local value, rep = 0, 0
+        local value, rep = 0
         if s == 16 then
           if i == 0 then fail("repeat with no first length") end
           value, rep = lengths[i - 1], 3 + bitsOf(2)

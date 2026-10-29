@@ -51,7 +51,10 @@ def events(tree):
         kind = names[name]
         if kind not in ("NoteEventDefinition", "GraceNoteEventDefinition"):
             continue
-        get = lambda n: values[nodes[child(i, n)][2]] if child(i, n) is not None else None  # noqa: E731
+        def get(n, node=i):
+            c = child(node, n)
+            return values[nodes[c][2]] if c is not None else None
+
         heads = []
         table = child(i, "propertyTable")
         entries = child(table, "entries") if table is not None else None
