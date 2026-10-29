@@ -23,12 +23,10 @@ local function utf8(code)
 end
 
 local function decode(s)
-  return (s:gsub("&(#?[xX]?)(%w+);", function(kind, body)
-    local code
-    if kind == "#" then code = tonumber(body) elseif kind ~= "" then code = tonumber(body, 16) end
-    if code then return utf8(code) end
-    if kind == "" and NAMED[body] then return NAMED[body] end
-    return nil
+  return (s:gsub("&(#?)([xX]?)(%w+);", function(hash, x, body)
+    if hash == "" then return x == "" and NAMED[body] or nil end
+    local code = tonumber(body, x == "" and 10 or 16)
+    return code and code <= 0x10FFFF and utf8(code) or nil
   end))
 end
 

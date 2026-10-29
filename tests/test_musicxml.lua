@@ -138,6 +138,24 @@ return {
     local parsed = only({ { name = "Bells &amp; Chimes &lt;1&gt; &#233;&#x2019;", body = measure(DIVISIONS) } })
     t:eq(parsed.parts[1].name, "Bells & Chimes <1> \195\169\226\128\153")
   end,
+  malformed_character_references_stay_as_written = function(t)
+    -- past U+10FFFF, an "x" with no "#", a decimal with an exponent: none is a character, and none stops the read
+    local parsed = only({ { name = "&#x400000; &#4194304; &x41; &#1e2;", body = measure(DIVISIONS) } })
+    t:eq(parsed.parts[1].name, "&#x400000; &#4194304; &x41; &#1e2;")
+  end,
+  a_declared_entity_is_never_expanded = function(t)
+    local text = '<!DOCTYPE score-partwise [ <!ENTITY e "x"> ]>'
+      .. '<score-partwise><part-list><score-part id="P1"><part-name>&e;</part-name></score-part></part-list>'
+      .. '<part id="P1"><measure/></part></score-partwise>'
+    t:eq(musicxml.parse(text).parts[1].name, "&e;")
+  end,
+  attributes_and_cdata_decode = function(t)
+    local text = '<score-partwise><part-list><score-part id="P&amp;1"><part-name><![CDATA[Bells & <Chimes>]]>'
+      .. '</part-name></score-part></part-list><part id="P&amp;1"><measure/></part></score-partwise>'
+    local part = musicxml.parse(text).parts[1]
+    t:eq(part.id, "P&1")
+    t:eq(part.name, "Bells & <Chimes>")
+  end,
   doctype_and_comments_are_ignored = function(t)
     local text = '<?xml version="1.0"?>\n<!DOCTYPE score-partwise [ <!ENTITY e "x"> ]>\n<!-- a comment > here -->'
       .. '<score-partwise><part-list><score-part id="P1"><part-name>A</part-name></score-part></part-list>'
