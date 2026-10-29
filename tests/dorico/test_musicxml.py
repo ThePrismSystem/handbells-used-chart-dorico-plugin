@@ -42,9 +42,10 @@ class MusicXMLTests(unittest.TestCase):
         with harness.scratch(self, "case_heads.lua", args=CHIMES) as (client, _):
             self.exporting(client, {"choose": ["export"], "pick": "preselected", "expect": "drawn"})
 
-    def test_a_part_file_is_refused(self):
+    def test_another_players_part_is_refused(self):
+        # the chimes are Handbells (A)'s: the Organ's part holds none of its notes
         with harness.scratch(self, "case_heads.lua", args=CHIMES) as (client, _):
-            self.exporting(client, {"choose": ["export"], "pick": "part", "expect": "mismatch"})
+            self.exporting(client, {"choose": ["export"], "pick": "organ", "expect": "mismatch"})
 
     def test_remove_from_the_message(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "combined"}) as (client, _):

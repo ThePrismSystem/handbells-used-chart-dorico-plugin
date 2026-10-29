@@ -2,7 +2,8 @@
 -- first), with the MusicXML step answered as a director would. Dorico's own export and delete dialogs are answered by
 -- tests/dorico/test_musicxml.py.
 --   args.choose: the message's answers, in order ("export", "choose", "remove", "cancel"); then Cancel
---   args.pick: "preselected" (the files the picker selects) or "part" (a part's file from the export); else none
+--   args.pick: "preselected" (the files the picker selects) or "organ" (the Organ part's file from the export, a
+--     player whose heads weren't changed); else none
 --   args.expect: "drawn", "asksNothing", "mismatch" or "removed"
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
@@ -36,9 +37,9 @@ probe.run("case_musicxml", function(p)
         for i, name in ipairs(pick.files or {}) do paths[i] = pick.folder .. name end
         return paths
       end
-      if p.args.pick == "part" then
+      if p.args.pick == "organ" then
         for _, e in ipairs(files.exports(cases.runFolder()) or {}) do
-          if not e.path:find(" - Full score - ", 1, true) then return { e.path } end
+          if e.path:find("Organ", 1, true) and not e.path:find(" - Full score - ", 1, true) then return { e.path } end
         end
       end
       return {}

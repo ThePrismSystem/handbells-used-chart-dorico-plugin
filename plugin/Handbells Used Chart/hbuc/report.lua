@@ -32,8 +32,9 @@ function report.warningLines(warnings)
       local flows = {}
       for i, n in ipairs(w.flows or {}) do flows[i] = tostring(n) end
       local several = #flows > 1
-      line = (several and "Flows " or "Flow ") .. table.concat(flows, ", ") .. " had noteheads changed in Dorico but "
-        .. (several and "weren't" or "wasn't") .. " in the MusicXML export, so those noteheads are listed as "
+      -- left out of the export, or its file no longer matches: either way it has no file of its own
+      line = (several and "Flows " or "Flow ") .. table.concat(flows, ", ") .. (several and " have" or " has")
+        .. " noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as "
         .. constants.NOT_IN_MUSICXML_NAME
     elseif w.type == "unwritable" then
       -- The SMB staff (a Glockenspiel) sounds two octaves up, past MIDI's top note for the highest bells.

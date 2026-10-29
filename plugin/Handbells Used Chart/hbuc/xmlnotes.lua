@@ -94,9 +94,15 @@ function xmlnotes.apply(dumped, read, files)
   end
   local missing, paired = {}, {}
   for _, flowId in ipairs(xmlnotes.flowsNeeding(read)) do
+    -- Only the players with notes Lua couldn't read have to pair: another's notes may not be in the file at all
+    -- (unpitched percussion, which the reader skips), and their heads were read already.
+    local needed = {}
+    for _, n in ipairs(read) do
+      if n.flowId == flowId and (n.headUnreadable or n.colourUnreadable) then needed[n.instrument] = true end
+    end
     local flowDumped = {}
     for _, n in ipairs(dumped) do
-      if n.flowId == flowId then flowDumped[#flowDumped + 1] = n end
+      if n.flowId == flowId and needed[n.instrument] then flowDumped[#flowDumped + 1] = n end
     end
     local pairing, parsed
     for _, f in ipairs(files) do
@@ -129,15 +135,14 @@ function xmlnotes.apply(dumped, read, files)
       for _, n in ipairs(newRead) do
         if n.flowId == flowId and (n.headUnreadable or n.colourUnreadable) and queues[n.instrument] then
           local x = take(queues[n.instrument][noteKey(n)], n.headUnreadable)
-          if x then
-            if n.headUnreadable then
-              n.head = shapes.fromMusicXML(x.head, x.filled)
-              n.headUnreadable = false
-            end
-            if n.colourUnreadable and x.colour ~= "" then
-              n.colour = x.colour
-              n.colourUnreadable = false
-            end
+          if n.headUnreadable then
+            -- one the file has no note for still mustn't read as a plain head
+            n.head = x and shapes.fromMusicXML(x.head, x.filled) or shapes.NOT_IN_MUSICXML
+            n.headUnreadable = false
+          end
+          if x and n.colourUnreadable and x.colour ~= "" then
+            n.colour = x.colour
+            n.colourUnreadable = false
           end
         end
       end

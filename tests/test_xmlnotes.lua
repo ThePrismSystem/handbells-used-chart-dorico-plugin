@@ -128,10 +128,30 @@ return {
     t:eq(newRead[2].headUnreadable, false)
   end,
   no_file_pairs_with_any_flow = function(t)
+    -- another player's part (or another piece): the changed notes' player isn't in it
     local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }) }
-    local _, missing, paired = xmlnotes.apply(FLOW, r, { file(EXPORT.parts[1]) })
+    local _, missing, paired = xmlnotes.apply(FLOW, r, { file(EXPORT.parts[2]) })
     t:eq(#paired, 0)
     t:eq(table.concat(missing, ","), "4")
+  end,
+  only_players_with_changed_notes_need_to_pair = function(t)
+    -- a player whose notes the file can't hold (unpitched percussion, which the reader skips) doesn't stop the
+    -- handbells taking their noteheads from it
+    local d = { FLOW[1], FLOW[2], FLOW[3], dumped("4", "Drums", "C4", 0) }
+    local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }), read("4", "Drums", "C4", 0) }
+    local newRead, missing, paired = xmlnotes.apply(d, r, { EXPORT })
+    t:eq(#missing, 0)
+    t:eq(table.concat(paired, ","), "4")
+    t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
+  end,
+  a_changed_note_the_file_lacks_is_not_in_musicxml = function(t)
+    -- the file pairs, but holds no note where the read found this one: never the default head
+    local d = { dumped("1", "A", "C5", 0) }
+    local r = { read("1", "A", "C5", 0, { headUnreadable = true }), read("1", "A", "D5", 5, { headUnreadable = true }) }
+    local newRead = xmlnotes.apply(d, r, { file(part("A", { { "C5", 0, head = "diamond" } })) })
+    t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
+    t:eq(newRead[2].head, "noteheadset.notInMusicXML")
+    t:eq(newRead[2].headUnreadable, false)
   end,
   a_unison_merged_by_the_paste_still_pairs = function(t)
     local d = { dumped("1", "A", "C5", 0), dumped("1", "A", "C5", 0) }

@@ -63,12 +63,13 @@ return {
       "Bells too high to draw on the SMB staff were skipped: G#8, C9")
   end,
   flows_missing_from_the_musicxml_export_are_named = function(t)
+    -- a flow Dorico's export left out, or one whose file no longer matches it: either way, no file of its own
     t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 1, 3 } } }),
-      "Flows 1, 3 had noteheads changed in Dorico but weren't in the MusicXML export, so those noteheads are listed"
-        .. " as Changed in Dorico (not in MusicXML)")
+      "Flows 1, 3 have noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
+        .. " Changed in Dorico (not in MusicXML)")
     t:eq(report.warningLines({ { type = "musicxml-missing", flows = { 1 } } }),
-      "Flow 1 had noteheads changed in Dorico but wasn't in the MusicXML export, so those noteheads are listed"
-        .. " as Changed in Dorico (not in MusicXML)")
+      "Flow 1 has noteheads changed in Dorico but no matching MusicXML file, so those noteheads are listed as"
+        .. " Changed in Dorico (not in MusicXML)")
   end,
   nothing_charted_says_the_chart_was_left = function(t)
     local plan = { sections = {}, warnings = {}, emptyNames = {} }
