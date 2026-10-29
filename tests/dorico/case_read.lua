@@ -48,6 +48,14 @@ probe.run("case_read", function(p)
     if n.headUnreadable then headUnreadable = headUnreadable + 1 end
   end
   p:fact("headUnreadable", headUnreadable)
+  -- The MusicXML step matches the notes read to an export's by position, so the paste route's copy must keep them.
+  local positions = {}
+  for _, n in ipairs(scan.read) do
+    local k = table.concat({ n.instrument, n.spelling, n.grace and "grace" or "", string.format("%.3f", n.pos or -1) },
+      "|")
+    positions[k] = (positions[k] or 0) + 1
+  end
+  p:fact("positions", positions)
   p:fact("summary", after)
 
   p:check("the music is as it was", after == before, after .. " vs " .. before)

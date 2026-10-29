@@ -188,6 +188,14 @@ local function copyAndRead(app, log, flowId, nameOf, scratchIds)
   return read
 end
 
+local function earliest(notes)
+  local first
+  for _, n in ipairs(notes) do
+    if n.pos and (not first or n.pos < first) then first = n.pos end
+  end
+  return first
+end
+
 -- Takes every scratch flow away with ONE Edit.Undo, which rolls back everything this run has done, the temporary
 -- notes made with createNote included, and nothing done before the run. A second undo in the same run would also
 -- take back the user's previous action (spike/29_undo_experiments.py, E9 against E10), so there is never a second
@@ -260,7 +268,16 @@ function readscore.scan(app, opts)
       -- stream.events can also list fewer notes than a stream holds: trusted only when every count agrees
       if readable and not reading.countsMatch(flowDumped, direct) then readable = false end
       log:line("flow", flowId, #flowDumped, "notes", readable and "read directly" or "read through a copy")
-      if #flowDumped > 0 and not readable then direct = copyAndRead(app, log, flowId, nameOf, scratchIds) end
+      if #flowDumped > 0 and not readable then
+        direct = copyAndRead(app, log, flowId, nameOf, scratchIds)
+        -- The paste puts the copy's first note at the scratch flow's start, so music that starts late on every staff
+        -- reads that much early (tests/dorico/test_read.py): move the copy back to where the dumps have the music.
+        local first, pastedFirst = earliest(flowDumped), earliest(direct)
+        if first and pastedFirst and first ~= pastedFirst then
+          log:line("flow", flowId, "copy moved by", first - pastedFirst)
+          for _, n in ipairs(direct) do n.pos = n.pos and n.pos + first - pastedFirst end
+        end
+      end
       for _, n in ipairs(flowDumped) do dumped[#dumped + 1] = n end
       for _, n in ipairs(direct) do
         n.flowId = flowId

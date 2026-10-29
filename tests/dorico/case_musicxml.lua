@@ -82,6 +82,7 @@ probe.run("case_musicxml", function(p)
     p:check("the music is as it was", readscore.summary(ctx.app.currentScore) == summaryBefore)
   elseif expect == "removed" then
     p:check("no options dialog", p.facts.request == nil)
+    p:check("the choices are left as they were", files.read(ctx.folders.data .. "settings.json") == nil)
     p:check("removed", text == M.chartWasRemoved, text)
     p:check("no chart", found.status == "none", found.status)
   end

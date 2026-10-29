@@ -42,12 +42,22 @@ class ReadTests(unittest.TestCase):
             pasted = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})["facts"]
             self.assertEqual((direct["pastedFlows"], pasted["pastedFlows"]), (0, 1))
             self.assertEqual(pasted["byInstrument"], direct["byInstrument"])
+            self.assertEqual(pasted["positions"], direct["positions"])
 
     def test_paste_route_when_the_first_player_is_tacet(self):
         self.paste_matches_direct({})
 
     def test_paste_route_when_the_first_treble_staff_is_empty(self):
         self.paste_matches_direct({"topOnly": True})
+
+    def test_paste_route_keeps_positions_when_the_music_starts_late(self):
+        # the copy starts at the flow's start, not at its first note, so a late start isn't moved up
+        self.paste_matches_direct({"lead": 4})
+
+    def test_fixture_paste_route_keeps_positions(self):
+        with harness.scratch(self, "case_read.lua") as (client, direct):
+            pasted = harness.run_more(self, client, "case_read.lua", {"forcePaste": True})["facts"]
+            self.assertEqual(pasted["positions"], direct["facts"]["positions"])
 
     def test_a_notehead_set_by_command_is_marked_unreadable(self):
         # Dorico's own command stores the set in a form Lua reads as "", like the default set. The note still lists

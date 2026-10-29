@@ -1,6 +1,7 @@
 -- Gives the fixture's first player nothing to play in flow 1 before a read: deletes every event in its voices there.
 -- In a run of its own, since the paste route's Edit.Undo would take back an edit made in the reading run.
 --   args.topOnly: empty only its first voice (the treble staff of its grand staff) and leave the bass
+--   args.lead: instead, empty the first lead quarters of every voice in flow 1, so all of its music starts late
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -16,6 +17,19 @@ probe.run("case_tacet", function(p)
   local dump = require("hbuc.dump")
   local doc = require("hbuc.dorico.doc")
   local score = cases.context(p).app.currentScore
+  if p.args.lead then
+    local early, left = 0, 0
+    for _, o in ipairs(doc.voiceOwners(score.flows[1])) do
+      o.stream:deleteEventsInRange(DoCore.RhythmicLength(0), DoCore.RhythmicLength(p.args.lead))
+      for _, n in ipairs(dump.notes(doc.dumpOf(o.stream))) do
+        if n.pos < p.args.lead then early = early + 1 end
+        left = left + 1
+      end
+    end
+    p:check("no note before the lead", early == 0, early)
+    p:check("notes after it", left > 0, left)
+    return
+  end
   local key = doc.playerKey(score.players[1])
   local emptied, left = 0, 0
   for _, o in ipairs(doc.voiceOwners(score.flows[1])) do
