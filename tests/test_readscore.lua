@@ -75,7 +75,52 @@ local function pasteTarget(owners, notes, scratchVoices)
   return pastedOn
 end
 
+-- A flow Lua can list directly: one player, one voice, a note whose notehead was changed in Dorico (the property is
+-- listed, but reads as "") and a plain one.
+local function directScan()
+  local function value(text) return setmetatable({}, { __tostring = function() return text end }) end
+  local function event(text, names)
+    return setmetatable({ propertyTable = {
+      getPropertyNames = function() return names end,
+      get = function() return value("") end,
+    } }, { __tostring = function() return text end })
+  end
+  local stream = voice(1, { "C5", "D5" })
+  stream.events = {
+    event("kNoteEvent (id:101) at 0, duration 1  C5 (ends 1)", { "kNoteheadSetOverride" }),
+    event("kNoteEvent (id:102) at 1, duration 1  D5 (ends 2)", {}),
+  }
+  local pl = player(1)
+  local flow = { id = 7, players = { pl }, voiceStreams = { stream }, instruments = { { id = 1 } }, staveStreams = { {} } }
+  local app = { currentScore = { players = { pl }, flows = { flow } }, doCommand = function() end }
+  local savedCore = DoCore
+  DoCore = { PropertyContext = function() return {} end }
+  package.loaded["hbuc.dorico.readscore"] = nil
+  local ok, scan = pcall(function()
+    return require("hbuc.dorico.readscore").scan(app, { log = { line = function() end } })
+  end)
+  DoCore = savedCore
+  if not ok then error(scan, 0) end
+  return scan
+end
+
 return {
+  scan_returns_positions_flows_and_unreadable_heads = function(t)
+    local scan = directScan()
+    t:eq(scan.pastedFlows, 0, "read directly")
+    t:eq(#scan.read, 2)
+    t:eq(scan.read[1].headUnreadable, true, "listed, but read as nothing")
+    t:eq(scan.read[2].headUnreadable, false)
+    t:eq(scan.read[1].pos, 0)
+    t:eq(scan.read[2].pos, 1)
+    t:eq(scan.read[1].flowId, 7)
+    t:eq(#scan.dumped, 2)
+    t:eq(scan.dumped[2].pos, 1)
+    t:eq(scan.dumped[2].flowId, 7)
+    t:eq(scan.dumped[2].instrument, "Player 1")
+    t:eq(scan.flowNumbers[7], 1)
+    t:eq(scan.records[1].head, "noteheadset.default", "until a MusicXML export says otherwise")
+  end,
   the_top_staff_when_the_first_player_plays = function(t)
     t:eq(pasteTarget({ 1, 1, 2, 2 }, { true, true, true, true }, { [1] = 2, [2] = 2 }), "1:1")
   end,

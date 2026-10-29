@@ -49,6 +49,15 @@ class ReadTests(unittest.TestCase):
     def test_paste_route_when_the_first_treble_staff_is_empty(self):
         self.paste_matches_direct({"topOnly": True})
 
+    def test_a_notehead_set_by_command_is_marked_unreadable(self):
+        # Dorico's own command stores the set in a form Lua reads as "", like the default set. The note still lists
+        # the property, so the read flags it for a MusicXML export, on both routes.
+        with harness.scratch(self, "case_heads.lua", args={"sets": ["noteheadset.diamondNoteheads"]}) as (client, result):
+            self.assertEqual(result["facts"]["redone"], 6, "the fixture's six diamond notes")
+            for args in ({}, {"forcePaste": True}):
+                facts = harness.run_more(self, client, "case_read.lua", args)["facts"]
+                self.assertEqual(facts["headUnreadable"], 6, args)
+
     def test_a_colour_set_by_command_is_marked_unreadable(self):
         # It reads back as "", like no colour. The note still lists the property, so the read can tell the two apart
         # and keep the note out of the colour the dialog suggests.

@@ -21,15 +21,20 @@ local WRAPPABLE = {
   kTonalityDivisionEvent = true, kDynamicGroupEvent = true,
 }
 
--- A note's colour, and whether it has one Lua can't read. A colour set by command (the Properties panel's
--- included) reads back as "", like no colour at all, but the note still lists kEventColour among its properties.
-local function colourOf(e, ctx)
-  local colour = tostring(e.propertyTable:get("kEventColour", ctx))
-  if colour ~= "" then return colour, false end
+local function lists(e, property)
   for _, name in ipairs(e.propertyTable:getPropertyNames()) do
-    if name == "kEventColour" then return "", true end
+    if name == property then return true end
   end
-  return "", false
+  return false
+end
+
+-- A property's value, and whether the note has one Lua can't read. A colour or notehead set in Dorico (by command,
+-- the Properties panel or the Notations menu) reads back as "", like none at all, but the note still lists the
+-- property.
+local function valueOf(e, ctx, property)
+  local value = tostring(e.propertyTable:get(property, ctx))
+  if value ~= "" then return value, false end
+  return "", lists(e, property)
 end
 
 -- The note and grace note events of a readable list, with notehead set and colour.
@@ -41,11 +46,12 @@ local function noteEvents(list)
     if ok then
       local ev = eventtext.parse(text)
       if (ev.kind == "note" or ev.kind == "grace") and ev.spelling then
-        local colour, unreadable = colourOf(e, ctx)
+        local colour, colourUnreadable = valueOf(e, ctx, "kEventColour")
+        local head, headUnreadable = valueOf(e, ctx, "kNoteheadSetOverride")
         out[#out + 1] = {
-          id = ev.id, spelling = ev.spelling, grace = ev.kind == "grace",
-          head = tostring(e.propertyTable:get("kNoteheadSetOverride", ctx)),
-          colour = colour, colourUnreadable = unreadable,
+          id = ev.id, spelling = ev.spelling, grace = ev.kind == "grace", pos = ev.pos,
+          head = head, headUnreadable = headUnreadable,
+          colour = colour, colourUnreadable = colourUnreadable,
         }
       end
     end
@@ -215,7 +221,9 @@ local function takeAway(app, log, scratchIds, before)
 end
 
 -- opts: {log, skipFlowId, skipKeys = {[key] = true}, forcePaste}. Returns {players = {{key, name}}, records,
--- unread, merged, pastedFlows}. Call it at most once per run, before the run edits anything: its copies go with
+-- unread, merged, pastedFlows, dumped, read, flowNumbers}: dumped and read are the notes the records were made from,
+-- each with its flowId and position, kept so noteheads Lua couldn't read (headUnreadable) can be taken from a
+-- MusicXML export (hbuc.xmlnotes). Call it at most once per run, before the run edits anything: its copies go with
 -- the run's one Edit.Undo, which would take back anything else the run had done by then.
 function readscore.scan(app, opts)
   local log = opts.log
@@ -226,6 +234,8 @@ function readscore.scan(app, opts)
   end
 
   local before = readscore.summary(app.currentScore)
+  local flowNumbers = {}
+  for _, flowId in ipairs(flowIds) do flowNumbers[flowId] = doc.flowNumber(app.currentScore, flowId) end
   local dumped, read, scratchIds = {}, {}, {}
   local ok, err = pcall(function()
     for _, flowId in ipairs(flowIds) do
@@ -235,7 +245,8 @@ function readscore.scan(app, opts)
         local name = nameOf[o.key]
         if name then
           for _, n in ipairs(dump.notes(doc.dumpOf(o.stream))) do
-            flowDumped[#flowDumped + 1] = { instrument = name, spelling = n.spelling, grace = n.grace }
+            flowDumped[#flowDumped + 1] = { instrument = name, spelling = n.spelling, grace = n.grace, pos = n.pos,
+              flowId = flowId }
           end
           if readable then
             local okE, list = pcall(function() return o.stream.events end)
@@ -255,14 +266,18 @@ function readscore.scan(app, opts)
       log:line("flow", flowId, #flowDumped, "notes", readable and "read directly" or "read through a copy")
       if #flowDumped > 0 and not readable then direct = copyAndRead(app, log, flowId, nameOf, scratchIds) end
       for _, n in ipairs(flowDumped) do dumped[#dumped + 1] = n end
-      for _, n in ipairs(direct) do read[#read + 1] = n end
+      for _, n in ipairs(direct) do
+        n.flowId = flowId
+        read[#read + 1] = n
+      end
     end
   end)
   if #scratchIds > 0 then takeAway(app, log, scratchIds, before) end
   if not ok then error(err, 0) end
 
   local records, unread, merged = reading.records(dumped, read)
-  return { players = players, records = records, unread = unread, merged = merged, pastedFlows = #scratchIds }
+  return { players = players, records = records, unread = unread, merged = merged, pastedFlows = #scratchIds,
+    dumped = dumped, read = read, flowNumbers = flowNumbers }
 end
 
 return readscore

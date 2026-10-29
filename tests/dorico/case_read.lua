@@ -43,6 +43,11 @@ probe.run("case_read", function(p)
   p:fact("histogram", histogram)
   p:fact("byInstrument", byInstrument)
   p:fact("colourUnreadable", colourUnreadable)
+  local headUnreadable = 0
+  for _, n in ipairs(scan.read) do
+    if n.headUnreadable then headUnreadable = headUnreadable + 1 end
+  end
+  p:fact("headUnreadable", headUnreadable)
   p:fact("summary", after)
 
   p:check("the music is as it was", after == before, after .. " vs " .. before)
