@@ -117,6 +117,22 @@ return {
     t:eq(clarinet.pitch, 60, "a transposition with no number covers every staff: written D4 sounds C4")
     t:eq(clarinet.diatonic, 28)
   end,
+  notes_know_their_bar_and_written_pitch = function(t)
+    -- what the score shows, for asking about a note: its bar number and its pitch as written
+    local handbells = "<attributes><divisions>1</divisions><transpose><diatonic>0</diatonic><chromatic>0</chromatic>"
+      .. "<octave-change>1</octave-change></transpose></attributes>"
+    local parsed = only({ { name = "Handbells", body = '<measure number="31">' .. handbells
+      .. note({ "C", 4, 1, alter = 1 }) .. '</measure><measure number="32">' .. note({ "B", 3, 1, alter = -1 })
+      .. note({ "D", 5, 1 }) .. "</measure>" .. measure(note({ "E", 5, 1 })) } })
+    local n = parsed.parts[1].notes
+    t:eq(n[1].bar, "31")
+    t:eq(n[1].written, "C#4", "as written")
+    t:eq(n[1].pitch, 73, "though it sounds C#5")
+    t:eq(n[2].bar, "32")
+    t:eq(n[2].written, "Bb3")
+    t:eq(n[3].written, "D5")
+    t:eq(n[4].bar, nil, "a bar with no number")
+  end,
   noteheads_and_colours = function(t)
     local parsed = only({ { name = "P", body = measure(DIVISIONS,
       note({ "C", 4, 1, after = '<notehead filled="no">diamond</notehead>' }),
