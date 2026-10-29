@@ -33,7 +33,95 @@ local function errorOf(fn)
   return not ok and tostring(err) or nil
 end
 
+local function fails(t, data, reason)
+  local err = errorOf(function() return inflate.raw(data) end)
+  t:ok(err and err:find("inflate: " .. reason, 1, true), reason .. ": " .. tostring(err))
+end
+
+-- Bytes from fields {value, bits}, each written least significant bit first, as DEFLATE packs them. A Huffman code
+-- goes most significant bit first: {code, bits, true}.
+local function pack(fields)
+  local out, byte, used = {}, 0, 0
+  for _, f in ipairs(fields) do
+    local value, bits, codeOrder = f[1], f[2], f[3]
+    for i = 0, bits - 1 do
+      local shift = codeOrder and bits - 1 - i or i
+      byte = byte + math.floor(value / 2 ^ shift) % 2 * 2 ^ used
+      used = used + 1
+      if used == 8 then
+        out[#out + 1] = string.char(byte)
+        byte, used = 0, 0
+      end
+    end
+  end
+  if used > 0 then out[#out + 1] = string.char(byte) end
+  return table.concat(out)
+end
+
+local FINAL, TYPE_FIXED, TYPE_DYNAMIC, PAD = { 1, 1 }, { 1, 2 }, { 2, 2 }, { 0, 16 }
+-- fixed codes: the literal "a", length code 257 (a match of 3) and the end of the block
+local A, LENGTH_3, END = { 145, 8, true }, { 1, 7, true }, { 0, 7, true }
+
+-- A dynamic block's header with 257 literal and length codes, 1 distance code and code length codes for 16, 17, 18
+-- and 0 (in that order) of these lengths.
+local function dynamic(l16, l17, l18, l0)
+  return { FINAL, TYPE_DYNAMIC, { 0, 5 }, { 0, 5 }, { 0, 4 }, { l16, 3 }, { l17, 3 }, { l18, 3 }, { l0, 3 } }
+end
+
+-- With every code length code 2 bits long, the codes are 0 = 00, 16 = 01, 17 = 10 and 18 = 11.
+local function lengths(...)
+  local fields = dynamic(2, 2, 2, 2)
+  for _, f in ipairs({ ... }) do fields[#fields + 1] = f end
+  fields[#fields + 1] = PAD
+  return pack(fields)
+end
+local REPEAT, ZEROS = { 1, 2, true }, { 3, 2, true }   -- codes 16 (repeat the last length) and 18 (11 to 138 zeros)
+
 return {
+  a_hand_packed_block = function(t)
+    t:eq(inflate.raw(pack({ FINAL, TYPE_FIXED, A, LENGTH_3, { 0, 5, true }, END })), "aaaa",
+      "a, then 3 more from 1 back")
+  end,
+  stored_length_mismatch = function(t)
+    fails(t, hex("0105 0000 00"), "stored length mismatch")
+  end,
+  stored_block_cut_short = function(t)
+    fails(t, hex("0105 00fa ff68 65"), "input ends early")
+  end,
+  length_code_286 = function(t)
+    fails(t, pack({ FINAL, TYPE_FIXED, { 198, 8, true }, PAD }), "invalid length code")
+  end,
+  -- the fixed distance code has 30 symbols, so 30 and 31 aren't codes at all
+  distance_code_30 = function(t)
+    fails(t, pack({ FINAL, TYPE_FIXED, A, LENGTH_3, { 30, 5, true }, PAD }), "invalid code")
+  end,
+  distance_too_far_back = function(t)
+    fails(t, pack({ FINAL, TYPE_FIXED, A, LENGTH_3, { 1, 5, true }, PAD }), "distance too far back")
+  end,
+  bad_counts = function(t)
+    fails(t, pack({ FINAL, TYPE_DYNAMIC, { 30, 5 }, { 0, 5 }, { 0, 4 }, PAD }), "bad counts")
+  end,
+  over_subscribed_code = function(t)
+    local fields = dynamic(1, 1, 1, 1)
+    fields[#fields + 1] = PAD
+    fails(t, pack(fields), "over-subscribed code")
+  end,
+  -- only code length 0 has a code (0), so a 1 bit starts no code
+  invalid_code = function(t)
+    local fields = dynamic(0, 0, 0, 1)
+    fields[#fields + 1] = { 65535, 16 }
+    fails(t, pack(fields), "invalid code")
+  end,
+  repeat_with_no_first_length = function(t)
+    fails(t, lengths(REPEAT, { 0, 2 }), "repeat with no first length")
+  end,
+  too_many_lengths = function(t)
+    fails(t, lengths(ZEROS, { 127, 7 }, ZEROS, { 127, 7 }), "too many lengths")
+  end,
+  -- 138 zeros and 120 more fill all 258 lengths, leaving none for the end of the block
+  no_end_of_block_code = function(t)
+    fails(t, lengths(ZEROS, { 127, 7 }, ZEROS, { 109, 7 }), "no end-of-block code")
+  end,
   stored_block = function(t)
     t:eq(inflate.raw(hex("0105 00fa ff68 656c 6c6f")), "hello")
   end,

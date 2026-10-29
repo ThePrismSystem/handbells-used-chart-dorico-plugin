@@ -13,9 +13,10 @@ local function errorOf(fn)
   return not ok and tostring(err) or nil
 end
 
-local function fails(t, bytes, label)
+-- reason: what the error must say after "dtn: ", when that is pinned
+local function fails(t, bytes, label, reason)
   local err = errorOf(function() return dtn.decode(bytes) end)
-  t:ok(err and err:find("dtn: ", 1, true), label .. ": " .. tostring(err))
+  t:ok(err and err:find("dtn: " .. (reason or ""), 1, true), label .. ": " .. tostring(err))
 end
 
 return {
@@ -35,6 +36,17 @@ return {
   child_out_of_range = function(t)
     fails(t, encode({ "a" }, { "" }, { { 0x22, 0, 0, { 7 } } }), "child 7 of 1 node")
   end,
+  name_out_of_range = function(t)
+    fails(t, encode({ "a" }, { "" }, { { 0x20, 5, 0 } }), "name 5 of 1", "node 0 names an entry out of range")
+  end,
+  value_out_of_range = function(t)
+    fails(t, encode({ "a" }, { "" }, { { 0x20, 0, 3 } }), "value 3 of 1", "node 0 names an entry out of range")
+  end,
+  a_name_with_no_end = function(t)
+    fails(t, "\4\0\0\0\1\0\0\0\1\0\0\0abc", "no NUL", "input ends early")
+  end,
+  second_header_word = function(t) fails(t, TINY:sub(1, 4) .. "\2" .. TINY:sub(6), "2", "not a saved score") end,
+  too_short = function(t) fails(t, TINY:sub(1, 8), "8 bytes", "not a saved score") end,
   fixture = function(t)
     local f = assert(io.open(here .. "../fixtures/handbells-fixture.dorico", "rb"))
     local bytes = f:read("*a")

@@ -121,6 +121,12 @@ return {
     t:eq(noteprops.head(entries, 0, 1010), "C")
     t:eq(noteprops.head(entries, 0, 1011), "A", "another instance's value doesn't apply")
   end,
+  the_layout_counts_before_the_instance = function(t)
+    t:eq(noteprops.head({ head("I", -1, 1010), head("L", 0, -1) }, 0, 1010), "L", "the full score's, for any instance")
+    t:eq(noteprops.head({ head("L", 0, -1), head("B", 0, 1010) }, 0, 1010), "B", "both at once beats either")
+    t:eq(noteprops.colour({ colour("#00ff00", -1, 1010), colour("#ff0000", 0, -1) }, 0, 1010), "#ff0000",
+      "a colour too")
+  end,
   a_value_only_for_another_instance_is_flagged = function(t)
     local value, elsewhere = noteprops.head({ head("C", -1, 1010) }, 0, 1011)
     t:eq(value, DEFAULT)

@@ -2,9 +2,10 @@
 -- saved when the run failed. Then main.chart, with Dorico and the layer-2 modules stubbed.
 local main = require("hbuc.main")
 
--- o: {scan = readscore.scan's result, chart = true when one is there, respond = the dialog's answer to the request,
--- choose = the answer to a question (by default its cancel)}. Returns main.chart's outcome, the files written, the
--- commands run, the request the dialog got, the questions asked and the options the read got.
+-- o: {scan = readscore.scan's result, scanError = what it raises instead, chart = true when one is there, respond =
+-- the dialog's answer to the request, choose = the answer to a question (by default its cancel)}. Returns
+-- main.chart's outcome, the files written, the commands run, the request the dialog got, the questions asked and the
+-- options the read got.
 local function chartRun(o)
   local writes, commands, asked = {}, {}, { choices = {} }
   local stubs = {
@@ -26,6 +27,7 @@ local function chartRun(o)
     end },
     ["hbuc.dorico.readscore"] = { scan = function(_, opts)
       asked.scanOpts = opts
+      if o.scanError then error(o.scanError, 0) end
       return o.scan
     end },
     ["hbuc.dorico.removechart"] = { remove = function() return { removed = true } end },
@@ -123,6 +125,15 @@ return {
     t:eq(opts.tempDir, "t/")
     t:ok(req, "then the dialog")
     t:eq(out.kind, "warning", "B has nothing to chart")
+  end,
+  a_read_that_fails_says_so_and_asks_nothing = function(t)
+    local out, writes, _, req, choices = chartRun({ scanError = "zip: CRC mismatch for score.dtn" })
+    t:eq(out.kind, "error")
+    t:eq(out.text, "The plug-in could not read this project's music, so nothing was changed: zip: CRC mismatch for"
+      .. " score.dtn\n\nThe run log is at run.log.")
+    t:eq(req, nil, "no dialog")
+    t:eq(#choices, 0, "no question")
+    t:eq(next(writes), nil, "no settings written")
   end,
   a_rare_set_can_join_the_common_one_before_the_dialog = function(t)
     local _, _, _, req, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 1 }), respond = chooseB,
