@@ -1,7 +1,7 @@
 -- The bridge to the dialog scripts: the request is written as JSON, the script is started with os.execute (Dorico
 -- waits for it, like a modal dialog: docs/dorico-lua-guide.md, section 8), and the response is read back. A
--- missing or unreadable response to the settings dialog counts as a cancel; for the MusicXML step's message and
--- picker it is a failure, which the run reports. Windows runs dialog/windows.ps1 with PowerShell; a Mac runs
+-- missing or unreadable response to the settings dialog counts as a cancel; for a question before the dialog it is
+-- a failure, which the run reports. Windows runs dialog/windows.ps1 with PowerShell; a Mac runs
 -- dialog/mac.js with osascript, and if osascript comes back at once with no answer, the answer is waited for.
 local constants = require("hbuc.constants")
 local json = require("hbuc.json")
@@ -67,7 +67,7 @@ local function exchange(ctx, name, payload, windowsFlag, macFlag)
     ctx.log:line("unreadable answer", tostring(raw))
     return nil
   end
-  -- a script whose window failed answers Cancel or no files, with the reason
+  -- a script whose window failed answers Cancel, with the reason
   if raw.error then ctx.log:line("the dialog failed", tostring(raw.error)) end
   return raw
 end
@@ -83,40 +83,6 @@ function dialog.choose(ctx, choice)
   local raw = exchange(ctx, "choice.json", choice, "-Choice", "--choice ")
   if not raw or raw.error or type(raw.choice) ~= "string" then return nil end
   return raw.choice
-end
-
-local function hex(s)
-  return (tostring(s):gsub(".", function(c) return string.format("%02x", c:byte()) end))
-end
-
-local function unhex(h)
-  return (h:gsub("%x%x", function(x) return string.char(tonumber(x, 16)) end))
-end
-
--- A file picker. pick: {title, folder, files (names preselected), filter = {name, extensions}}; only the Windows
--- picker preselects files and filters by extension. Returns the chosen paths and the same paths in UTF-8 for
--- messages: none for a cancel, nil when the window failed or nothing answered. On Windows, Dorico's io.open and
--- lfs take a path only in the system's code page (spike/50_paths.py), while JSON is UTF-8, so the paths also travel
--- as their bytes, in hex: the script reads folderBytes and filesBytes, and answers each chosen path's code page bytes
--- in its own filesBytes.
-function dialog.pick(ctx, pick)
-  local payload = {}
-  for k, v in pairs(pick) do payload[k] = v end
-  payload.folderBytes = hex(pick.folder or "")
-  payload.filesBytes = {}
-  for i, name in ipairs(pick.files or {}) do payload.filesBytes[i] = hex(name) end
-  local raw = exchange(ctx, "pick.json", payload, "-Pick", "--pick ")
-  if not raw or raw.error then return nil end
-  local shown = type(raw.files) == "table" and raw.files or {}
-  local bytes = type(raw.filesBytes) == "table" and raw.filesBytes
-  local paths, names = {}, {}
-  for i, p in ipairs(bytes or shown) do
-    if type(p) == "string" then
-      paths[#paths + 1] = bytes and unhex(p) or p
-      names[#names + 1] = type(shown[i]) == "string" and shown[i] or paths[#paths]
-    end
-  end
-  return paths, names
 end
 
 -- kind: "info", "warning" or "error".

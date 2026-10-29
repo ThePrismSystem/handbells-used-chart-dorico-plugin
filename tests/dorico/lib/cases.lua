@@ -15,8 +15,8 @@ function cases.runFolder()
 end
 
 -- overrides.respond(req) returns the raw response the dialog would have written (nil = cancelled).
--- overrides.choose(choice) and overrides.pick(pick) answer the MusicXML step's message and file picker (by default,
--- Cancel and no file); each one asked is recorded in p.facts.choices and p.facts.picks.
+-- overrides.choose(choice) answers a question asked before the dialog (by default, its cancel); each one asked is
+-- recorded in p.facts.choices.
 function cases.context(p, overrides)
   overrides = overrides or {}
   local run = cases.runFolder()
@@ -38,17 +38,12 @@ function cases.context(p, overrides)
     return nil
   end
   ctx.show = function(kind, text) shown[#shown + 1] = { kind = kind, text = text } end
-  local choices, picks = {}, {}
-  p.facts.choices, p.facts.picks = choices, picks
+  local choices = {}
+  p.facts.choices = choices
   ctx.choose = function(choice)
     choices[#choices + 1] = choice
     if overrides.choose then return overrides.choose(choice) end
     return choice.cancel
-  end
-  ctx.pick = function(pick)
-    picks[#picks + 1] = pick
-    if overrides.pick then return overrides.pick(pick) end
-    return {}
   end
   return ctx
 end

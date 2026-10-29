@@ -1,18 +1,14 @@
 <#
-Handbells Used Chart: the settings dialog, the results window, and the MusicXML step's message and file picker, for
+Handbells Used Chart: the settings dialog, the results window, and the questions asked before the dialog, for
 Windows PowerShell 5.1 (nothing to install).
 Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits until it closes.
 
   windows.ps1 -Request <request.json> -Response <response.json>   the settings dialog
   windows.ps1 -Message <message.json>                             the results window: {"title", "kind", "text", "ok"}
   windows.ps1 -Choice <choice.json> -Response <response.json>     a message with buttons, answering {"choice": id}
-  windows.ps1 -Pick <pick.json> -Response <response.json>         a file picker, answering {"files": [...]}
 
 A choice is {"title", "text", "buttons": [{"id", "label"}], "cancel": id}; closing the window or Esc answers the
-cancel id. A pick is {"title", "folder", "files" (preselected), "filter": {"name", "extensions"}}, with the folder and
-files also as "folderBytes" and "filesBytes": each path's bytes from the plug-in, in hex. The answer's "filesBytes"
-gives each chosen path in the system's code page, the only form Dorico's Lua can open; a cancel answers no files.
-Either one that fails answers as a cancel does, with "error" giving the reason.
+cancel id. One that fails answers as a cancel does, with "error" giving the reason.
 
 The request is what hbuc/request.lua builds. The response is the chosen options:
 {"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "newPage": bool,
@@ -28,8 +24,7 @@ param(
     [string]$Request,
     [string]$Response,
     [string]$Message,
-    [string]$Choice,
-    [string]$Pick
+    [string]$Choice
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -151,7 +146,7 @@ if ($Message) {
 }
 
 # ---------------------------------------------------------------------------------------------------- choice
-# This and the picker always answer: a failure answers the cancel id, or no files, with the reason.
+# This always answers: a failure answers the cancel id, with the reason.
 if ($Choice) {
     $cancelId = $null
     try {
@@ -185,66 +180,6 @@ if ($Choice) {
         Write-Response @{ choice = $script:chosen }
     } catch {
         Write-Response @{ choice = $cancelId; error = [string]$_ }
-    }
-    exit 0
-}
-
-# ---------------------------------------------------------------------------------------------------- picker
-# A path's bytes from the plug-in, in hex. Dorico's lfs lists names in the system's code page, but its text export
-# gives the project's path in UTF-8: bytes that are valid UTF-8 are read as that, and anything else in the code page.
-function PathFromBytes([string]$hex) {
-    $bytes = New-Object byte[] ($hex.Length / 2)
-    for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = [Convert]::ToByte($hex.Substring(2 * $i, 2), 16) }
-    try { return (New-Object System.Text.UTF8Encoding $false, $true).GetString($bytes) }
-    catch { return [System.Text.Encoding]::Default.GetString($bytes) }
-}
-
-# A chosen path in the system's code page, in hex: the only form Dorico's io.open takes.
-function BytesOfPath([string]$path) {
-    return -join ([System.Text.Encoding]::Default.GetBytes($path) | ForEach-Object { $_.ToString("x2") })
-}
-
-if ($Pick) {
-    try {
-        $spec = Read-Json $Pick
-        # An owner that stays on top, so the picker opens above Dorico rather than behind it.
-        $owner = New-Object System.Windows.Forms.Form
-        $owner.TopMost = $true
-        $owner.ShowInTaskbar = $false
-        $owner.FormBorderStyle = "None"
-        $owner.Opacity = 0
-        $owner.StartPosition = "CenterScreen"
-        $owner.Size = New-Object System.Drawing.Size 1, 1
-        $picker = New-Object System.Windows.Forms.OpenFileDialog
-        $picker.Title = [string](Field $spec "title")
-        $picker.Multiselect = $true
-        $folder = [string](Field $spec "folder")
-        $folderBytes = [string](Field $spec "folderBytes")
-        if ($folderBytes) { $folder = PathFromBytes $folderBytes }
-        if ($folder) { $picker.InitialDirectory = $folder.Replace("/", "\") }
-        # ToList hands back its list as one object: assigned first, so that piping it goes item by item.
-        $preselected = ToList (Field $spec "files")
-        $preselectedBytes = ToList (Field $spec "filesBytes")
-        if ($preselectedBytes.Count -gt 0) {
-            $preselected = @($preselectedBytes | ForEach-Object { PathFromBytes ([string]$_) })
-        }
-        # several files are preselected the way the picker writes a multiple selection: each name quoted
-        if ($preselected.Count -eq 1) { $picker.FileName = [string]$preselected[0] }
-        if ($preselected.Count -gt 1) {
-            $picker.FileName = ($preselected | ForEach-Object { '"' + [string]$_ + '"' }) -join " "
-        }
-        $filter = Field $spec "filter"
-        $extensions = ToList (Field $filter "extensions")
-        $patterns = ($extensions | ForEach-Object { "*." + [string]$_ }) -join ";"
-        if ($patterns) { $picker.Filter = "{0} ({1})|{1}" -f [string](Field $filter "name"), $patterns }
-        $owner.Show()
-        $owner.Activate()
-        $chosen = @()
-        if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $chosen = @($picker.FileNames) }
-        $owner.Close()
-        Write-Response @{ files = $chosen; filesBytes = @($chosen | ForEach-Object { BytesOfPath $_ }) }
-    } catch {
-        Write-Response @{ files = @(); filesBytes = @(); error = [string]$_ }
     }
     exit 0
 }
