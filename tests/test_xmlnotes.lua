@@ -1,6 +1,6 @@
 -- Pairing a MusicXML export with the score's own notes, and taking from it the noteheads (and colours) Lua couldn't
--- read. The dumps say which notes a flow has; a file pairs with a flow when, player by player, its parts hold
--- exactly those notes (by position, sounding pitch and grace).
+-- read. The dumps say which notes a flow has; a file pairs with a flow when, for each player whose noteheads need it,
+-- a part holds exactly that player's notes (by position, sounding pitch and grace).
 local bellname = require("hbuc.bellname")
 local xmlnotes = require("hbuc.xmlnotes")
 
@@ -31,7 +31,7 @@ local function file(...)
   return { parts = { ... } }
 end
 
--- A flow (id 4) with bells and chimes on two players, as Goodbye Blue Sky has them.
+-- A flow (id 4) with bells and chimes on two players who share a name.
 local FLOW = {
   dumped("4", "Piano 1", "C5", 0), dumped("4", "Piano 1", "E5", 1),
   dumped("4", "Piano 2", "G5", 0),
@@ -122,8 +122,8 @@ return {
     t:eq(newRead[1].head, "noteheadset.diamondNoteheads", "flow 4 paired with the third file")
     t:eq(table.concat(paired, ","), "4")
     t:eq(table.concat(missing, ","), "7")
-    -- Dorico's export can leave a flow out (Goodbye Blue Sky's hand-made chart flow): its changed heads are still
-    -- kept apart from plain ones
+    -- Dorico's export can leave a flow out (one holding a hand-made chart): its changed heads are still kept apart
+    -- from plain ones
     t:eq(newRead[2].head, "noteheadset.notInMusicXML", "flow 7's changed head")
     t:eq(newRead[2].headUnreadable, false)
   end,
@@ -144,14 +144,55 @@ return {
     t:eq(table.concat(paired, ","), "4")
     t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
   end,
+  a_player_with_only_unreadable_colours_need_not_pair = function(t)
+    -- notes coloured in the Properties panel on a player the file can't hold (unpitched percussion)
+    local d = { FLOW[1], FLOW[2], FLOW[3], dumped("4", "Drums", "C4", 0) }
+    local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }),
+      read("4", "Drums", "C4", 0, { colourUnreadable = true }) }
+    local newRead, missing = xmlnotes.apply(d, r, { EXPORT })
+    t:eq(#missing, 0)
+    t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
+    t:eq(newRead[2].colourUnreadable, true, "no part of its own, so its colour stays unread")
+  end,
+  a_player_with_only_unreadable_colours_takes_them_from_its_part = function(t)
+    local r = { read("4", "Piano 1", "E5", 1, { headUnreadable = true }),
+      read("4", "Piano 2", "G5", 0, { colourUnreadable = true }) }
+    local export = file(EXPORT.parts[1], part("Piano", { { "G5", 0, colour = "#008000" } }))
+    local newRead, missing = xmlnotes.apply(FLOW, r, { export })
+    t:eq(#missing, 0)
+    t:eq(newRead[2].colour, "#008000")
+    t:eq(newRead[2].colourUnreadable, false)
+    t:eq(newRead[2].head, "", "its head was read, and stays")
+  end,
+  a_doubling_player_takes_the_part_named_after_it = function(t)
+    -- B plays A's notes with plain heads, and comes first in the file: A's heads are in its own part
+    local d = { dumped("1", "A", "C5", 0), dumped("1", "B", "C5", 0) }
+    local r = { read("1", "A", "C5", 0, { headUnreadable = true }), read("1", "B", "C5", 0) }
+    local newRead, missing = xmlnotes.apply(d, r,
+      { file(part("B", { { "C5", 0 } }), part("A", { { "C5", 0, head = "diamond" } })) })
+    t:eq(#missing, 0)
+    t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
+  end,
+  a_file_pairs_with_one_flow_only = function(t)
+    -- each flow has a file of its own, so two flows with the same notes don't share one
+    local d = { dumped("1", "A", "C5", 0), dumped("2", "A", "C5", 0) }
+    local r = { read("1", "A", "C5", 0, { headUnreadable = true }), read("2", "A", "C5", 0, { headUnreadable = true }) }
+    local newRead, missing, paired = xmlnotes.apply(d, r, { file(part("A", { { "C5", 0, head = "diamond" } })) })
+    t:eq(table.concat(paired, ","), "1")
+    t:eq(table.concat(missing, ","), "2")
+    t:eq(newRead[2].head, "noteheadset.notInMusicXML")
+  end,
   a_changed_note_the_file_lacks_is_not_in_musicxml = function(t)
-    -- the file pairs, but holds no note where the read found this one: never the default head
+    -- the file pairs, but holds no note where the read found this one: never the default head, and counted
     local d = { dumped("1", "A", "C5", 0) }
     local r = { read("1", "A", "C5", 0, { headUnreadable = true }), read("1", "A", "D5", 5, { headUnreadable = true }) }
-    local newRead = xmlnotes.apply(d, r, { file(part("A", { { "C5", 0, head = "diamond" } })) })
+    local newRead, _, _, unmatched = xmlnotes.apply(d, r, { file(part("A", { { "C5", 0, head = "diamond" } })) })
     t:eq(newRead[1].head, "noteheadset.diamondNoteheads")
     t:eq(newRead[2].head, "noteheadset.notInMusicXML")
     t:eq(newRead[2].headUnreadable, false)
+    t:eq(unmatched, 1)
+    t:eq(select(4, xmlnotes.apply(FLOW, { read("4", "Piano 1", "E5", 1, { headUnreadable = true }) }, { EXPORT })), 0,
+      "none when every changed note is in the file")
   end,
   a_unison_merged_by_the_paste_still_pairs = function(t)
     local d = { dumped("1", "A", "C5", 0), dumped("1", "A", "C5", 0) }

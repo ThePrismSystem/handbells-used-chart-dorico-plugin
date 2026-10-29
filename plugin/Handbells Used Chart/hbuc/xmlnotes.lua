@@ -1,7 +1,7 @@
 -- Takes the noteheads (and colours) Lua couldn't read from a MusicXML export (hbuc.musicxml). A file only counts
--- for a flow when it holds exactly that flow's notes, player by player, so an older export of a changed score, a
--- part's file or another piece is never used. Parts pair with players by their notes. Dorico names each part after
--- its player, but two players can share a name.
+-- for a flow when it holds exactly the notes of each player whose noteheads it needs, so an older export of a
+-- changed score, another player's part or another piece is never used. Parts pair with players by their notes.
+-- Dorico names each part after its player, but two players can share a name.
 local bellname = require("hbuc.bellname")
 local shapes = require("hbuc.shapes")
 
@@ -9,7 +9,7 @@ local xmlnotes = {}
 
 -- Positions to a thousandth of a quarter: the dumps and the file reach a triplet's 1/3 by different sums.
 local function key(pos, pitch, diatonic, grace)
-  return string.format("%.3f|%s|%s|%s", pos or -1, tostring(pitch), tostring(diatonic), tostring(grace and true))
+  return string.format("%.3f|%s|%s|%s", pos or -1, tostring(pitch), tostring(diatonic), grace and "g" or "")
 end
 
 local function noteKey(n)
@@ -36,9 +36,11 @@ function xmlnotes.flowsNeeding(read)
   return out
 end
 
--- {[instrument] = part index} when every instrument with notes in flowDumped has a part holding exactly its notes
--- (identical ones pair in order), else nil. Parts with no notes, and parts left over, don't matter.
-function xmlnotes.pair(flowDumped, parsed)
+-- {[instrument] = part index} when every instrument with notes in flowDumped has a part holding exactly its notes,
+-- else nil. The instruments in optional pair only if such a part is left over. Parts with no notes, and parts left
+-- over, don't matter.
+function xmlnotes.pair(flowDumped, parsed, optional)
+  optional = optional or {}
   local order, keysOf = {}, {}
   for _, n in ipairs(flowDumped) do
     if not keysOf[n.instrument] then
@@ -55,15 +57,26 @@ function xmlnotes.pair(flowDumped, parsed)
     partPrints[i] = #ks > 0 and fingerprint(ks) or nil
   end
   local pairing, used = {}, {}
-  for _, instrument in ipairs(order) do
+  local function claim(instrument, named)
     local want = fingerprint(keysOf[instrument])
-    for i = 1, #parsed.parts do
-      if not used[i] and partPrints[i] == want then
+    for i, p in ipairs(parsed.parts) do
+      if not used[i] and partPrints[i] == want and (not named or p.name == instrument) then
         pairing[instrument], used[i] = i, true
-        break
+        return
       end
     end
-    if not pairing[instrument] then return nil end
+  end
+  -- A part named after its player first, since players can double each other note for note. Then the rest in
+  -- order (identical ones pair in turn), the ones that must pair before the optional ones.
+  for _, instrument in ipairs(order) do claim(instrument, true) end
+  for _, instrument in ipairs(order) do
+    if not pairing[instrument] and not optional[instrument] then claim(instrument, false) end
+  end
+  for _, instrument in ipairs(order) do
+    if not pairing[instrument] then
+      if not optional[instrument] then return nil end
+      claim(instrument, false)
+    end
   end
   return pairing
 end
@@ -82,9 +95,10 @@ local function take(queue, wantHead)
 end
 
 -- A copy of read in which each flow needing a file takes the noteheads and colours Lua couldn't read from the
--- first file that pairs with it; then the flows no file paired with, and the flows one did. Dorico's export can
--- leave a flow out (Goodbye Blue Sky's hand-made chart flow wasn't exported), so an unpaired flow's changed heads
--- are named as not in MusicXML, which still keeps them apart from plain ones.
+-- first file that pairs with it; then the flows no file paired with, the flows one did, and how many changed
+-- noteheads a paired file had no note for. Dorico's export can leave a flow out (a flow holding a hand-made chart,
+-- for one), so an unpaired flow's changed heads are named as not in MusicXML, which still keeps them apart from
+-- plain ones.
 function xmlnotes.apply(dumped, read, files)
   local newRead = {}
   for i, n in ipairs(read) do
@@ -92,37 +106,36 @@ function xmlnotes.apply(dumped, read, files)
     for k, v in pairs(n) do c[k] = v end
     newRead[i] = c
   end
-  local missing, paired = {}, {}
+  local missing, paired, unmatched, usedFiles = {}, {}, 0, {}
   for _, flowId in ipairs(xmlnotes.flowsNeeding(read)) do
-    -- Only the players with notes Lua couldn't read have to pair: another's notes may not be in the file at all
-    -- (unpitched percussion, which the reader skips), and their heads were read already.
-    local needed = {}
+    -- Only the players with noteheads Lua couldn't read have to pair: another's notes may not be in the file at all
+    -- (unpitched percussion, which the reader skips), and their heads were read already. One with only colours Lua
+    -- couldn't read takes them from its own part, if the file has one.
+    local needed, optional = {}, {}
     for _, n in ipairs(read) do
-      if n.flowId == flowId and (n.headUnreadable or n.colourUnreadable) then needed[n.instrument] = true end
+      if n.flowId == flowId and n.headUnreadable then
+        needed[n.instrument] = true
+      elseif n.flowId == flowId and n.colourUnreadable then
+        optional[n.instrument] = true
+      end
     end
+    for instrument in pairs(needed) do optional[instrument] = nil end
     local flowDumped = {}
     for _, n in ipairs(dumped) do
-      if n.flowId == flowId and needed[n.instrument] then flowDumped[#flowDumped + 1] = n end
+      if n.flowId == flowId and (needed[n.instrument] or optional[n.instrument]) then flowDumped[#flowDumped + 1] = n end
     end
+    -- Each flow has a file of its own, so a file one flow took can't pair with another holding the same notes.
     local pairing, parsed
-    for _, f in ipairs(files) do
-      pairing = xmlnotes.pair(flowDumped, f)
+    for i, f in ipairs(files) do
+      pairing = not usedFiles[i] and xmlnotes.pair(flowDumped, f, optional)
       if pairing then
-        parsed = f
+        parsed, usedFiles[i] = f, true
         break
       end
     end
-    if not pairing then
-      missing[#missing + 1] = flowId
-      for _, n in ipairs(newRead) do
-        if n.flowId == flowId and n.headUnreadable then
-          n.head = shapes.NOT_IN_MUSICXML
-          n.headUnreadable = false
-        end
-      end
-    else
+    local queues = {}
+    if pairing then
       paired[#paired + 1] = flowId
-      local queues = {}
       for instrument, i in pairs(pairing) do
         local byKey = {}
         for _, n in ipairs(parsed.parts[i].notes) do
@@ -132,23 +145,27 @@ function xmlnotes.apply(dumped, read, files)
         end
         queues[instrument] = byKey
       end
-      for _, n in ipairs(newRead) do
-        if n.flowId == flowId and (n.headUnreadable or n.colourUnreadable) and queues[n.instrument] then
-          local x = take(queues[n.instrument][noteKey(n)], n.headUnreadable)
-          if n.headUnreadable then
-            -- one the file has no note for still mustn't read as a plain head
-            n.head = x and shapes.fromMusicXML(x.head, x.filled) or shapes.NOT_IN_MUSICXML
-            n.headUnreadable = false
-          end
-          if x and n.colourUnreadable and x.colour ~= "" then
-            n.colour = x.colour
-            n.colourUnreadable = false
-          end
+    else
+      missing[#missing + 1] = flowId
+    end
+    for _, n in ipairs(newRead) do
+      if n.flowId == flowId and (n.headUnreadable or n.colourUnreadable) then
+        local byKey = queues[n.instrument]
+        local x = byKey and take(byKey[noteKey(n)], n.headUnreadable)
+        if n.headUnreadable then
+          -- one the file has no note for still mustn't read as a plain head
+          n.head = x and shapes.fromMusicXML(x.head, x.filled) or shapes.NOT_IN_MUSICXML
+          n.headUnreadable = false
+          if pairing and not x then unmatched = unmatched + 1 end
+        end
+        if x and n.colourUnreadable and x.colour ~= "" then
+          n.colour = x.colour
+          n.colourUnreadable = false
         end
       end
     end
   end
-  return newRead, missing, paired
+  return newRead, missing, paired, unmatched
 end
 
 return xmlnotes
