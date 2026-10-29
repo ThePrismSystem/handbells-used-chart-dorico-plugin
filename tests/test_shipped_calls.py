@@ -41,8 +41,12 @@ ALLOWED = {
     "Handbells Used Chart/hbuc/dorico/musicxmlstep.lua": {
         "command File.Export": 1,  # opens Dorico's MusicXML export, which writes where its dialog says
     },
+    "Handbells Used Chart/hbuc/dorico/savedcopy.lua": {
+        "DoApp:save": 1,  # a copy of the open project into the temp folder, to read noteheads and colours from
+    },
     "Handbells Used Chart/hbuc/dorico/files.lua": {
         "io.open": 2,  # reads and writes the plug-in's own files, and reads the MusicXML files chosen in the picker
+        "os.remove": 1,  # the copy savedcopy.lua reads, before Dorico saves it and once it has been read
         "os.execute": 1,  # /bin/mkdir -p for the plug-in's folders on a Mac
         "require lfs": 1,  # LuaFileSystem, which ships with Dorico on Windows
         "lfs.attributes": 5,  # whether a folder exists, when the project file and a MusicXML export last changed
@@ -75,6 +79,8 @@ LUA_CALLS = [
     ("io.output", r"\bio\.output\b"), ("io.input", r"\bio\.input\b"), ("io.tmpfile", r"\bio\.tmpfile\b"),
     ("loadstring", r"\bloadstring\b"), ("loadfile", r"\bloadfile\b"), ("dofile", r"\bdofile\b"),
     ("package.loadlib", r"\bpackage\.loadlib\b"),
+    # Dorico's own app:save(score, path), which writes a project file
+    ("DoApp:save", r":save\s*\("),
 ]
 PS1_CALLS = [
     ("Invoke-Expression", r"(?i)\bInvoke-Expression\b|(?<![\w$-])iex\b"),
@@ -318,6 +324,9 @@ class StripTests(unittest.TestCase):
     def test_dorico_file_commands_are_counted(self):
         src = 'doc.command(app, log, "File.Save") commands.build("File.Export.Text", {})\n'
         self.assertEqual(calls("a.lua", src), Counter({"command File.Save": 1, "command File.Export.Text": 1}))
+
+    def test_dorico_save_to_a_path_is_counted(self):
+        self.assertEqual(calls("a.lua", "local ok = app:save(app.currentScore, path)\n"), Counter({"DoApp:save": 1}))
 
     def test_ps1_process_starts_are_counted(self):
         found = calls("a.ps1", '[Diagnostics.Process]::Start("x")\nstart notepad\nInvoke-Item a\nStart-Job {}\n'

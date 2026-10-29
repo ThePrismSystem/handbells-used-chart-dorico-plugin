@@ -23,6 +23,10 @@ FIXTURE_HISTOGRAM = {
     "noteheadset.triangleUpNoteheads|": 2,
 }
 FIXTURE_PLAYERS = ["Handbells (A)", "Handbells (B)", "Organ"]
+FIXTURE_HEADS = {
+    "noteheadset.default": 43, "noteheadset.Xnoteheads": 1, "noteheadset.diamondNoteheads": 6,
+    "noteheadset.rectangular": 4, "noteheadset.triangleDownNoteheads": 2, "noteheadset.triangleUpNoteheads": 2,
+}
 
 
 class ReadTests(unittest.TestCase):
@@ -67,6 +71,14 @@ class ReadTests(unittest.TestCase):
             for args in ({}, {"forcePaste": True}):
                 facts = harness.run_more(self, client, "case_read.lua", args)["facts"]
                 self.assertEqual(facts["headUnreadable"], 6, args)
+
+    def test_saved_copy_reads_heads_set_by_command(self):
+        # Every one of the fixture's changed heads given again by Dorico's own command, which Lua can't read: the
+        # saved copy has them all, each in the note's own block instance.
+        with harness.scratch(self, "case_heads.lua") as (client, result):
+            self.assertEqual(result["facts"]["redone"], 15, "every changed head")
+            facts = harness.run_more(self, client, "case_savedcopy.lua")["facts"]
+            self.assertEqual(facts["heads"], FIXTURE_HEADS)
 
     def test_a_colour_set_by_command_is_marked_unreadable(self):
         # It reads back as "", like no colour. The note still lists the property, so the read can tell the two apart

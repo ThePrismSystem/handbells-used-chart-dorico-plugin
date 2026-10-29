@@ -25,6 +25,11 @@ function files.write(path, text)
   f:close()
 end
 
+-- A missing file is no error: callers remove what may or may not be there.
+function files.remove(path)
+  os.remove(path)
+end
+
 -- Makes every missing folder along path (forward slashes, as guards.folders gives them).
 function files.ensureDir(path)
   local lfs = lfsOrNil()
