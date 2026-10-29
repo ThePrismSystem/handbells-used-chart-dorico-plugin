@@ -37,11 +37,15 @@ ALLOWED = {
         "os.remove": 1,  # the last text export, before File.Export.Text writes a new one
         "command File.Export.Text": 1,  # Dorico writes the project's text export into the temp folder
     },
+    "Handbells Used Chart/hbuc/dorico/musicxmlstep.lua": {
+        "command File.Export": 1,  # opens Dorico's MusicXML export, which writes where its dialog says
+    },
     "Handbells Used Chart/hbuc/dorico/files.lua": {
         "io.open": 2,  # reads and writes the plug-in's own files
         "os.execute": 1,  # /bin/mkdir -p for the plug-in's folders on a Mac
         "require lfs": 1,  # LuaFileSystem, which ships with Dorico on Windows
-        "lfs.attributes": 3,  # whether a folder exists, and when the project file last changed
+        "lfs.attributes": 5,  # whether a folder exists, when the project file and a MusicXML export last changed
+        "lfs.dir": 2,  # the project folder's "Flows from" folders, to find the MusicXML export Dorico just wrote
         "lfs.mkdir": 1,  # the plug-in's folders on Windows
     },
     "Handbells Used Chart/hbuc/dorico/safe.lua": {

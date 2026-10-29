@@ -75,6 +75,18 @@ constants.MESSAGES = {
   chartRemovedOptionsLeft = "The existing chart was removed, but the full score's layout options could not be put"
     .. " back as they were: check its flow headings, whether flows start on a new page, hidden staves and staff labels"
     .. " in Layout Options.",
+  -- the MusicXML step, for scores whose noteheads were changed in Dorico
+  musicxmlNeeded = "Some noteheads in this score were changed in Dorico, and a plug-in can't read which notehead each"
+    .. " one is. To tell handbells, handchimes and the other kinds apart, the plug-in reads them from a MusicXML export"
+    .. " of the score instead.\n\nExport MusicXML opens Dorico's export dialog. Its starting settings are fine, so"
+    .. " click OK there. Choose file is for an export you've already made.",
+  musicxmlCompressed = "That file is compressed MusicXML (.mxl), which the plug-in can't read. Export again with"
+    .. " \"Export uncompressed XML (.musicxml)\" selected.",
+  musicxmlUnreadable = "%s isn't a MusicXML file the plug-in can read, so nothing was changed.",
+  musicxmlOlder = "This export is older than the project's last save, so it may not show noteheads changed since."
+    .. " Use it anyway?",
+  musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Export the"
+    .. " score as MusicXML again, choose its full-score file, and run the plug-in again.",
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.
@@ -103,6 +115,14 @@ constants.DIALOG = {
   dialogFailed = "The dialog could not be shown, so nothing was changed.",
   cancel = "Cancel",
   ok = "OK",
+  -- the MusicXML step's buttons and picker
+  exportMusicXML = "Export MusicXML",
+  chooseFile = "Choose file",
+  removeChart = "Remove chart",
+  useAnyway = "Use it anyway",
+  back = "Back",
+  pickTitle = "Choose the MusicXML export",
+  pickFilter = "MusicXML",
 }
 
 -- Handbells are always black, so they have no colour field.
