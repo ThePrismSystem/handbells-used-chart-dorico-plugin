@@ -252,14 +252,18 @@ music anyway. A saved project holds every note's values, so the plug-in saves a 
      propertyType = 'kNoteheadSetOverride'
      value = 'string: "noteheadset.rectangular"'
      context
+       propertyOffset = ''
        layoutIDWithFrameChainID = 'steamVariantList:list: {int: -1}, {int: -1}, {bool: false}'
        blockInstanceID = '1010'
    ```
 
-   The first `int` is the layout, -1 for every layout. `blockInstanceID` is the instance the dump's
-   `Start block id` gives, -1 for any. The plug-in takes a value set for the full score's layout over one for every
-   layout, then one for the note's own instance over one for any (`hbuc/noteprops.lua`). A colour set by command
-   reads `#aarrggbb`, one set from Lua `#rrggbb`.
+   The first `int` is the layout, -1 for every layout, and the second is a frame chain, -1 for every note seen.
+   `blockInstanceID` is the instance the dump's `Start block id` gives, -1 for any. A colour's context also has
+   `propertyOffset = 'string: "0:0:1:0"'` and `assignedStaveType = 'kNormal'`. The plug-in takes a value set for the
+   full score's layout over one for every layout, then one for the note's own instance over one for any
+   (`hbuc/noteprops.lua`). It refuses a context with any other child or value: read as "every layout", an
+   unfamiliar one could put a part's value on the full score. A colour set by command reads `#aarrggbb`, one set
+   from Lua `#rrggbb`.
 
 Then match the dumps' notes to the copy by event id. On two real arrangements and Steinberg's Liszt and Smith
 examples, every dumped note had one, at the same position and pitch.

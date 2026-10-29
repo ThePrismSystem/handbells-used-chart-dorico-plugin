@@ -9,6 +9,38 @@ local noteprops = {}
 local DEFAULT_HEAD = "noteheadset.default"
 local NOTES = { NoteEventDefinition = true, GraceNoteEventDefinition = true }
 local KEPT = { kNoteheadSetOverride = true, kEventColour = true }
+-- The other children a context may have, and their values: a notehead's has the empty offset, a colour's this one.
+local OTHER = {
+  propertyOffset = { [""] = true, ['string: "0:0:1:0"'] = true },
+  assignedStaveType = { kNormal = true },
+}
+
+local function unreadable(name, text)
+  error("noteprops: a context the plug-in can't read: " .. name .. " = " .. text, 0)
+end
+
+-- A notehead or colour entry's layout and block instance. In the projects Dorico 6.2 saved, a context has both of
+-- these, sometimes an offset and a stave type, and only the values allowed here. Read as -1, a context in a form not
+-- seen before could put a part's value on the full score, so it stops the read instead.
+local function contextOf(tree, context)
+  local layout, instance
+  for _, c in ipairs(dtn.children(tree, context)) do
+    local name, text = dtn.name(tree, c), dtn.value(tree, c)
+    if name == "layoutIDWithFrameChainID" then
+      -- the layout, then the frame chain, which was -1 for every note seen
+      layout = tonumber(text:match("^steamVariantList:list: {int: (%-?%d+)}, {int: %-1}, {bool: false}$"))
+      if not layout then unreadable(name, text) end
+    elseif name == "blockInstanceID" then
+      instance = tonumber(text:match("^%-?%d+$"))
+      if not instance then unreadable(name, text) end
+    elseif not (OTHER[name] and OTHER[name][text]) then
+      unreadable(name, text)
+    end
+  end
+  if not layout then error("noteprops: a context with no layout", 0) end
+  if not instance then error("noteprops: a context with no block instance", 0) end
+  return layout, instance
+end
 
 local function entryOf(tree, e)
   local typeNode, valueNode = dtn.child(tree, e, "propertyType"), dtn.child(tree, e, "value")
@@ -17,22 +49,7 @@ local function entryOf(tree, e)
   local raw = dtn.value(tree, valueNode)
   local layout, instance = -1, -1
   local context = dtn.child(tree, e, "context")
-  if context then
-    -- Read as -1, a context in a form not seen before could put a part's value on the full score, so it stops the
-    -- read instead.
-    local l, b = dtn.child(tree, context, "layoutIDWithFrameChainID"), dtn.child(tree, context, "blockInstanceID")
-    if l then
-      -- "steamVariantList:list: {int: 0}, {int: -1}, {bool: false}": the first int is the layout
-      local text = dtn.value(tree, l)
-      layout = tonumber(text:match("^steamVariantList:list: {int: (%-?%d+)}"))
-      if not layout then error("noteprops: a layout the plug-in can't read: " .. text, 0) end
-    end
-    if b then
-      local text = dtn.value(tree, b)
-      instance = tonumber(text)
-      if not instance then error("noteprops: a block instance the plug-in can't read: " .. text, 0) end
-    end
-  end
+  if context then layout, instance = contextOf(tree, context) end
   return { property = property, value = raw:match('^string: "(.*)"$') or raw, layout = layout, instance = instance }
 end
 

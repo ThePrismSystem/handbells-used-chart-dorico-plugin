@@ -14,20 +14,38 @@ local function fixtureNotes()
   return noteprops.fromTree(dtn.decode(zip.entry(bytes, "score.dtn")))
 end
 
--- A tree holding one note (event 7) coloured red with this context.
-local function colouredNote(layoutText, instanceText)
+-- A tree holding one note (event 7) coloured red, with a context of these {name, value} children.
+local function colouredNote(context)
   return dtn.decode(require("dtn_build").tree({ "kScore", nil, { { "NoteEventDefinition", nil, {
     { "eventID", "7" },
     { "propertyTable", nil, { { "entries", nil, { { "entry", nil, {
       { "propertyType", "kEventColour" }, { "value", 'string: "#ffff0000"' },
-      { "context", nil, { { "layoutIDWithFrameChainID", layoutText }, { "blockInstanceID", instanceText } } },
+      { "context", nil, context },
     } } } } } },
   } } } }))
+end
+
+-- The children of a context as Dorico 6.2 saves them: a colour's has the offset and the stave type, a notehead's an
+-- empty offset and neither.
+local OFFSET, NO_OFFSET, STAVE = { "propertyOffset", 'string: "0:0:1:0"' }, { "propertyOffset" },
+  { "assignedStaveType", "kNormal" }
+
+local function layout(n)
+  return { "layoutIDWithFrameChainID", "steamVariantList:list: {int: " .. n .. "}, {int: -1}, {bool: false}" }
+end
+
+local function instance(text)
+  return { "blockInstanceID", text }
 end
 
 local function errorOf(fn)
   local ok, err = pcall(fn)
   return not ok and tostring(err) or nil
+end
+
+local function refused(t, context, label)
+  local err = errorOf(function() return noteprops.fromTree(colouredNote(context)) end)
+  t:ok(err and err:find("noteprops: ", 1, true), label .. ": " .. tostring(err))
 end
 
 local function head(value, layout, instance)
@@ -50,23 +68,43 @@ return {
     t:eq(noteprops.head(notes[209], 0, 1010), "noteheadset.diamondNoteheads", "a red diamond, set from Lua")
     t:eq(noteprops.colour(notes[209], 0, 1010), "#c80000")
   end,
-  a_context_as_dorico_writes_it = function(t)
-    local e = noteprops.fromTree(colouredNote("steamVariantList:list: {int: 3}, {int: -1}, {bool: false}", "1010"))[7][1]
+  a_colour_context_as_dorico_writes_it = function(t)
+    local e = noteprops.fromTree(colouredNote({ OFFSET, layout(3), instance("-1"), STAVE }))[7][1]
     t:eq(e.layout, 3)
-    t:eq(e.instance, 1010)
+    t:eq(e.instance, -1)
     t:eq(e.value, "#ffff0000")
+  end,
+  a_notehead_context_as_dorico_writes_it = function(t)
+    local e = noteprops.fromTree(colouredNote({ NO_OFFSET, layout(-1), instance("1010") }))[7][1]
+    t:eq(e.layout, -1)
+    t:eq(e.instance, 1010)
   end,
   -- Read as "every layout" or "any instance", a context in a form not seen before could put a part's value on the
   -- full score: the read stops instead.
   a_layout_that_cannot_be_read_fails = function(t)
-    local err = errorOf(function() return noteprops.fromTree(colouredNote("layout three", "1010")) end)
-    t:ok(err and err:find("noteprops: ", 1, true), tostring(err))
+    refused(t, { { "layoutIDWithFrameChainID", "layout three" }, instance("1010") }, "layout")
   end,
   an_instance_that_cannot_be_read_fails = function(t)
-    local err = errorOf(function()
-      return noteprops.fromTree(colouredNote("steamVariantList:list: {int: 3}, {int: -1}, {bool: false}", "x"))
-    end)
-    t:ok(err and err:find("noteprops: ", 1, true), tostring(err))
+    refused(t, { layout(3), instance("x") }, "instance")
+  end,
+  a_frame_chain_fails = function(t)
+    refused(t, { { "layoutIDWithFrameChainID", "steamVariantList:list: {int: 0}, {int: 2}, {bool: true}" },
+      instance("-1") }, "frame chain 2")
+  end,
+  another_offset_fails = function(t)
+    refused(t, { { "propertyOffset", 'string: "1:0:0:0"' }, layout(3), instance("-1") }, "offset")
+  end,
+  another_stave_type_fails = function(t)
+    refused(t, { layout(3), instance("-1"), { "assignedStaveType", "kSmall" } }, "stave type")
+  end,
+  an_unknown_child_fails = function(t)
+    refused(t, { layout(3), instance("-1"), { "voiceIndex", "1" } }, "unknown child")
+  end,
+  a_context_without_a_layout_fails = function(t)
+    refused(t, { OFFSET, instance("1010"), STAVE }, "no layout")
+  end,
+  a_context_without_an_instance_fails = function(t)
+    refused(t, { OFFSET, layout(3), STAVE }, "no instance")
   end,
   only_the_two_properties_are_kept = function(t)
     for _, e in ipairs(fixtureNotes()[209]) do
