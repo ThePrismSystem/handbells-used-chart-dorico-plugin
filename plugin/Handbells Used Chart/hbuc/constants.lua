@@ -18,6 +18,10 @@ constants.KIND_NAME = {
 constants.LABEL_DASH = " - "
 
 constants.NO_NOTEHEAD = "(no notehead)"
+-- Noteheads read from a MusicXML export (shapes.fromMusicXML): one changed in Dorico to a set the export can't
+-- express, and a value no built-in set writes.
+constants.NOT_IN_MUSICXML_NAME = "Changed in Dorico (not in MusicXML)"
+constants.MUSICXML_HEAD_NAME = "%s (MusicXML)"
 constants.SHAPE_MATCH = "(match notehead)"
 constants.SHAPES = { "Round", "Diamond", "Square", "Triangle", "Inverted triangle", "Half circle", "Cone" }
 

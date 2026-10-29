@@ -128,7 +128,40 @@ function shapes.noteheadSetFor(shape)
   return SET_FOR_SHAPE[shape]
 end
 
+-- A notehead changed in Dorico's UI can't be read from Lua, so it comes from a MusicXML export. Some sets export no
+-- <notehead> at all (Rectangular, Wide Diamond and more: spike/48_notehead_survey.py), so a changed note whose
+-- export has none can only be told apart from plain heads by having been changed.
+shapes.NOT_IN_MUSICXML = "noteheadset.notInMusicXML"
+
+-- What Dorico 6 writes for its built-in sets. A value several sets share (x, slash) names the plain one.
+local FROM_MUSICXML = {
+  diamond = "noteheadset.diamondNoteheads",
+  triangle = "noteheadset.triangleUpNoteheads",
+  ["inverted triangle"] = "noteheadset.triangleDownNoteheads",
+  x = "noteheadset.Xnoteheads",
+  slash = "noteheadset.slashNoteheads",
+  ["circle-x"] = "noteheadset.circleXNoteheads",
+  circled = "noteheadset.largeCircledNoteheads",
+  cross = "noteheadset.withXNoteheads",
+  slashed = "noteheadset.slashedNoteheadsBLTR",
+  ["back slashed"] = "noteheadset.slashedNoteheadsTLBR",
+  ["arrow up"] = "noteheadset.largeArrowUpNoteheads",
+  ["arrow down"] = "noteheadset.largeArrowDownNoteheads",
+  ["do"] = "noteheadset.aikin7Shape",
+}
+
+-- The head id of a note's MusicXML <notehead> (text, and its filled attribute), for a note whose head Lua couldn't
+-- read. Any other value keeps its own id, named after the value.
+function shapes.fromMusicXML(text, filled)
+  if text == nil or text == "" or text == "normal" then return shapes.NOT_IN_MUSICXML end
+  if text == "diamond" and filled == false then return "noteheadset.whiteDiamondNoteheads" end
+  return FROM_MUSICXML[text] or ("musicxml." .. text)
+end
+
 function shapes.displayName(id)
+  if id == shapes.NOT_IN_MUSICXML then return constants.NOT_IN_MUSICXML_NAME end
+  local value = tostring(id):match("^musicxml%.(.+)$")
+  if value then return string.format(constants.MUSICXML_HEAD_NAME, value) end
   return DISPLAY[id] or id
 end
 

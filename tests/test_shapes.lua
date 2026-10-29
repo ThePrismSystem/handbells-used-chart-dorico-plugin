@@ -76,4 +76,46 @@ return {
     t:eq(shapes.displayName("noteheadset.diamondNoteheads"), "Diamond Noteheads")
     t:eq(shapes.displayName("custom.x"), "custom.x")
   end,
+  -- What Dorico 6.2.30 writes for each built-in set (spike/48_notehead_survey.py); a value several sets share names
+  -- the plain one.
+  musicxml_heads_map_to_dorico_sets = function(t)
+    local want = {
+      { "diamond", nil, "noteheadset.diamondNoteheads" },
+      { "diamond", true, "noteheadset.diamondNoteheads" },
+      { "diamond", false, "noteheadset.whiteDiamondNoteheads" },
+      { "triangle", nil, "noteheadset.triangleUpNoteheads" },
+      { "inverted triangle", nil, "noteheadset.triangleDownNoteheads" },
+      { "x", nil, "noteheadset.Xnoteheads" },
+      { "slash", nil, "noteheadset.slashNoteheads" },
+      { "circle-x", nil, "noteheadset.circleXNoteheads" },
+      { "circled", nil, "noteheadset.largeCircledNoteheads" },
+      { "cross", nil, "noteheadset.withXNoteheads" },
+      { "slashed", nil, "noteheadset.slashedNoteheadsBLTR" },
+      { "back slashed", nil, "noteheadset.slashedNoteheadsTLBR" },
+      { "arrow up", nil, "noteheadset.largeArrowUpNoteheads" },
+      { "arrow down", nil, "noteheadset.largeArrowDownNoteheads" },
+      { "do", nil, "noteheadset.aikin7Shape" },
+    }
+    for _, w in ipairs(want) do
+      t:eq(shapes.fromMusicXML(w[1], w[2]), w[3], w[1] .. " filled " .. tostring(w[2]))
+    end
+  end,
+  no_musicxml_head_is_not_in_musicxml = function(t)
+    t:eq(shapes.NOT_IN_MUSICXML, "noteheadset.notInMusicXML")
+    t:eq(shapes.fromMusicXML(nil), shapes.NOT_IN_MUSICXML, "no <notehead>")
+    t:eq(shapes.fromMusicXML(""), shapes.NOT_IN_MUSICXML, "an empty one")
+    t:eq(shapes.fromMusicXML("normal"), shapes.NOT_IN_MUSICXML, "the plain head, written out")
+    t:eq(shapes.displayName(shapes.NOT_IN_MUSICXML), "Changed in Dorico (not in MusicXML)")
+  end,
+  not_in_musicxml_charts_as_the_kinds_default = function(t)
+    local name = shapes.displayName(shapes.NOT_IN_MUSICXML)
+    t:eq(shapes.chartShape(MATCH, shapes.NOT_IN_MUSICXML, name, "smbs"), "Square")
+    t:eq(shapes.chartShape(MATCH, shapes.NOT_IN_MUSICXML, name, "chimes"), "Diamond")
+  end,
+  other_musicxml_heads_keep_their_name = function(t)
+    t:eq(shapes.fromMusicXML("square"), "musicxml.square")
+    t:eq(shapes.displayName("musicxml.square"), "square (MusicXML)")
+    t:eq(shapes.chartShape(MATCH, "musicxml.square", shapes.displayName("musicxml.square"), "bells"), "Square",
+      "its shape is read from its name, as a custom set's is")
+  end,
 }
