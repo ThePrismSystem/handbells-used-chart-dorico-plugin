@@ -152,8 +152,9 @@ function main.chart(ctx)
 
   -- 6. remember the choices (if the dialog was shown), and save: File > Revert then takes the whole run back
   if req then files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp))) end
-  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read, such as one with
-  -- characters outside the system code page, cannot be checked and is trusted.)
+  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read cannot be checked and
+  -- is trusted: on Windows, one with any character outside ASCII, since the text export gives it in UTF-8 and lfs
+  -- takes the code page.)
   local savedBefore = files.modified(projectPath)
   doc.command(app, log, "File.Save")
   -- From here on a failure is told to use File > Revert (main.run).

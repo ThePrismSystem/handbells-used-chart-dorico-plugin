@@ -155,7 +155,7 @@ Events carry their details in a property table, read and written through `DoCore
 
 ```lua
 local ctx = DoCore.PropertyContext()
-local head = tostring(note.propertyTable:get("kNoteheadSetOverride", ctx))   -- "" when not set
+local head = tostring(note.propertyTable:get("kNoteheadSetOverride", ctx))   -- "": not set, or set in Dorico itself
 note.propertyTable:set("kNoteHideStem", DoCore.Variant.createString("true"), ctx)
 ```
 
@@ -242,8 +242,11 @@ holds only notes, reads that, and takes it away again:
    are `[treble, bass]`, so take the scratch voice of the same instrument and staff.
 5. The filter keeps note-attached lines with their notes, and a line makes `stream.events` throw again. Delete every
    event in the scratch flow whose kind has no Lua class: select each by id from the dump, then `Edit.Delete`.
-6. Now `stream.events` and `propertyTable:get` work: noteheads, colours and grace notes. Skip the temporary note by
-   its id.
+6. Now `stream.events` and `propertyTable:get` work: grace notes, and the noteheads and colours Lua can read at all
+   (section 2: not the ones set in Dorico itself, which the copy keeps unreadable). Skip the temporary note by its
+   id. The paste puts the copy's first note at position 0, even though the range starts at the start of the flow, so
+   when every staff starts with rests, every position reads that much early. Shift the copy by the difference
+   between the dumps' first note and its own.
 7. Take the scratch flow away with **one** `Edit.Undo` (section 7 explains why exactly one).
 
 It takes about 2 seconds a flow. Two catches:
@@ -625,6 +628,9 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - Players have no id and no `==`. Player ids aren't instrument ids.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
+- So does a notehead set chosen in Dorico, and every such Variant equals every other. A MusicXML export has them
+  (section 5).
+- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8.
 - `MIDIPitchWithSpelling.fromString` can crash Dorico on bad input.
 - `EventEdit.Select` needs the event's block id, from `stream.blockInstances`. The dump prints an instance id, and a
   wrong block id selects nothing, silently.
@@ -651,6 +657,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | One run, start to finish | `plugin/Handbells Used Chart/hbuc/main.lua` |
 | Reading notes, the paste route, the single undo | `hbuc/dorico/readscore.lua`, `hbuc/dump.lua`, `hbuc/eventtext.lua`, `hbuc/reading.lua` |
 | The text export | `hbuc/dorico/doc.lua` (`exportText`), `hbuc/textexport.lua` |
+| Noteheads set in Dorico, through a MusicXML export | `hbuc/dorico/musicxmlstep.lua`, `hbuc/musicxml.lua`, `hbuc/xmlnotes.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
 | Player ids | `hbuc/dorico/doc.lua` (`playerIds`) |
 | Command strings | `hbuc/commands.lua` |

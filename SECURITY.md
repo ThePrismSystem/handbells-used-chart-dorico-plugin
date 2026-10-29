@@ -20,11 +20,13 @@ When you choose **Script > Handbells Used Chart**:
 1. The plug-in checks the Dorico version, that the project has been saved, and that the full score is open. It then
    reads the music and shows its dialog. To read noteheads and colours, it pastes a copy of the music into temporary
    flows, and takes them away again before the dialog opens. Nothing else in the project changes before you click
-   OK.
+   OK, or Remove chart in the message below.
    - If some noteheads were changed in Dorico itself, Lua can't read which notehead each one is, so a message asks
      for a MusicXML export of the score before the dialog opens. Its Export MusicXML button opens Dorico's own export
-     dialog, where you choose what to export and where. A file picker follows. The plug-in only reads the files you
-     choose, and uses a file only if its notes match the score's.
+     dialog, where you choose what to export and where. A file picker follows, unless no new export turns up beside
+     the project. The plug-in only reads the files you choose, and uses a file only if its notes match the score's.
+     When the score has a chart, the message also has a Remove chart button. It does what OK does with the chart set
+     to be removed (step 3), without the dialog, and leaves your remembered choices as they were.
 2. If you click Cancel, the run ends there.
 3. If you click OK, it remembers your choices and saves the project. Then it draws or updates the chart, or removes
    it, and sets the full-score layout options listed under
