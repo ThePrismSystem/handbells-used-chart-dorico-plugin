@@ -49,8 +49,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-i
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<plug-in>\dialog\windows.ps1" -Choice "<temp>\choice.json" -Response "<temp>\response.json"
 ```
 
-`-Choice` runs only when the music uses two notehead sets of one shape and one of them has fewer than 5 notes: it
-asks whether to chart them together.
+`-Choice` runs only when the music uses two or more notehead sets of one shape and one of them has fewer than 5
+notes: it asks whether to chart them together.
 
 The options do the following:
 
@@ -107,8 +107,8 @@ Two more commands can run on a Mac:
 - The open project, which it saves before it changes anything.
 
 [`hbuc/guards.lua`](plugin/Handbells%20Used%20Chart/hbuc/guards.lua) decides where the folders are. The plug-in
-writes its files, and reads the copy of the project, in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`. Dorico
-writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text, saves the project when `hbuc/main.lua`
+writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`, and reads the copy of the project through
+`files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text, saves the project when `hbuc/main.lua`
 runs File > Save, and saves the copy in the temp folder when `hbuc/dorico/savedcopy.lua` calls `app:save`. The call
 test pins each of these calls.
 

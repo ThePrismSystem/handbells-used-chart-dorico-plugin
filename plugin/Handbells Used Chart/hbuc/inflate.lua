@@ -1,6 +1,6 @@
--- Raw DEFLATE (RFC 1951), for reading score.dtn out of a saved copy of the project (hbuc.zip). Dorico's Lua has no
--- zlib. Speed matters here: a real score's score.dtn runs to a few megabytes, and the read happens before the
--- dialog opens.
+-- Raw DEFLATE (RFC 1951), for reading score.dtn out of a saved copy of the project (hbuc.zip), since Dorico's Lua
+-- has no zlib. It is written for speed: a real score's score.dtn runs to a few megabytes, read before the dialog
+-- opens.
 local inflate = {}
 
 local byte, char, floor = string.byte, string.char, math.floor

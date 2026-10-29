@@ -9,13 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support for scores whose noteheads were changed in Dorico itself (the Notations menu or the Properties panel),
-  which a plug-in can't read. The plug-in asks for a MusicXML export of the score, with a button that opens Dorico's
-  export dialog, and reads those noteheads from it, along with any colours set the same way. It uses a file only
-  where its notes match the score's, player by player, and changes nothing when no file matches. Some notehead sets
-  don't survive MusicXML; the README lists which.
-- When up to four notes have noteheads changed in Dorico to a set MusicXML doesn't record, the plug-in names each one
-  by pitch and bar and asks whether to include them with one of the score's other noteheads or keep them separate.
+- Noteheads and colours set in Dorico itself (with the Notations menu or the Properties panel) are read. A plug-in's
+  scripting can't read them from the open project, so the plug-in has Dorico save a copy into its temp folder, reads
+  every note's notehead set and colour from that, and deletes it. The project and its file are left alone.
+- When the music uses more than one notehead set of the same shape and one of them has fewer than 5 notes, such as a
+  single Old-Style Diamond among the Diamonds, the plug-in lists the sets with their note counts and asks whether to
+  chart them all as the most-used set or keep them separate.
+
+### Changed
+
+- The music is no longer copied into temporary flows to be read. A run leaves the clipboard and the selection alone,
+  and one Edit > Undo after it takes back just the chart, where before it also took back your last action before
+  the run.
+- Notes in unison in two voices of one staff are each read. Before, the copy merged them into one.
 
 ## [0.1.0] - 2026-10-26
 

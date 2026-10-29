@@ -1,6 +1,6 @@
 -- The binary tree a saved project keeps its score in (score.dtn inside the .dorico zip). Nothing documents it; the
 -- layout below was worked out from Dorico 6.2.30's own files (spike/lib/dtn.py), so the decoder refuses anything
--- that doesn't fit it exactly rather than guess.
+-- that doesn't fit it exactly.
 --
 --   u32 4, u32 1, u32 nameCount, nameCount NUL-terminated element names
 --   u32 valueCount, valueCount NUL-terminated values (value 0 is "")
