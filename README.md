@@ -141,7 +141,7 @@ noteheads. Two kinds can't share a notehead: the plug-in says which one clashes 
 A plug-in's scripting can see that a note's notehead set or colour was changed in Dorico itself (with the Notations
 menu or the Properties panel), but not what it was changed to. So the plug-in has Dorico save a copy of the project
 into its temp folder, reads every note's notehead set and colour from the copy, and deletes it. Your project and its
-file stay as they were, and the read adds nothing to Edit > Undo. When a set was chosen for one layout only, such as
+file stay as they were, and the read adds nothing to Edit > Undo. When a colour was set for one layout only, such as
 a part, the plug-in goes by what the full score shows.
 
 ### Two notehead sets of one shape

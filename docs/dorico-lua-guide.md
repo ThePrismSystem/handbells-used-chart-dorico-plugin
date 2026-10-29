@@ -464,7 +464,6 @@ app:doCommand("File.Export?FilterID=MusicXMLExportFilter")   -- opens "Export Mu
 - `copyRange` copies nothing, within a flow or across flows.
 - There's no silent MusicXML export: `File.Export` and `File.Export.SpecificFlowsAndParts` open dialogs (but see
   "Exporting MusicXML" above).
-- Saved projects are binary inside (`score.dtn`), so reading the project file isn't an option.
 
 ## 6. Commands
 

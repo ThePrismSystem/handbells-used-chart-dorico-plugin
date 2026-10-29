@@ -17,7 +17,7 @@ function report.warningLines(warnings)
       line = w.count .. " note(s) with an unrecognised notehead were skipped"
       if w.names and #w.names > 0 then line = line .. ": " .. report.joinNames(w.names) end
     elseif w.type == "unreadable-pitch" then
-      -- Notes the dumps list but no read copy carried a notehead for (docs/dorico-lua-guide.md, section 3).
+      -- Notes whose spelling hbuc.bellname can't read, which hbuc.reading gives no pitch.
       line = string.format("%d note(s) could not be read and were skipped", w.count)
     elseif w.type == "out-of-range" then
       line = "Bells outside C2-C9 were skipped: " .. report.joinNames(w.names)
@@ -44,7 +44,7 @@ end
 -- keptExisting: a chart was already there, and a run that charts nothing leaves it as it was.
 function report.summary(plan, removedExisting, extra, keptExisting)
   local M = constants.MESSAGES
-  -- Warnings found while drawing or reading join the plan's own, after them.
+  -- Warnings found while drawing join the plan's own, after them.
   local warnings = {}
   for _, w in ipairs(plan.warnings or {}) do warnings[#warnings + 1] = w end
   for _, w in ipairs(extra or {}) do warnings[#warnings + 1] = w end

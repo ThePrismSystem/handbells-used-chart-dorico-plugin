@@ -98,7 +98,8 @@ constants.DIALOG = {
   writtenHeader = "Written as",
   writtenHandbells = "Handbells instrument (sounds an octave higher)",
   writtenAtPitch = "At pitch (e.g. Piano or Organ)",
-  -- the Mac dialog's alert when it cannot show itself; nothing is changed
+  -- the Mac dialog's alert when it can't show itself, and the run's message when a question before the dialog
+  -- can't be shown; nothing is changed
   dialogFailed = "The dialog could not be shown, so nothing was changed.",
   cancel = "Cancel",
   ok = "OK",

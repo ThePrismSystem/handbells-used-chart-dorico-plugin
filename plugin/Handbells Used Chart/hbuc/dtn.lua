@@ -5,7 +5,7 @@
 --   u32 4, u32 1, u32 nameCount, nameCount NUL-terminated element names
 --   u32 valueCount, valueCount NUL-terminated values (value 0 is "")
 --   u32 nodeCount, then one record per node, node 0 the root: a tag byte, a name index and a value index, and when
---   the tag has bit 2 set, a child count and that many child node ids. Numbers after the tag are LEB128 varints.
+--   the tag has its 2 bit set, a child count and that many child node ids. Numbers after the tag are LEB128 varints.
 local dtn = {}
 
 local byte, find, sub = string.byte, string.find, string.sub

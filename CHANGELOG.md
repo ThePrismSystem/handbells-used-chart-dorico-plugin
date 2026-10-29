@@ -18,9 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The music is no longer copied into temporary flows to be read. A run leaves the clipboard and the selection alone,
-  and one Edit > Undo after it takes back just the chart, where before it also took back your last action before
-  the run.
+- The music is no longer copied into temporary flows to be read, so reading it leaves the clipboard and the
+  selection alone. One Edit > Undo after a run takes back just the chart. Before, for music read through such a
+  copy, it also took back your last action before the run.
 - Notes in unison in two voices of one staff are each read. Before, the copy merged them into one.
 
 ## [0.1.0] - 2026-10-26

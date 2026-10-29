@@ -21,7 +21,7 @@ local function showWith(isWindows)
   return json.decode(written), ran
 end
 
--- One choice or pick exchange with os.execute and the files stubbed: answer is what the script "writes" to the
+-- One choice exchange with os.execute and the files stubbed: answer is what the script "writes" to the
 -- response file (nil for none). Returns the result, the request file's JSON and the command run.
 local function exchange(isWindows, fn, answer, logged)
   local written, ran = {}, nil
