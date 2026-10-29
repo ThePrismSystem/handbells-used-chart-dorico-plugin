@@ -34,7 +34,6 @@ return {
   a_note_with_no_entries_has_the_default_set = function(t)
     local records = reading.records({ note(1, "A", "D5") }, { [1] = {} }, 0)
     t:eq(records[1].head, "noteheadset.default")
-    t:eq(reading.DEFAULT_HEAD, "noteheadset.default")
     t:eq(records[1].colour, "")
   end,
   the_full_score_and_the_notes_instance_decide = function(t)

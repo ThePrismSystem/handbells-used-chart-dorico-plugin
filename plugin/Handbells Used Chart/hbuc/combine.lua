@@ -40,9 +40,7 @@ function combine.groups(records)
         return a.rank < b.rank
       end)
       if heads[#heads].count < combine.FEWEST then
-        local list = {}
-        for i, h in ipairs(heads) do list[i] = { id = h.id, count = h.count } end
-        groups[#groups + 1] = { shape = shape, heads = list, into = list[1].id }
+        groups[#groups + 1] = { shape = shape, heads = heads, into = heads[1].id }
       end
     end
   end

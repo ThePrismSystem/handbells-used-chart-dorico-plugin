@@ -17,6 +17,8 @@ constants.KIND_NAME = {
 -- Separates an instrument's name from its chart's label: "Handbells I - Handbells Used: 25".
 constants.LABEL_DASH = " - "
 
+-- The set Dorico draws a note with when it has no notehead set override.
+constants.DEFAULT_HEAD = "noteheadset.default"
 constants.NO_NOTEHEAD = "(no notehead)"
 constants.SHAPE_MATCH = "(match notehead)"
 constants.SHAPES = { "Round", "Diamond", "Square", "Triangle", "Inverted triangle", "Half circle", "Cone" }

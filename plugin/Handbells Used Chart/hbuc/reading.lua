@@ -6,9 +6,6 @@ local noteprops = require("hbuc.noteprops")
 
 local reading = {}
 
--- A note with no notehead set override is drawn with Dorico's default set.
-reading.DEFAULT_HEAD = "noteheadset.default"
-
 -- notes: {{id, instance, instrument, spelling, grace}}; saved: {[eventId] = entries}; layoutId: the full score's.
 -- Returns records {pitch, diatonic, head, colour, instrument, grace} in bell space (the sounding spelling, as
 -- Dorico's Handbells instrument stores it). A spelling bellname can't read gives a record with no pitch, which

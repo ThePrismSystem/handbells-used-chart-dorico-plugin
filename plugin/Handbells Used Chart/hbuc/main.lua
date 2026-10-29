@@ -145,10 +145,9 @@ function main.chart(ctx)
   local records = transpose.atPitch(scan.records, resp.atPitch)
   local thePlan = plan.build(records, { heads = resp.heads, instruments = resp.instruments, mode = resp.mode })
   namedWarnings(thePlan.warnings)
-  local extra = {}
   -- A run that charts nothing keeps an existing chart: removing it would need Dorico's delete dialog.
   if #thePlan.sections == 0 then
-    return result(false, "warning", report.summary(thePlan, false, extra, chart ~= nil))
+    return result(false, "warning", report.summary(thePlan, false, nil, chart ~= nil))
   end
 
   local slots = chartlayout.slots(thePlan.sections)
@@ -157,7 +156,6 @@ function main.chart(ctx)
   local built = chartlayout.build(thePlan.sections, {
     shapes = resp.shapes, colours = resp.colours, heads = resp.heads, headNames = headNames,
   })
-  for _, w in ipairs(built.warnings) do extra[#extra + 1] = w end
   local musicKeys = {}
   for _, pl in ipairs(scan.players) do musicKeys[#musicKeys + 1] = pl.key end
   local okWrite, wrote = safe.call(log, "write", writechart.write, app, built,
@@ -165,7 +163,7 @@ function main.chart(ctx)
   if not okWrite then return result(false, "error", string.format(M.writeFailed, failure(wrote), log.path)) end
 
   -- 9. report
-  return result(true, "info", report.summary(thePlan, chart ~= nil, extra))
+  return result(true, "info", report.summary(thePlan, chart ~= nil, built.warnings))
 end
 
 function main.run(ctx)

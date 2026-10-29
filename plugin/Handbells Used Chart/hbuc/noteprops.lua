@@ -2,11 +2,11 @@
 -- a value set by command or in Dorico's UI: such a value is stored with a context (a layout, and the note's block
 -- instance), and Lua can only ask for the one without (docs/dorico-lua-guide.md, section 2). The saved score has
 -- them all.
+local constants = require("hbuc.constants")
 local dtn = require("hbuc.dtn")
 
 local noteprops = {}
 
-local DEFAULT_HEAD = "noteheadset.default"
 local NOTES = { NoteEventDefinition = true, GraceNoteEventDefinition = true }
 local KEPT = { kNoteheadSetOverride = true, kEventColour = true }
 -- The other children a context may have, and their values: a notehead's has the empty offset, a colour's this one.
@@ -63,8 +63,8 @@ function noteprops.fromTree(tree)
       local eventId = idNode and tonumber(dtn.value(tree, idNode))
       if not eventId then error("noteprops: node " .. id .. " is a note with no event id", 0) end
       local list = {}
-      local table_ = dtn.child(tree, id, "propertyTable")
-      local entries = table_ and dtn.child(tree, table_, "entries")
+      local propertyTable = dtn.child(tree, id, "propertyTable")
+      local entries = propertyTable and dtn.child(tree, propertyTable, "entries")
       for _, e in ipairs(entries and dtn.children(tree, entries) or {}) do
         list[#list + 1] = entryOf(tree, e)
       end
@@ -96,7 +96,7 @@ end
 -- is another block instance's.
 function noteprops.head(entries, layoutId, instance)
   local value, elsewhere = pick(entries, "kNoteheadSetOverride", layoutId, instance)
-  if value == nil or value == "" then return DEFAULT_HEAD, elsewhere end
+  if value == nil or value == "" then return constants.DEFAULT_HEAD, elsewhere end
   return value, elsewhere
 end
 

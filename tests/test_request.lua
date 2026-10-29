@@ -13,7 +13,6 @@ end
 
 local RECORDS = {
   rec(NORMAL), rec(DIAMOND, "#c80000"), rec(DIAMOND, "#c80000"), rec(DIAMOND), rec(SQUARE, "#008000", "B"),
-  { instrument = "B", head = "", colour = "" }, -- an unread note: no head to offer
 }
 
 local function build(settingsText, players)

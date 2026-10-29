@@ -9,21 +9,19 @@ local shapes = require("hbuc.shapes")
 
 local request = {}
 
-local PLAIN, DIAMOND = "noteheadset.default", "noteheadset.diamondNoteheads"
+local PLAIN, DIAMOND = constants.DEFAULT_HEAD, "noteheadset.diamondNoteheads"
 
 -- The notehead sets the music uses (first-seen order), each set's colour tally, and the two suggestions Sibelius
 -- makes: the plain head for handbells and the diamond for handchimes, when the score uses them.
 function request.choices(records)
   local heads, seen, tally = {}, {}, {}
   for _, r in ipairs(records) do
-    local head = r.head or ""
-    if head ~= "" then
-      if not seen[head] then
-        seen[head] = true
-        heads[#heads + 1] = head
-      end
-      options.tallyColour(tally, head, r.colour or "")
+    local head = r.head
+    if not seen[head] then
+      seen[head] = true
+      heads[#heads + 1] = head
     end
+    options.tallyColour(tally, head, r.colour)
   end
   return {
     heads = heads,

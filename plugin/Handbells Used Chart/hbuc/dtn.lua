@@ -76,7 +76,10 @@ function dtn.decode(bytes)
     end
   end
   if p ~= size + 1 then fail("records end at byte " .. (p - 1) .. " of " .. size) end
-  return { names = names, values = values, count = count, nameOf = nameOf, valueOf = valueOf, kidsOf = kidsOf }
+  local nameIndex = {}
+  for i, n in ipairs(names) do nameIndex[n] = i - 1 end
+  return { names = names, values = values, count = count, nameOf = nameOf, valueOf = valueOf, kidsOf = kidsOf,
+    nameIndex = nameIndex }
 end
 
 local NONE = {}
@@ -95,13 +98,7 @@ end
 
 -- The first child of id named name, or nil.
 function dtn.child(tree, id, name)
-  local index = tree.nameIndex
-  if not index then
-    index = {}
-    for i, n in ipairs(tree.names) do index[n] = i - 1 end
-    tree.nameIndex = index
-  end
-  local want = index[name]
+  local want = tree.nameIndex[name]
   if not want then return nil end
   for _, k in ipairs(tree.kidsOf[id] or NONE) do
     if tree.nameOf[k] == want then return k end
