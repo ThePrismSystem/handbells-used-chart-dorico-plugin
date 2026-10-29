@@ -234,6 +234,51 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(proc.wait(30), 0)
         self.assertEqual(fits, "yes", "the window and its OK button are on the screen")
 
+    def open_mode(self, flag, payload, title):
+        path = self.tmp / f"{flag.lower()}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                                 "-File", str(PS1), f"-{flag}", str(path), "-Response", str(self.response)])
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        self.assertTrue(wait_window(title), f"{title} did not open")
+        time.sleep(1)
+        return proc
+
+    CHOICE = {"title": "Noteheads changed in Dorico", "text": "Export the score as MusicXML.",
+              "buttons": [{"id": "export", "label": "Export MusicXML"}, {"id": "choose", "label": "Choose file"},
+                          {"id": "cancel", "label": "Cancel"}], "cancel": "cancel"}
+
+    def test_choice_returns_the_pressed_button(self):
+        proc = self.open_mode("Choice", self.CHOICE, self.CHOICE["title"])
+        self.assertTrue(click(self.CHOICE["title"], "Choose file"))
+        self.assertEqual(self.response_json(proc), {"choice": "choose"})
+
+    def test_choice_escape_is_its_cancel(self):
+        proc = self.open_mode("Choice", self.CHOICE, self.CHOICE["title"])
+        self.assertEqual(powershell("-File", str(PRESS_KEY), "-Window", self.CHOICE["title"], "-Key", "Escape")
+                         .returncode, 0)
+        self.assertEqual(self.response_json(proc), {"choice": "cancel"})
+
+    def pick(self, button):
+        folder = self.tmp / "Flows from Bells & Chimes"
+        folder.mkdir()
+        (folder / "a - Full score - 01 Flow.musicxml").write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        proc = self.open_mode("Pick", {"title": title, "folder": str(folder).replace("\\", "/"),
+                                       "file": "a - Full score - 01 Flow.musicxml",
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml", "xml"]}}, title)
+        # UI Automation lists the picker under its owner, so presskey can't find it: click.ps1 finds it through Win32
+        self.assertTrue(click(title, button))
+        return folder, self.response_json(proc)
+
+    def test_pick_returns_the_preselected_file(self):
+        folder, answer = self.pick("Open")
+        self.assertEqual([Path(p) for p in answer["files"]], [folder / "a - Full score - 01 Flow.musicxml"])
+
+    def test_pick_cancel_returns_no_files(self):
+        _, answer = self.pick("Cancel")
+        self.assertEqual(answer, {"files": []})
+
     def test_message_window_closes_on_ok(self):
         message = self.tmp / "message.json"
         message.write_text(json.dumps({"title": RESULTS, "kind": "info", "text": "Handbells Used: 2\nSMBs Used: 1"}),

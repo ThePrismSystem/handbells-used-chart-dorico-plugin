@@ -4,6 +4,11 @@ Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits un
 
   windows.ps1 -Request <request.json> -Response <response.json>   the settings dialog
   windows.ps1 -Message <message.json>                             the results window: {"title", "kind", "text", "ok"}
+  windows.ps1 -Choice <choice.json> -Response <response.json>     a message with buttons, answering {"choice": id}
+  windows.ps1 -Pick <pick.json> -Response <response.json>         a file picker, answering {"files": [...]}
+
+A choice is {"title", "text", "buttons": [{"id", "label"}], "cancel": id}; closing the window or Esc answers the
+cancel id. A pick is {"title", "folder", "file", "filter": {"name", "extensions"}}; a cancel answers no files.
 
 The request is what hbuc/request.lua builds. The response is the chosen options:
 {"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "newPage": bool,
@@ -18,7 +23,9 @@ atPitch: the instruments whose "Written as" is at pitch. It is written as UTF-8 
 param(
     [string]$Request,
     [string]$Response,
-    [string]$Message
+    [string]$Message,
+    [string]$Choice,
+    [string]$Pick
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -136,6 +143,69 @@ if ($Message) {
     $form.AcceptButton = $ok
     $form.CancelButton = $ok
     [void]$form.ShowDialog()
+    exit 0
+}
+
+# ---------------------------------------------------------------------------------------------------- choice
+if ($Choice) {
+    $spec = Read-Json $Choice
+    $cancelId = [string](Field $spec "cancel")
+    $script:chosen = $cancelId
+    $form = New-Form ([string](Field $spec "title"))
+    $layout = New-Object System.Windows.Forms.FlowLayoutPanel
+    $layout.FlowDirection = "TopDown"
+    $layout.AutoSize = $true
+    $layout.Padding = New-Object System.Windows.Forms.Padding 12
+    $text = New-Object System.Windows.Forms.Label
+    $text.UseMnemonic = $false
+    $text.Text = [string](Field $spec "text")
+    $text.AutoSize = $true
+    $text.MaximumSize = New-Object System.Drawing.Size (Px 560), 0
+    $layout.Controls.Add($text)
+    $row = New-Object System.Windows.Forms.FlowLayoutPanel
+    $row.AutoSize = $true
+    $row.Anchor = "Right"
+    foreach ($b in (ToList (Field $spec "buttons"))) {
+        $button = New-Button ([string](Field $b "label")) ([System.Windows.Forms.DialogResult]::None)
+        $button.Tag = [string](Field $b "id")
+        $button.Add_Click({ param($s) $script:chosen = [string]$s.Tag; $s.FindForm().Close() })
+        if ($button.Tag -eq $cancelId) { $form.CancelButton = $button }
+        $row.Controls.Add($button)
+    }
+    $layout.Controls.Add($row)
+    $form.Controls.Add($layout)
+    [void]$form.ShowDialog()
+    Write-Response @{ choice = $script:chosen }
+    exit 0
+}
+
+# ---------------------------------------------------------------------------------------------------- picker
+if ($Pick) {
+    $spec = Read-Json $Pick
+    # An owner that stays on top, so the picker opens above Dorico rather than behind it.
+    $owner = New-Object System.Windows.Forms.Form
+    $owner.TopMost = $true
+    $owner.ShowInTaskbar = $false
+    $owner.FormBorderStyle = "None"
+    $owner.Opacity = 0
+    $owner.StartPosition = "CenterScreen"
+    $owner.Size = New-Object System.Drawing.Size 1, 1
+    $picker = New-Object System.Windows.Forms.OpenFileDialog
+    $picker.Title = [string](Field $spec "title")
+    $picker.Multiselect = $true
+    $folder = [string](Field $spec "folder")
+    if ($folder) { $picker.InitialDirectory = $folder.Replace("/", "\") }
+    $file = [string](Field $spec "file")
+    if ($file) { $picker.FileName = $file }
+    $filter = Field $spec "filter"
+    $patterns = @(ToList (Field $filter "extensions") | ForEach-Object { "*." + [string]$_ }) -join ";"
+    if ($patterns) { $picker.Filter = "{0} ({1})|{1}" -f [string](Field $filter "name"), $patterns }
+    $owner.Show()
+    $owner.Activate()
+    $files = @()
+    if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $files = @($picker.FileNames) }
+    $owner.Close()
+    Write-Response @{ files = $files }
     exit 0
 }
 

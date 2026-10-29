@@ -52,6 +52,7 @@ ALLOWED = {
         "DllImport": 1,  # SetProcessDPIAware from user32.dll, so the dialog is sharp on scaled displays
         "IO.File.ReadAllText": 1,  # the request file
         "IO.File.WriteAllText": 1,  # the response file
+        "OpenFileDialog": 1,  # the picker for a MusicXML export, which returns the chosen paths and opens nothing
     },
     "Handbells Used Chart/dialog/mac.js": {
         "ObjC.import Cocoa": 1,  # AppKit, for the dialog's window
@@ -79,6 +80,7 @@ PS1_CALLS = [
     ("Remove-Item", r"(?i)\bRemove-Item\b"), ("Set-Content", r"(?i)\bSet-Content\b"),
     ("Add-Content", r"(?i)\bAdd-Content\b"), ("Out-File", r"(?i)\bOut-File\b"), ("New-Item", r"(?i)\bNew-Item\b"),
     ("Copy-Item", r"(?i)\bCopy-Item\b"), ("Move-Item", r"(?i)\bMove-Item\b"),
+    ("OpenFileDialog", r"\bOpenFileDialog\b"),
 ]
 JS_CALLS = [
     ("doShellScript", r"\bdoShellScript\b"), ("NSTask", r"\bNSTask\b"), ("Application()", r"\bApplication\s*\("),
