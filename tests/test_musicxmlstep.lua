@@ -102,7 +102,7 @@ return {
     t:eq(asked.commands[1], "File.Export?FilterID=MusicXMLExportFilter")
     t:eq(asked.picks[1].folder, "C:/p/Flows from Bells/")
     -- every file the export just wrote (not an older, larger one elsewhere), full score first: each flow has its
-    -- own, and the pairing ignores the parts'
+    -- own, and a part's file pairs only for the players it holds
     t:eq(table.concat(asked.picks[1].files, "|"),
       "Bells - Full score - 01 Bells.musicxml|Bells - Handbells - 01 Bells.musicxml")
     t:eq(out.status, "files")
@@ -111,6 +111,8 @@ return {
   end,
   a_cancelled_export_goes_back_to_the_message = function(t)
     local out, asked = step({ answers = { "export", "cancel" }, exports = { { OLD }, { OLD } } })
+    -- cancelled, or written somewhere else: either way there is nothing new to preselect
+    t:eq(asked.shown[1].text, constants.MESSAGES.musicxmlNotFound)
     t:eq(#asked.choices, 2, "asked again")
     t:eq(#asked.picks, 0)
     t:eq(out.status, "cancel")
@@ -159,10 +161,27 @@ return {
     o.answers = { "choose", "use" }
     t:eq(step(o).status, "files", "or on with it")
   end,
-  an_exported_file_is_never_called_older = function(t)
+  an_older_file_picked_after_an_export_still_asks = function(t)
+    -- what the export just wrote is newer than the last save, but the picker can be pointed at anything
     local out, asked = step({ answers = { "export" }, exports = { {}, { FULL } }, picks = { { FULL.path } },
-      texts = { [FULL.path] = SCORE }, modified = { [FULL.path] = 100, ["C:/p/Bells.dorico"] = 150 } })
-    t:eq(#asked.choices, 1)
+      texts = { [FULL.path] = SCORE }, modified = { [FULL.path] = 200, ["C:/p/Bells.dorico"] = 150 } })
+    t:eq(#asked.choices, 1, "the new export isn't questioned")
     t:eq(out.status, "files")
+    out, asked = step({ answers = { "export", "use" }, exports = { {}, { FULL } }, picks = { { OLD_ELSEWHERE.path } },
+      texts = { [OLD_ELSEWHERE.path] = SCORE }, modified = { [OLD_ELSEWHERE.path] = 50, ["C:/p/Bells.dorico"] = 150 } })
+    t:eq(asked.choices[2].text, constants.MESSAGES.musicxmlOlder)
+    t:eq(out.status, "files")
+  end,
+  a_file_with_no_music_is_skipped = function(t)
+    -- Dorico writes an empty <score-partwise/> for a flow made in the same run, and the picker preselects it too
+    local empty = "<score-partwise/>"
+    local out = step({ answers = { "choose" }, exports = { {} }, picks = { { "C:/p/a.musicxml", "C:/p/b.musicxml" } },
+      texts = { ["C:/p/a.musicxml"] = empty, ["C:/p/b.musicxml"] = SCORE } })
+    t:eq(out.status, "files")
+    t:eq(#out.files, 1)
+    out = step({ answers = { "choose" }, exports = { {} }, picks = { { "C:/p/a.musicxml" } },
+      texts = { ["C:/p/a.musicxml"] = empty } })
+    t:eq(out.status, "error", "but there has to be music in one")
+    t:eq(out.text, string.format(constants.MESSAGES.musicxmlUnreadable, "a.musicxml"))
   end,
 }

@@ -1,7 +1,8 @@
 -- Asks for a MusicXML export when the score has noteheads Lua can't read (set in Dorico: docs/dorico-lua-guide.md,
 -- section 2), and reads the files chosen. Dorico has no silent MusicXML export, and it is frozen while the plug-in
 -- waits on its own windows, so the message offers to open Dorico's export dialog itself: the command waits until
--- that dialog closes, then the picker opens where the export went.
+-- that dialog closes, then the picker opens where the export went. When no new export turns up beside the project,
+-- the plug-in says so and the message comes back.
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
 local musicxml = require("hbuc.musicxml")
@@ -36,8 +37,8 @@ local function message(ctx, chartExists)
 end
 
 -- Where the picker starts after Dorico's export: the folder of what it just wrote, with every file of it picked,
--- largest (a full score) first. Each flow has its own full-score file, and the pairing ignores the parts'. Nil when
--- the export wrote nothing that can be seen.
+-- largest (a full score) first. Each flow has its own full-score file, and a part's file pairs only for the players it
+-- holds. Nil when the export wrote nothing that can be seen.
 local function afterExport(ctx, projectDir)
   local before = files.exports(projectDir)
   local was = newest(before)
@@ -45,15 +46,12 @@ local function afterExport(ctx, projectDir)
   local after = files.exports(projectDir)
   -- Without lfs, or for a folder it can't list, nothing can be seen either way: go on to the picker.
   if not before or not after then return { folder = projectDir } end
-  local fresh = {}
-  for _, e in ipairs(after) do
-    if not was or (e.modified or 0) > (was.modified or 0) then fresh[#fresh + 1] = e end
-  end
-  local latest = newest(fresh)
-  if not latest then return nil end
+  local function isNew(e) return not was or (e.modified or 0) > (was.modified or 0) end
+  local latest = newest(after)
+  if not latest or not isNew(latest) then return nil end
   local folder, here = folderOf(latest.path), {}
-  for _, e in ipairs(fresh) do
-    if folderOf(e.path) == folder then here[#here + 1] = e end
+  for _, e in ipairs(after) do
+    if isNew(e) and folderOf(e.path) == folder then here[#here + 1] = e end
   end
   table.sort(here, function(a, b) return (a.size or 0) > (b.size or 0) end)
   local names = {}
@@ -68,8 +66,8 @@ end
 
 -- The parsed files, or "back" (to the message), or an error outcome. shown: the paths as the picker showed them,
 -- for messages.
-local function readChosen(ctx, paths, shown, projectPath, exported)
-  local parsed = {}
+local function readChosen(ctx, paths, shown, projectPath)
+  local parsed, empty = {}, nil
   for i, path in ipairs(paths) do
     local name = nameOf(shown[i] or path)
     local text = files.read(path)
@@ -79,12 +77,19 @@ local function readChosen(ctx, paths, shown, projectPath, exported)
       ctx.show("warning", M.musicxmlCompressed)
       return "back"
     end
-    if not result then return { status = "error", text = string.format(M.musicxmlUnreadable, name) } end
-    parsed[#parsed + 1] = result
+    -- a flow made in the same run as the export comes out with no parts, and the picker preselects its file too
+    if why == "empty" then
+      empty = empty or name
+    elseif not result then
+      return { status = "error", text = string.format(M.musicxmlUnreadable, name) }
+    else
+      parsed[#parsed + 1] = result
+    end
   end
+  if #parsed == 0 then return { status = "error", text = string.format(M.musicxmlUnreadable, empty) } end
   -- An export made before noteheads were changed still matches the notes, so a chosen file older than the last
-  -- save is questioned. The one just exported never is.
-  local saved = not exported and files.modified(projectPath)
+  -- save is questioned. The one just exported is newer than that save, which comes later in the run.
+  local saved = files.modified(projectPath)
   if saved then
     for _, path in ipairs(paths) do
       local made = files.modified(path)
@@ -112,6 +117,7 @@ function musicxmlstep.run(ctx, args)
     local start
     if answer == "export" then
       start = afterExport(ctx, projectDir)
+      if not start then ctx.show("info", M.musicxmlNotFound) end
     else
       local latest = newest(files.exports(projectDir))
       start = { folder = latest and folderOf(latest.path) or projectDir }
@@ -121,7 +127,7 @@ function musicxmlstep.run(ctx, args)
         filter = { name = D.pickFilter, extensions = { "musicxml", "xml" } } })
       if not paths then return failed() end
       if #paths == 0 then return { status = "cancel" } end
-      local outcome = readChosen(ctx, paths, shown or {}, args.projectPath, answer == "export")
+      local outcome = readChosen(ctx, paths, shown or {}, args.projectPath)
       if outcome ~= "back" then return outcome end
     end
   end

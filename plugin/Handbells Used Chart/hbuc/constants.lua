@@ -80,6 +80,8 @@ constants.MESSAGES = {
     .. " one is. To tell handbells, handchimes and the other kinds apart, the plug-in reads them from a MusicXML export"
     .. " of the score instead.\n\nExport MusicXML opens Dorico's export dialog. Its starting settings are fine, so"
     .. " click OK there. Choose file is for an export you've already made.",
+  musicxmlNotFound = "No new MusicXML export turned up in a \"Flows from …\" folder beside the project. If you exported"
+    .. " it somewhere else, click Choose file and pick it there.",
   musicxmlCompressed = "That file is compressed MusicXML (.mxl), which the plug-in can't read. Export again with"
     .. " \"Export uncompressed XML (.musicxml)\" selected.",
   musicxmlUnreadable = "%s isn't a MusicXML file the plug-in can read, so nothing was changed.",
