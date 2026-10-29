@@ -44,7 +44,7 @@ def from_spelling(s):
 
 
 def read_musicxml(path):
-    root = ET.parse(path).getroot()
+    root = ET.parse(path).getroot()  # noqa: S314 (the export Dorico just wrote into the run folder)
     names = {sp.get("id"): sp.findtext("part-name") for sp in root.iter("score-part")}
     parts = {}
     for part in root.findall("part"):

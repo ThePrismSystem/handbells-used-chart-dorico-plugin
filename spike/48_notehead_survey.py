@@ -78,7 +78,7 @@ def main():
         print("files", [f.name for f in files])
         if not files:
             return
-        root = ET.parse(files[0]).getroot()
+        root = ET.parse(files[0]).getroot()  # noqa: S314 (the export Dorico just wrote into the run folder)
         parts = root.findall("part")
         by_lua, by_command = heads(parts[0]), heads(parts[1])
         rows = []
