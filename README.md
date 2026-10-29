@@ -142,19 +142,22 @@ A plug-in can't read a notehead set chosen in Dorico itself (with the Notations 
 see that a note's notehead was changed, but not which set it was changed to. So when a score has such notes, a message
 comes up before the dialog and asks for a MusicXML export, which does record each note's notehead:
 
-- **Export MusicXML** opens Dorico's own export dialog. Its starting settings are fine: click OK. A file picker then
-  opens in the folder Dorico wrote to, with every file it wrote already selected (on Windows), so click Open.
+- **Export MusicXML** opens Dorico's own export dialog. Its starting settings are fine: click OK. On Windows, a file
+  picker then opens in the folder Dorico wrote to, with every file it wrote already selected, so click Open. On a Mac
+  the picker opens in the project's folder, and you choose the files in the `Flows from …` folder there.
 - **Choose file** goes straight to the picker, for an export you made earlier. If the file is older than the project's
   last save, the plug-in asks before using it, since noteheads changed since then won't be in it.
 - **Remove chart** appears when the score already has a chart, and removes it without an export.
 - **Cancel** changes nothing.
 
 Choose the uncompressed `.musicxml` file of the full score. With several flows, choose each flow's full-score file, or
-every file the export made. The plug-in checks each flow's notes against the files, and uses a file for a flow only
-when it holds exactly that flow's notes. If no flow matches any file you chose (an export of another piece, an older
-version or a single part), nothing is changed. A flow with no file of its own, such as one Dorico's export left out,
+every file the export made. The plug-in uses a file for a flow only when it holds exactly the notes of each player
+whose noteheads it couldn't read. If no flow matches any file you chose (an export of another piece, an older version,
+or a part without those players), nothing is changed. A flow with no file of its own, such as one Dorico's export left out,
 keeps its changed noteheads apart as "Changed in Dorico (not in MusicXML)", and the results window names it. Only the
-notes whose noteheads the plug-in couldn't read take their notehead (and colour) from a file.
+notes whose noteheads the plug-in couldn't read take their notehead (and colour) from a file. On Windows, Dorico's
+scripts can only open a file whose name and folder use characters from Windows' code page; for any other file the
+plug-in says it couldn't open it.
 
 MusicXML can't express every Dorico notehead set, so some can't be told apart this way:
 

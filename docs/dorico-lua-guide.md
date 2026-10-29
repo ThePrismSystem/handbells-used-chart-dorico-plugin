@@ -75,6 +75,10 @@ it. Clear what you set.
 - Lua 5.2, with the standard `io`, `os`, `string`, `table`, `math` and `debug` libraries.
 - On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. Whether a Mac has it is unconfirmed,
   so the plug-in works without it there.
+- On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8. `lfs.dir` listed a folder named
+  "Noël" with byte 235 (Windows-1252), and `io.open` opened the file by that name but not by its UTF-8 bytes. So a path
+  that came in as UTF-8 (from JSON, say) has to be converted before Lua can open it, and a file whose name has
+  characters outside the code page can't be opened at all.
 - No user interface at all. Section 8 is how to get one.
 - `os.execute` runs a command and **Dorico waits for it**, frozen, until it returns.
 

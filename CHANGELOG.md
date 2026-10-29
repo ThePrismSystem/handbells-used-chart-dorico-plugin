@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for scores whose noteheads were changed in Dorico itself (the Notations menu or the Properties panel),
   which a plug-in can't read. The plug-in asks for a MusicXML export of the score, with a button that opens Dorico's
-  export dialog, and reads those noteheads from it, along with any colours set the same way. It checks the file's
-  notes against the score first, so an older export, a part's file or another piece is refused. Some notehead sets
+  export dialog, and reads those noteheads from it, along with any colours set the same way. It uses a file only
+  where its notes match the score's, player by player, and changes nothing when no file matches. Some notehead sets
   don't survive MusicXML; the README lists which.
 
 ## [0.1.0] - 2026-10-26
