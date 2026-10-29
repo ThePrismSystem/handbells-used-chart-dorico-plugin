@@ -65,7 +65,9 @@ end
 local function readChosen(ctx, paths, projectPath, exported)
   local parsed = {}
   for _, path in ipairs(paths) do
-    local result, why = musicxml.parse(files.read(path) or "")
+    local text = files.read(path)
+    if not text then return { status = "error", text = string.format(M.musicxmlCannotOpen, nameOf(path)) } end
+    local result, why = musicxml.parse(text)
     if why == "compressed" or path:lower():match("%.mxl$") then
       ctx.show("warning", M.musicxmlCompressed)
       return "back"

@@ -23,7 +23,7 @@ end
 
 -- One choice or pick exchange with os.execute and the files stubbed: answer is what the script "writes" to the
 -- response file (nil for none). Returns the result, the request file's JSON and the command run.
-local function exchange(isWindows, fn, answer)
+local function exchange(isWindows, fn, answer, logged)
   local written, ran = {}, nil
   local names = { "hbuc.dorico.files", "hbuc.dorico.dialog" }
   local saved = {}
@@ -38,7 +38,8 @@ local function exchange(isWindows, fn, answer)
   os.execute = function(command) ran = command; return true, "exit", 0 end -- luacheck: ignore 122
   os.remove = function() end -- luacheck: ignore 122
   local ok, result = pcall(function()
-    local ctx = { isWindows = isWindows, root = "r/", folders = { temp = "t/" }, log = { line = function() end } }
+    local log = { line = function(_, ...) if logged then logged[#logged + 1] = table.concat({ ... }, " ") end end }
+    local ctx = { isWindows = isWindows, root = "r/", folders = { temp = "t/" }, log = log }
     return fn(require("hbuc.dorico.dialog"), ctx)
   end)
   os.execute, os.remove = execute, remove -- luacheck: ignore 122
@@ -73,6 +74,29 @@ return {
     t:ok(ran:find("-Pick", 1, true), ran)
     local _, _, mac = exchange(false, function(d, ctx) return d.pick(ctx, { title = "Pick" }) end, '{"files":[]}')
     t:ok(mac:find("--pick", 1, true), mac)
+  end,
+  pick_paths_travel_as_bytes = function(t)
+    -- Dorico's Lua opens files by their Windows code page name (spike/50_paths.py: lfs lists "Noël" as byte 235,
+    -- and the UTF-8 name doesn't open), so on Windows paths go both ways as the bytes they are
+    local got, written = exchange(true, function(d, ctx)
+      return d.pick(ctx, { title = "Pick", folder = "C:/Flows from No\235l/", files = { "No\235l.musicxml" } })
+    end, json.encode({ files = { "C:/Flows from No\195\171l/No\195\171l.musicxml" },
+      filesBytes = { "433a2f466c6f77732066726f6d204e6feb6c2f4e6feb6c2e6d75736963786d6c" } }))
+    local sent = json.decode(written["t/pick.json"])
+    t:eq(sent.folderBytes, "433a2f466c6f77732066726f6d204e6feb6c2f")
+    t:eq(sent.filesBytes[1], "4e6feb6c2e6d75736963786d6c")
+    t:eq(got[1], "C:/Flows from No\235l/No\235l.musicxml", "the code page bytes, which io.open takes")
+  end,
+  a_script_error_is_logged = function(t)
+    -- mac.js answers Cancel or no files when its window fails, with the error alongside
+    local logged = {}
+    t:eq(exchange(false, function(d, ctx) return d.choose(ctx, CHOICE) end, '{"choice":"cancel","error":"no AppKit"}',
+      logged), "cancel")
+    local found = false
+    for _, line in ipairs(logged) do
+      if line:find("no AppKit", 1, true) then found = true end
+    end
+    t:ok(found, "run.log has the script's error: " .. table.concat(logged, " | "))
   end,
   no_answer_is_a_cancel = function(t)
     t:eq(exchange(true, function(d, ctx) return d.choose(ctx, CHOICE) end, nil), nil)

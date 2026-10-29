@@ -408,9 +408,12 @@ function showChoice(app, choice) {
 }
 
 // Standard Additions' file chooser, which hands back paths. A cancel throws error -128, which means no files.
-function showPicker(pick) {
+function showPicker(app, pick) {
   const standard = Application.currentApplication();
   standard.includeStandardAdditions = true;
+  // brought to the front as the alerts are: Dorico is frozen while it waits, so one behind it would look like a hang
+  activate(app);
+  standard.activate();
   const options = { withPrompt: text(field(pick, "title")), multipleSelectionsAllowed: true };
   const folder = text(field(pick, "folder"));
   if (folder) options.defaultLocation = Path(folder);
@@ -462,7 +465,7 @@ function run(argv) {
   }
   if (argv[0] === "--pick") {
     try {
-      writeText(argv[2], JSON.stringify(pickResponse(showPicker(JSON.parse(readText(argv[1]))))));
+      writeText(argv[2], JSON.stringify(pickResponse(showPicker(app, JSON.parse(readText(argv[1]))))));
     } catch (error) {
       writeText(argv[2], JSON.stringify({ files: [], error: String(error) }));
     }

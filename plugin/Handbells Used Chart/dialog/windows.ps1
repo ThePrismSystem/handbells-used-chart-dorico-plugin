@@ -8,8 +8,9 @@ Started by the plug-in (hbuc/dorico/dialog.lua) with os.execute; Dorico waits un
   windows.ps1 -Pick <pick.json> -Response <response.json>         a file picker, answering {"files": [...]}
 
 A choice is {"title", "text", "buttons": [{"id", "label"}], "cancel": id}; closing the window or Esc answers the
-cancel id. A pick is {"title", "folder", "files" (the first is preselected), "filter": {"name", "extensions"}}; a
-cancel answers no files.
+cancel id. A pick is {"title", "folder", "files" (preselected), "filter": {"name", "extensions"}}, with the folder and
+files also as "folderBytes" and "filesBytes": each path's bytes from the plug-in, in hex. The answer's "filesBytes"
+gives each chosen path in the system's code page, the only form Dorico's Lua can open; a cancel answers no files.
 
 The request is what hbuc/request.lua builds. The response is the chosen options:
 {"version", "runId", "cancelled": false, "instruments": [...], "atPitch": [...], "mode", "newPage": bool,
@@ -181,6 +182,20 @@ if ($Choice) {
 }
 
 # ---------------------------------------------------------------------------------------------------- picker
+# A path's bytes from the plug-in, in hex. Dorico's lfs lists names in the system's code page, but its text export
+# gives the project's path in UTF-8: bytes that are valid UTF-8 are read as that, and anything else in the code page.
+function PathFromBytes([string]$hex) {
+    $bytes = New-Object byte[] ($hex.Length / 2)
+    for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = [Convert]::ToByte($hex.Substring(2 * $i, 2), 16) }
+    try { return (New-Object System.Text.UTF8Encoding $false, $true).GetString($bytes) }
+    catch { return [System.Text.Encoding]::Default.GetString($bytes) }
+}
+
+# A chosen path in the system's code page, in hex: the only form Dorico's io.open takes.
+function BytesOfPath([string]$path) {
+    return -join ([System.Text.Encoding]::Default.GetBytes($path) | ForEach-Object { $_.ToString("x2") })
+}
+
 if ($Pick) {
     $spec = Read-Json $Pick
     # An owner that stays on top, so the picker opens above Dorico rather than behind it.
@@ -195,9 +210,13 @@ if ($Pick) {
     $picker.Title = [string](Field $spec "title")
     $picker.Multiselect = $true
     $folder = [string](Field $spec "folder")
+    $folderBytes = [string](Field $spec "folderBytes")
+    if ($folderBytes) { $folder = PathFromBytes $folderBytes }
     if ($folder) { $picker.InitialDirectory = $folder.Replace("/", "\") }
     # ToList hands back its list as one object: assigned first, so that piping it goes item by item.
     $preselected = ToList (Field $spec "files")
+    $preselectedBytes = ToList (Field $spec "filesBytes")
+    if ($preselectedBytes.Count -gt 0) { $preselected = @($preselectedBytes | ForEach-Object { PathFromBytes ([string]$_) }) }
     # several files are preselected the way the picker writes a multiple selection: each name quoted
     if ($preselected.Count -eq 1) { $picker.FileName = [string]$preselected[0] }
     if ($preselected.Count -gt 1) { $picker.FileName = ($preselected | ForEach-Object { '"' + [string]$_ + '"' }) -join " " }
@@ -210,7 +229,7 @@ if ($Pick) {
     $chosen = @()
     if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $chosen = @($picker.FileNames) }
     $owner.Close()
-    Write-Response @{ files = $chosen }
+    Write-Response @{ files = $chosen; filesBytes = @($chosen | ForEach-Object { BytesOfPath $_ }) }
     exit 0
 }
 

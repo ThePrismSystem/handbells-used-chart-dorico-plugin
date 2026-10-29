@@ -83,6 +83,8 @@ constants.MESSAGES = {
   musicxmlCompressed = "That file is compressed MusicXML (.mxl), which the plug-in can't read. Export again with"
     .. " \"Export uncompressed XML (.musicxml)\" selected.",
   musicxmlUnreadable = "%s isn't a MusicXML file the plug-in can read, so nothing was changed.",
+  musicxmlCannotOpen = "The plug-in couldn't open %s, so nothing was changed. If its name or its folder's has"
+    .. " characters outside Windows' code page, rename it or export to another folder, and try again.",
   musicxmlOlder = "This export is older than the project's last save, so it may not show noteheads changed since."
     .. " Use it anyway?",
   musicxmlMismatch = "The MusicXML export doesn't match the music in flow %d, so nothing was changed. Run the plug-in"

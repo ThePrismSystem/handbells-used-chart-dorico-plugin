@@ -90,6 +90,8 @@ local function exchange(ctx, mode, payload)
     ctx.log:line("unreadable answer", tostring(raw))
     return nil
   end
+  -- a script whose window failed answers Cancel or no files, with the reason
+  if raw.error then ctx.log:line("the " .. mode .. " failed", tostring(raw.error)) end
   return raw
 end
 
@@ -101,10 +103,28 @@ function dialog.choose(ctx, choice)
   return type(id) == "string" and id or nil
 end
 
+local function hex(s)
+  return (tostring(s):gsub(".", function(c) return string.format("%02x", c:byte()) end))
+end
+
 -- A file picker. pick: {title, folder, files (names preselected, on Windows), filter = {name, extensions}}. Returns
--- the chosen paths, none for a cancel.
+-- the chosen paths, none for a cancel. On Windows, Dorico's io.open and lfs take a path only in the system's code
+-- page (spike/50_paths.py), while JSON is UTF-8, so the paths also travel as their bytes, in hex: the script reads
+-- folderBytes and filesBytes, and answers each chosen path's code page bytes in its own filesBytes.
 function dialog.pick(ctx, pick)
-  local raw = exchange(ctx, "pick", pick)
+  local payload = {}
+  for k, v in pairs(pick) do payload[k] = v end
+  payload.folderBytes = hex(pick.folder or "")
+  payload.filesBytes = {}
+  for i, name in ipairs(pick.files or {}) do payload.filesBytes[i] = hex(name) end
+  local raw = exchange(ctx, "pick", payload)
+  if raw and type(raw.filesBytes) == "table" then
+    local out = {}
+    for _, h in ipairs(raw.filesBytes) do
+      if type(h) == "string" then out[#out + 1] = (h:gsub("%x%x", function(x) return string.char(tonumber(x, 16)) end)) end
+    end
+    return out
+  end
   local list, out = raw and raw.files, {}
   if type(list) == "string" then list = { list } end
   if type(list) == "table" then

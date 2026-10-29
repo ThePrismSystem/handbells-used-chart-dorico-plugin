@@ -280,9 +280,25 @@ class DialogTests(unittest.TestCase):
         folder, answer = self.pick("Open", names)
         self.assertEqual(sorted(Path(p) for p in answer["files"]), sorted(folder / n for n in names))
 
+    def test_pick_takes_and_returns_code_page_paths(self):
+        # Dorico's Lua names files in the ANSI code page ("mbcs" here) and opens them only by those bytes
+        folder = self.tmp / "Flows from Noël"
+        folder.mkdir()
+        name = "Noël - Full score - 01 Noël.musicxml"
+        (folder / name).write_text("<score-partwise/>", encoding="utf-8")
+        title = "Choose the MusicXML export"
+        lua_folder = str(folder).replace("\\", "/") + "/"
+        proc = self.open_mode("Pick", {"title": title, "folder": "", "folderBytes": lua_folder.encode("mbcs").hex(),
+                                       "files": [], "filesBytes": [name.encode("mbcs").hex()],
+                                       "filter": {"name": "MusicXML", "extensions": ["musicxml"]}}, title)
+        self.assertTrue(click(title, "Open"))
+        answer = self.response_json(proc)
+        self.assertEqual([Path(p) for p in answer["files"]], [folder / name])
+        self.assertEqual([bytes.fromhex(h) for h in answer["filesBytes"]], [str(folder / name).encode("mbcs")])
+
     def test_pick_cancel_returns_no_files(self):
         _, answer = self.pick("Cancel")
-        self.assertEqual(answer, {"files": []})
+        self.assertEqual(answer, {"files": [], "filesBytes": []})
 
     def test_message_window_closes_on_ok(self):
         message = self.tmp / "message.json"

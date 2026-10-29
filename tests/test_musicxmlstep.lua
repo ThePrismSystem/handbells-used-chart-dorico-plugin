@@ -124,6 +124,11 @@ return {
     t:eq(out.status, "error")
     t:eq(out.text, string.format(constants.MESSAGES.musicxmlUnreadable, "notes.xml"))
   end,
+  a_file_that_cannot_be_opened_says_so = function(t)
+    local out = step({ answers = { "choose" }, exports = { {} }, picks = { { "C:/p/\227\131\153\227\131\171.musicxml" } } })
+    t:eq(out.status, "error")
+    t:eq(out.text, string.format(constants.MESSAGES.musicxmlCannotOpen, "\227\131\153\227\131\171.musicxml"))
+  end,
   an_older_chosen_file_asks_first = function(t)
     local o = { answers = { "choose", "back", "cancel" }, exports = { { OLD } }, picks = { { OLD.path } },
       texts = { [OLD.path] = SCORE }, modified = { [OLD.path] = 100, ["C:/p/Bells.dorico"] = 150 } }

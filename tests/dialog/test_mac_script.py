@@ -119,6 +119,13 @@ class MacScriptTests(unittest.TestCase):
         self.assertIn("multipleSelectionsAllowed: true", source)
         self.assertIn("-128", source, "a cancelled picker answers no files")
 
+    def test_the_picker_comes_to_the_front(self):
+        # Dorico is frozen while it waits, so a picker opening behind it would look like a hang (showAlert's reason)
+        source = MAC_JS.read_text(encoding="utf-8")
+        picker = source[source.index("function showPicker"):source.index("function installEditMenu")]
+        self.assertIn("activate(app)", picker)
+        self.assertIn("standard.activate()", picker)
+
     def test_results_alert_takes_its_label_and_escape(self):
         source = MAC_JS.read_text(encoding="utf-8")
         alert = source[source.index("function showAlert"):source.index("function installEditMenu")]
