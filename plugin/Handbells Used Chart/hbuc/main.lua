@@ -8,14 +8,17 @@ local constants = require("hbuc.constants")
 local guards = require("hbuc.guards")
 local options = require("hbuc.options")
 local plan = require("hbuc.plan")
+local reading = require("hbuc.reading")
 local report = require("hbuc.report")
 local request = require("hbuc.request")
 local shapes = require("hbuc.shapes")
 local textexport = require("hbuc.textexport")
 local transpose = require("hbuc.transpose")
+local xmlnotes = require("hbuc.xmlnotes")
 local doc = require("hbuc.dorico.doc")
 local files = require("hbuc.dorico.files")
 local findchart = require("hbuc.dorico.findchart")
+local musicxmlstep = require("hbuc.dorico.musicxmlstep")
 local readscore = require("hbuc.dorico.readscore")
 local removechart = require("hbuc.dorico.removechart")
 local safe = require("hbuc.dorico.safe")
@@ -88,21 +91,45 @@ function main.chart(ctx)
     return result(false, "error", string.format(M.readFailed, failure(scan), log.path))
   end
 
-  -- 4. the dialog
+  -- 3b. noteheads set in Dorico can't be read from Lua: they come from a MusicXML export, or the run stops here
+  local removeOnly = false
+  if #xmlnotes.flowsNeeding(scan.read) > 0 then
+    local got = musicxmlstep.run(ctx, { chartExists = chart ~= nil, projectPath = projectPath })
+    if got.status == "error" then return result(false, "error", got.text) end
+    if got.status == "remove" then
+      removeOnly = true
+    elseif got.status == "files" then
+      local read, missing = xmlnotes.apply(scan.dumped, scan.read, got.files)
+      if #missing > 0 then
+        return result(false, "error", string.format(M.musicxmlMismatch, scan.flowNumbers[missing[1]] or 0))
+      end
+      scan.records, scan.unread, scan.merged = reading.records(scan.dumped, read)
+    else
+      log:line("cancelled at the MusicXML step")
+      return result(false, "info", "")
+    end
+  end
+
+  -- 4. the dialog, unless the MusicXML step's message already asked for the chart to be removed
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
-  local names = {}
-  for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
-  -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
-  local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
-  local req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
-    runId = runId })
-  local okAsk, raw = pcall(ctx.dialog, req)
-  if not okAsk then log:line("the dialog failed:", raw) end
-  local resp = okAsk and request.parse(raw, req) or nil
-  if not resp then
-    log:line("cancelled")
-    return result(false, "info", "")
+  local req, resp
+  if removeOnly then
+    resp = { remove = true }
+  else
+    local names = {}
+    for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
+    -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
+    local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
+    req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
+      runId = runId })
+    local okAsk, raw = pcall(ctx.dialog, req)
+    if not okAsk then log:line("the dialog failed:", raw) end
+    resp = okAsk and request.parse(raw, req) or nil
+    if not resp then
+      log:line("cancelled")
+      return result(false, "info", "")
+    end
   end
 
   -- 5. choices that cannot work are refused before anything is saved
@@ -115,8 +142,8 @@ function main.chart(ctx)
     if #resp.instruments == 0 then return result(false, "error", M.noInstrumentSelected) end
   end
 
-  -- 6. remember the choices, and save: File > Revert then takes the whole run back
-  files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp)))
+  -- 6. remember the choices (if the dialog was shown), and save: File > Revert then takes the whole run back
+  if req then files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp))) end
   -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read, such as one with
   -- characters outside the system code page, cannot be checked and is trusted.)
   local savedBefore = files.modified(projectPath)
