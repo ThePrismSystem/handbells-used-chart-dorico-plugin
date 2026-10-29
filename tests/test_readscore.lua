@@ -77,6 +77,20 @@ return {
     t:eq(result.records[1].head, "X", "layout 0, the note's instance 1010")
     t:eq(result.records[2].head, "noteheadset.default", "another instance's value doesn't apply")
   end,
+  a_value_only_for_another_instance_is_logged = function(t)
+    local lines = {}
+    local log = { line = function(_, ...)
+      local parts = {}
+      for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
+      lines[#lines + 1] = table.concat(parts, " ")
+    end }
+    scan({ [101] = {}, [102] = { entry("kNoteheadSetOverride", "Z", 0, 1011) }, [900] = {} }, { log = log })
+    local found
+    for _, l in ipairs(lines) do
+      if l:find("1 note(s) have a notehead or colour set only for another block instance", 1, true) then found = l end
+    end
+    t:ok(found, table.concat(lines, "\n"))
+  end,
   the_read_changes_nothing = function(t)
     local _, _, _, commands = scan({ [101] = {}, [102] = {}, [900] = {} })
     t:eq(#commands, 0, "no command at all")

@@ -54,7 +54,12 @@ function readscore.scan(app, opts)
     end
   end
   local saved = #notes > 0 and savedcopy.read(app, log, opts.tempDir) or {}
-  return { players = players, records = reading.records(notes, saved, opts.layoutId) }
+  local records, elsewhere = reading.records(notes, saved, opts.layoutId)
+  if elsewhere > 0 then
+    log:line(elsewhere .. " note(s) have a notehead or colour set only for another block instance, so they read"
+      .. " without it")
+  end
+  return { players = players, records = records }
 end
 
 return readscore

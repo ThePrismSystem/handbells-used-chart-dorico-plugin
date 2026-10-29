@@ -121,6 +121,16 @@ return {
     t:eq(noteprops.head(entries, 0, 1010), "C")
     t:eq(noteprops.head(entries, 0, 1011), "A", "another instance's value doesn't apply")
   end,
+  a_value_only_for_another_instance_is_flagged = function(t)
+    local value, elsewhere = noteprops.head({ head("C", -1, 1010) }, 0, 1011)
+    t:eq(value, DEFAULT)
+    t:eq(elsewhere, true)
+    t:eq(select(2, noteprops.colour({ colour("#ff0000", 0, 1010) }, 0, 1011)), true, "a colour too")
+    t:eq(select(2, noteprops.head({ head("C", -1, 1010), head("A", -1, -1) }, 0, 1011)), false,
+      "one for any instance applies")
+    t:eq(select(2, noteprops.head({ head("D", 5, 1010) }, 0, 1011)), false, "another layout's doesn't count")
+    t:eq(select(2, noteprops.head({}, 0, 1011)), false, "no entries")
+  end,
   only_another_layout = function(t)
     t:eq(noteprops.head({ head("D", 5, -1) }, 0, 1010), DEFAULT, "a part's own notehead")
     t:eq(noteprops.colour({ colour("#ff0000", 5, -1) }, 0, 1010), "", "a part's own colour")

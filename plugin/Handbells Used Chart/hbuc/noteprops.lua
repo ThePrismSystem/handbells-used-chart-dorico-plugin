@@ -75,31 +75,38 @@ function noteprops.fromTree(tree)
 end
 
 -- The value that applies to a note in layoutId and block instance: only entries for that layout or every layout,
--- and that instance or any, count, and the more specific wins (the layout first).
+-- and that instance or any, count, and the more specific wins (the layout first). Then whether nothing applied but
+-- an entry for that layout and another block instance.
 local function pick(entries, property, layoutId, instance)
-  local best, bestRank
+  local best, bestRank, elsewhere
   for _, e in ipairs(entries) do
-    if e.property == property and (e.layout == layoutId or e.layout == -1)
-      and (e.instance == instance or e.instance == -1) then
-      local rank = (e.layout == layoutId and 2 or 0) + (e.instance == instance and 1 or 0)
-      if not bestRank or rank > bestRank then best, bestRank = e.value, rank end
+    if e.property == property and (e.layout == layoutId or e.layout == -1) then
+      if e.instance == instance or e.instance == -1 then
+        local rank = (e.layout == layoutId and 2 or 0) + (e.instance == instance and 1 or 0)
+        if not bestRank or rank > bestRank then best, bestRank = e.value, rank end
+      else
+        elsewhere = true
+      end
     end
   end
-  return best
+  return best, elsewhere == true and bestRank == nil
 end
 
--- The notehead set id that applies, the default set when none does.
+-- The notehead set id that applies, the default set when none does, and whether the only one set for the layout
+-- is another block instance's.
 function noteprops.head(entries, layoutId, instance)
-  local value = pick(entries, "kNoteheadSetOverride", layoutId, instance)
-  if value == nil or value == "" then return DEFAULT_HEAD end
-  return value
+  local value, elsewhere = pick(entries, "kNoteheadSetOverride", layoutId, instance)
+  if value == nil or value == "" then return DEFAULT_HEAD, elsewhere end
+  return value, elsewhere
 end
 
--- The colour that applies as "#rrggbb", or "". Lua writes "#rrggbb"; a command, "#aarrggbb".
+-- The colour that applies as "#rrggbb", or "", and whether the only one set for the layout is another block
+-- instance's. Lua writes "#rrggbb"; a command, "#aarrggbb".
 function noteprops.colour(entries, layoutId, instance)
-  local hex = tostring(pick(entries, "kEventColour", layoutId, instance) or ""):match("^#(%x+)$")
-  if hex and (#hex == 6 or #hex == 8) then return "#" .. hex:sub(-6):lower() end
-  return ""
+  local value, elsewhere = pick(entries, "kEventColour", layoutId, instance)
+  local hex = tostring(value or ""):match("^#(%x+)$")
+  if hex and (#hex == 6 or #hex == 8) then return "#" .. hex:sub(-6):lower(), elsewhere end
+  return "", elsewhere
 end
 
 return noteprops

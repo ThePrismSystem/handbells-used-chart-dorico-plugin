@@ -53,6 +53,26 @@ return {
     t:eq(#records, 3, "unisons and enharmonics alike")
     t:eq(records[1].pitch, records[3].pitch)
   end,
+  notes_with_values_only_for_another_instance_are_counted = function(t)
+    local records, elsewhere = reading.records({ note(1, "A", "C5"), note(2, "A", "D5") },
+      { [1] = { head("X", -1, 1011) }, [2] = { colour("#c80000", -1, 1011) } }, 0)
+    t:eq(records[1].head, "noteheadset.default")
+    t:eq(records[2].colour, "")
+    t:eq(elsewhere, 2)
+    t:eq(select(2, reading.records({ note(1, "A", "C5") }, { [1] = { head("X") } }, 0)), 0, "none")
+  end,
+  a_note_with_no_instance_reads_values_for_any = function(t)
+    local n = note(1, "A", "C5")
+    n.instance = nil
+    t:eq(reading.records({ n }, { [1] = { head("X") } }, 0)[1].head, "X")
+  end,
+  -- with no instance from the dumps, which of the note's values is its own can't be told
+  a_note_with_no_instance_and_a_value_for_one_fails = function(t)
+    local n = note(7, "A", "C5")
+    n.instance = nil
+    local err = errorOf(function() return reading.records({ n }, { [7] = { head("X", -1, 1010) } }, 0) end)
+    t:ok(err and err:find("note 7 has no block instance", 1, true), tostring(err))
+  end,
   a_note_missing_from_the_copy_fails = function(t)
     local err = errorOf(function() return reading.records({ note(7, "A", "C5") }, {}, 0) end)
     t:ok(err and err:find("note 7 is not in the saved copy of the project", 1, true), tostring(err))
