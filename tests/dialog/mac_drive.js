@@ -20,13 +20,21 @@ function attempt(fn, fallback) {
   }
 }
 
-// fn's first answer that isn't null, retried until the wait is over.
+// fn's first answer that isn't null, retried until the wait is over. A timeout carries fn's last error, since
+// System Events refusing access would otherwise look like a window that never opened.
 function until(what, fn) {
   const deadline = Date.now() + WAIT_MS;
+  let error = null;
   for (;;) {
-    const value = attempt(fn, null);
-    if (value !== null) return value;
-    if (Date.now() > deadline) throw new Error(what + " did not appear within " + WAIT_MS / 1000 + " s");
+    try {
+      const value = fn();
+      if (value !== null) return value;
+    } catch (e) {
+      error = e;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(what + " did not appear within " + WAIT_MS / 1000 + " s" + (error ? ": " + error.message : ""));
+    }
     delay(0.25);
   }
 }
@@ -64,7 +72,10 @@ function run(argv) {
   const action = argv[1];
   const se = Application("System Events");
   const proc = until("process " + pid, function () { return se.processes.whose({ unixId: pid })()[0] || null; });
-  const window = until("a window of process " + pid, function () { return proc.windows().length > 0 ? proc.windows[0] : null; });
+  const window = until("a window of process " + pid, function () {
+    if (proc.windows().length === 0) throw new Error("System Events lists no window for " + proc.name());
+    return proc.windows[0];
+  });
   if (action === "wait") return attempt(function () { return window.name(); }, "");
   if (action === "dump") return describe(window);
   if (action === "press") {
