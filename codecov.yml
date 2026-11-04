@@ -1,0 +1,52 @@
+# Coverage gates. Each language must keep 80% on its own, so a high number in one can't hide a low one in another,
+# and the lines a pull request changes must be 90% covered.
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+    patch:
+      default:
+        target: 90%
+
+# Each upload says where it came from. One that doesn't arrive (a runner GitHub couldn't supply, say) keeps the last
+# commit's numbers instead of counting as no coverage.
+flag_management:
+  default_rules:
+    carryforward: true
+
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: 80%
+  individual_components:
+    - component_id: lua
+      name: Lua
+      paths:
+        - "plugin/**/*.lua"
+    - component_id: python
+      name: Python
+      paths:
+        - "tools/**"
+        - "fixtures/**"
+    - component_id: javascript
+      name: JavaScript
+      paths:
+        - "plugin/**/*.js"
+      # Reported but not enforced until the Mac dialog's AppKit half runs in CI.
+      statuses:
+        - type: project
+          target: 80%
+          informational: true
+    - component_id: powershell
+      name: PowerShell
+      paths:
+        - "plugin/**/*.ps1"
+
+# Only Dorico runs these: layer 2 of the plug-in and the script that builds the fixture.
+ignore:
+  - "plugin/Handbells Used Chart/hbuc/dorico/**"
+  - "fixtures/build_fixture.py"
+  - "tests/**"
+  - "spike/**"

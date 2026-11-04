@@ -1,5 +1,12 @@
 # Handbells Used Chart for Dorico
 
+[![test](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/test.yml/badge.svg)](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/test.yml)
+[![dialogs](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/dialogs.yml/badge.svg)](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/dialogs.yml)
+[![lint](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/lint.yml/badge.svg)](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/lint.yml)
+[![CodeQL](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/codeql.yml/badge.svg)](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/ThePrismSystem/handbells-used-chart-dorico-plugin/graph/badge.svg?token=JQET2KY1Y2)](https://codecov.io/gh/ThePrismSystem/handbells-used-chart-dorico-plugin)
+[![License: GPL-3.0](https://img.shields.io/github/license/ThePrismSystem/handbells-used-chart-dorico-plugin)](LICENSE.md)
+
 A Dorico 6 script plug-in, written in Lua, that draws "handbells used" charts at the start of a full score. It is a
 port of the [Sibelius plugin](https://github.com/ThePrismSystem/handbells-used-chart-sibelius-plugin), and its
 charts look the same. It handles handbells, handchimes, silver melody bells (SMBs), Petit & Fritsen bells and
@@ -185,10 +192,15 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 
 - **Unit tests:** `python tools/run_tests.py` runs the Lua unit tests (stock Lua 5.2) and the Python tests. CI runs
   the same. The Mac dialog's tests need Node: they check `mac.js`'s syntax and run its non-AppKit parts.
+- **Coverage:** `python tools/run_tests.py --coverage` measures the unit tests with luacov, coverage.py and c8 and
+  writes the reports to `coverage/`. CI uploads them to Codecov, which holds each language to 80% and the lines a
+  pull request changes to 90%. Code that only Dorico can run isn't measured: the Lua that calls Dorico
+  (`hbuc/dorico/`), the script that builds the test project, and the in-Dorico checks.
 - **Linting and security scans:** `python tools/lint.py` runs luacheck, PSScriptAnalyzer, ESLint, ruff, zizmor and
   gitleaks over the tracked files, and `--codeql` adds CodeQL. It says how to install any tool it can't find. CI runs
   the same checks.
-- **The Windows dialog:** `python tests/dialog/test_windows_dialog.py` opens the real dialog and drives it.
+- **The Windows dialog:** `python tests/dialog/test_windows_dialog.py` opens the real dialog and drives it. CI runs
+  it on a Windows runner, where Pester measures `windows.ps1`.
 - **Inside Dorico:** `python tools/run_tests.py --dorico` adds the suites that run in Dorico 6 through its Remote
   Control API, on scratch copies of `fixtures/handbells-fixture.dorico` and of Steinberg's example projects. Dorico
   must be running with Remote Control enabled. The run takes 40 to 50 minutes.

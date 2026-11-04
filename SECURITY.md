@@ -125,6 +125,8 @@ None of the plug-in's code opens a network connection, downloads anything, or co
 |---|---|---|
 | Unit tests | the plug-in's logic, the Mac dialog's testable parts, and the tools | `test` workflow; `python tools/run_tests.py` |
 | `tests/test_shipped_calls.py` | every command, file call and network call in the release zip's code | with the unit tests |
+| Windows dialog tests | `windows.ps1` on a real desktop, driven through UI Automation | `dialogs` workflow; `python tests/dialog/test_windows_dialog.py` |
+| Coverage | the plug-in's Lua apart from the code that calls Dorico, the dialog scripts and the tools, each language held to 80% | `test` and `dialogs` workflows, reported to Codecov; `python tools/run_tests.py --coverage` |
 | luacheck | Lua | `lint` workflow; `python tools/lint.py` |
 | PSScriptAnalyzer, with the InjectionHunter rules | PowerShell | `lint` workflow; `python tools/lint.py` |
 | ESLint | JavaScript | `lint` workflow; `python tools/lint.py` |

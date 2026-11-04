@@ -39,4 +39,24 @@ return {
   bad_keys_raise = function(t)
     t:fails(function() json.encode({ [true] = 1 }) end)
   end,
+  null_encodes_as_null = function(t)
+    t:eq(json.encode(json.null), "null")
+    t:eq(json.encode({ json.null, false }), "[null,false]")
+  end,
+  anything_else_is_written_by_name = function(t)
+    -- a value JSON has no type for (a function, a Dorico object) is written as text rather than stopping the run
+    t:ok(json.encode(print):match('^"function: '), json.encode(print))
+  end,
+  escapes_decode = function(t)
+    t:eq(json.decode('"a\\nb\\t\\/c\\"d"'), 'a\nb\t/c"d')
+    t:eq(json.decode("[false]")[1], false)
+  end,
+  unicode_escapes_decode_to_utf8 = function(t)
+    t:eq(json.decode('"\\u20ac"'), "\226\130\172", "three bytes: the euro sign")
+    t:eq(json.decode('"\\ud83d\\udd14"'), "\240\159\148\148", "a surrogate pair is one character: a bell")
+  end,
+  bad_escapes_raise = function(t)
+    t:fails(function() json.decode('"\\q"') end, "an unknown escape")
+    t:fails(function() json.decode('"\\u12g4"') end, "a \\u escape that isn't hex")
+  end,
 }

@@ -1,0 +1,47 @@
+name: dialogs
+
+# The dialog scripts on a real desktop, without Dorico. GitHub's Windows runners have an interactive session, so
+# tests/dialog/test_windows_dialog.py can open windows.ps1 and press its buttons through UI Automation.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  dialog-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      # The tests build each request with the plug-in's own Lua. Lua 5.2 ended at 5.2.4, so this pin never moves.
+      - name: Install Lua 5.2
+        run: choco install lua52 --version 5.2.4 -y --no-progress
+      # The "# renovate:" comment tells Renovate where the version comes from (see renovate.json).
+      - name: Install Pester
+        shell: powershell
+        run: |
+          # renovate: datasource=nuget depName=Pester registryUrl=https://www.powershellgallery.com/api/v2/
+          Install-Module Pester -RequiredVersion 6.2.0 -Scope CurrentUser -Force -SkipPublisherCheck
+      - name: Dialog tests
+        shell: powershell
+        run: |
+          $env:HBUC_PS_COVERAGE = Join-Path $PWD "coverage\ps"
+          New-Item -ItemType Directory -Force $env:HBUC_PS_COVERAGE | Out-Null
+          python tests/dialog/test_windows_dialog.py -v
+          exit $LASTEXITCODE
+      - name: Upload coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: dialog-windows
+          directory: coverage/ps
+          fail_ci_if_error: true

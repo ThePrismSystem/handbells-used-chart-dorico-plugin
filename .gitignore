@@ -4,3 +4,4 @@ fixtures/build/
 .hbuc-token
 dist/
 node_modules/
+coverage/
