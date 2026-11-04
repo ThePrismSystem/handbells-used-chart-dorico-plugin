@@ -90,6 +90,15 @@ class MacScriptTests(unittest.TestCase):
         self.assertIn("setMainMenu", menu)
         self.assertIn("installEditMenu(app)", source[source.index("function run("):])
 
+    def test_windows_are_open_to_accessibility(self):
+        # Until finishLaunching, an app osascript starts doesn't answer the Accessibility API (kAXErrorCannotComplete),
+        # so VoiceOver can't read its windows and System Events lists none. test_mac_dialog.py drives them that way.
+        body = MAC_JS.read_text(encoding="utf-8")
+        body = body[body.index("function run(argv)"):]
+        self.assertIn("app.finishLaunching", body)
+        self.assertLess(body.index("app.finishLaunching"), body.index('argv[0] === "--message"'),
+                        "before any window is shown")
+
     def test_written_as_fits_its_longest_choice(self):
         self.assertEqual(self.evaluate("settingsWidth(200)"), 660, "the usual width when the choices fit")
         self.assertEqual(self.evaluate("settingsWidth(290)"), 660)

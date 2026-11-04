@@ -424,6 +424,9 @@ function run(argv) {
   const app = $.NSApplication.sharedApplication;
   app.setActivationPolicy(1); // NSApplicationActivationPolicyAccessory: windows, but no Dock icon
   installEditMenu(app);
+  // An app that osascript starts never runs [NSApp run], and until it has finished launching it doesn't answer the
+  // Accessibility API: VoiceOver couldn't read its windows.
+  app.finishLaunching;
   if (argv[0] === "--message") {
     const message = JSON.parse(readText(argv[1]));
     showAlert(app, field(message, "title"), field(message, "text"), text(field(message, "kind")),

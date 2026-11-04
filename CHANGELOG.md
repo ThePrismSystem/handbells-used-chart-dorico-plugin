@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copy, it also took back your last action before the run.
 - Notes in unison in two voices of one staff are each read. Before, the copy merged them into one.
 
+### Fixed
+
+- On a Mac, VoiceOver and other assistive tools can read the settings dialog, the results window and the notehead
+  question. Before, the Accessibility API couldn't reach their windows.
+
 ## [0.1.0] - 2026-10-26
 
 The first version, for the first check on a Mac. It is not released yet: 1.0.0 follows that check.
