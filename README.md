@@ -193,9 +193,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 - **Unit tests:** `python tools/run_tests.py` runs the Lua unit tests (stock Lua 5.2) and the Python tests. CI runs
   the same. The Mac dialog's tests need Node: they check `mac.js`'s syntax and run its non-AppKit parts.
 - **Coverage:** `python tools/run_tests.py --coverage` measures the unit tests with luacov, coverage.py and istanbul and
-  writes the reports to `coverage/`. CI uploads them to Codecov, which holds each language to 80% and the lines a
-  pull request changes to 90%. Code that only Dorico can run isn't measured: the Lua that calls Dorico
-  (`hbuc/dorico/`), the script that builds the test project, and the in-Dorico checks.
+  writes the reports to `coverage/`. In CI, each job that measures a language fails when less than 80% of its
+  lines are covered (`python tools/coverage_gate.py <language> <reports>`), and Codecov holds the lines a pull
+  request changes to 90%. Code that only Dorico can run isn't measured: the Lua that calls Dorico (`hbuc/dorico/`),
+  the script that builds the test project, and the in-Dorico checks.
 - **Linting and security scans:** `python tools/lint.py` runs luacheck, PSScriptAnalyzer, ESLint, ruff, zizmor and
   gitleaks over the tracked files, and `--codeql` adds CodeQL. It says how to install any tool it can't find. CI runs
   the same checks.

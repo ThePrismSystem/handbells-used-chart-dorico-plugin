@@ -47,6 +47,8 @@ jobs:
           flags: dialog-windows
           directory: coverage/ps
           fail_ci_if_error: true
+      - name: Coverage floor
+        run: python tools/coverage_gate.py powershell coverage/ps
 
   dialog-mac:
     runs-on: macos-latest
@@ -85,6 +87,8 @@ jobs:
           files: coverage/js-mac/lcov.info
           disable_search: true
           fail_ci_if_error: true
+      - name: Coverage floor
+        run: python tools/coverage_gate.py javascript coverage/js-mac/lcov.info
       - name: Keep the screenshots of failed steps
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

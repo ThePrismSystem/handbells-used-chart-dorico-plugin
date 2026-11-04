@@ -1,10 +1,8 @@
-# Coverage gates. Each language must keep 80% on its own, so a high number in one can't hide a low one in another,
-# and the lines a pull request changes must be 90% covered.
+# Codecov holds the lines a pull request changes to 90%. Its per-language checks need its Pro plan, so each CI job
+# holds the languages it measures to 80% of their lines instead (tools/coverage_gate.py).
 coverage:
   status:
-    project:
-      default:
-        target: 80%
+    project: off
     patch:
       default:
         target: 90%
@@ -15,11 +13,8 @@ flag_management:
   default_rules:
     carryforward: true
 
+# Codecov's pages show each language's coverage apart.
 component_management:
-  default_rules:
-    statuses:
-      - type: project
-        target: 80%
   individual_components:
     - component_id: lua
       name: Lua
