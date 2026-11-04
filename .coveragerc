@@ -1,0 +1,15 @@
+# coverage.py's settings for python tools/run_tests.py --coverage.
+[run]
+branch = True
+data_file = coverage/.coverage
+source =
+    tools
+    fixtures
+# build_fixture.py builds the fixture by driving Dorico.
+omit =
+    */test_*.py
+    fixtures/build_fixture.py
+
+[report]
+exclude_also =
+    if __name__ == .__main__.:

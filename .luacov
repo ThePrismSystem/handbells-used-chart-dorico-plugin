@@ -1,0 +1,7 @@
+-- luacov's settings for python tools/run_tests.py --coverage.
+return {
+  statsfile = "coverage/luacov.stats.out",
+  reportfile = "coverage/lua.lcov",
+  -- Layer 1 only: the modules in hbuc/ itself. Layer 2 (hbuc/dorico/) runs only inside Dorico.
+  include = { "Handbells Used Chart/hbuc/[^/]+$" },
+}
