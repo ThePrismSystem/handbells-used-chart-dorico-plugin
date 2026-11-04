@@ -9,5 +9,8 @@
     "istanbul-lib-instrument": "^6.0.3",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.2.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
   }
 }
