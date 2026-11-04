@@ -80,8 +80,8 @@ def eslint(exe, sarif_dir):
 
 
 def zizmor(exe, sarif_dir):
-    """The workflows and Dependabot's config. With GH_TOKEN set, zizmor also runs its online audits."""
-    files = tracked([".github/workflows/*.yml", ".github/dependabot.yml"])
+    """The workflows. With GH_TOKEN set, zizmor also runs its online audits."""
+    files = tracked([".github/workflows/*.yml"])
     clean = subprocess.run([exe, *files], cwd=ROOT).returncode == 0
     if sarif_dir:
         proc = subprocess.run([exe, "--format", "sarif", *files], cwd=ROOT, capture_output=True, text=True)

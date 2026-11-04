@@ -129,11 +129,12 @@ None of the plug-in's code opens a network connection, downloads anything, or co
 | PSScriptAnalyzer, with the InjectionHunter rules | PowerShell | `lint` workflow; `python tools/lint.py` |
 | ESLint | JavaScript | `lint` workflow; `python tools/lint.py` |
 | ruff, with its security rules | Python | `lint` workflow; `python tools/lint.py` |
-| zizmor | the GitHub Actions workflows and Dependabot's settings | `lint` workflow; `python tools/lint.py` |
+| zizmor | the GitHub Actions workflows | `lint` workflow; `python tools/lint.py` |
 | gitleaks | secrets anywhere in the git history | `lint` workflow; `python tools/lint.py` |
 | CodeQL, `security-extended` queries | JavaScript, Python and the workflows | `codeql` workflow on every pull request, every push to `main`, and weekly; `python tools/lint.py --codeql` |
 | Secret scanning with push protection | every push | GitHub |
-| Dependabot | alerts for known vulnerabilities, and updates to the actions and development tools | GitHub |
+| Renovate | updates to the actions, the development tools and the tools CI installs, each proposed once it is a week old | Mend's Renovate app |
+| Dependabot alerts | known vulnerabilities in those dependencies, which Renovate opens a fix for at once | GitHub |
 
 CodeQL, PSScriptAnalyzer, zizmor and gitleaks report to the Security tab's code scanning page. CodeQL can't read Lua
 or PowerShell, so those get their linters and the call test instead.
