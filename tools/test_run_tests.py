@@ -135,6 +135,14 @@ class CoverageToolsTests(unittest.TestCase):
                 mock.patch.object(run_tests, "node", return_value="node"):
             self.assertEqual(run_tests.coverage_tools("lua"), [])
 
+    def test_node_counts_only_with_the_istanbul_packages(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+        with mock.patch.object(run_tests, "ROOT", root), mock.patch("shutil.which", return_value="/usr/bin/node"):
+            self.assertIsNone(run_tests.node(), "npm ci hasn't run")
+            (root / "node_modules" / "istanbul-lib-instrument").mkdir(parents=True)
+            self.assertEqual(run_tests.node(), "/usr/bin/node")
+
 
 class LcovPercentTests(unittest.TestCase):
     def test_counts_lines_hit_over_lines_found(self):
