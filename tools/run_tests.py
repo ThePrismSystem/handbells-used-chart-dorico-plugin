@@ -1,7 +1,7 @@
 """Run the project's tests.
 
     python tools/run_tests.py              unit tests: Python (unittest) and stock Lua 5.2
-    python tools/run_tests.py --coverage   the same, measured: reports go to coverage/ (luacov, coverage.py, c8)
+    python tools/run_tests.py --coverage   the same, measured: reports go to coverage/ (luacov, coverage.py, istanbul)
     python tools/run_tests.py --dorico     also the in-Dorico checks (needs Dorico running with remote control)
 """
 import argparse
@@ -19,7 +19,7 @@ import run_lua  # noqa: E402
 
 PY_TESTS = ["tools/dorico/test_dws.py", "tools/dorico/test_run_lua.py", "fixtures/test_make_fixture_xml.py",
             "tools/test_install.py", "tools/test_package.py", "tests/dialog/test_mac_script.py",
-            "tests/dialog/test_launch.py",
+            "tests/dialog/test_launch.py", "tests/dialog/test_mac_coverage.py", "tests/dialog/test_mac_drive.py",
             "tools/test_run_tests.py", "tools/test_lint.py",
             "tests/test_shipped_calls.py"]
 LUA_TESTS = ["tests/run.lua", "spike/lib/test_json.lua", "spike/lib/test_events.lua"]
@@ -54,9 +54,11 @@ def step(name, ok):
     return ok
 
 
-def c8():
-    """c8 as npm ci installs it, or None."""
-    return shutil.which("c8", path=str(ROOT / "node_modules" / ".bin"))
+def node():
+    """Node, once npm ci has installed the istanbul packages that count mac.js under it, or None."""
+    if not (ROOT / "node_modules" / "istanbul-lib-instrument").is_dir():
+        return None
+    return shutil.which("node")
 
 
 def coverage_tools(lua):
@@ -67,8 +69,8 @@ def coverage_tools(lua):
         hints.append("luarocks install luacov && luarocks install cluacov && luarocks install luacov-reporter-lcov")
     if importlib.util.find_spec("coverage") is None:
         hints.append("pip install -r requirements-dev.txt (coverage.py)")
-    if not c8():
-        hints.append("npm ci (c8)")
+    if not node():
+        hints.append("npm ci (istanbul, with Node)")
     return hints
 
 
@@ -99,8 +101,8 @@ def coverage_reports(lua):
     reports = [
         ("lua", [lua, "-e", LUACOV_REPORT]),
         ("python", [sys.executable, "-m", "coverage", "xml", "-o", str(COVERAGE_DIR / "python.xml")]),
-        ("javascript", [c8(), "report", "--temp-directory", str(COVERAGE_DIR / "v8"), "--include", "plugin/**",
-                        "--reporter", "lcovonly", "--reports-dir", str(COVERAGE_DIR / "js-node")]),
+        ("javascript", [node(), "tests/dialog/mac_coverage.js", str(COVERAGE_DIR / "js-node-runs"),
+                        str(COVERAGE_DIR / "js-node")]),
     ]
     for name, argv in reports:
         proc = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True)
@@ -168,8 +170,9 @@ def main(argv=None):
         shutil.rmtree(COVERAGE_DIR, ignore_errors=True)
         COVERAGE_DIR.mkdir(parents=True)
         python = [sys.executable, "-m", "coverage", "run", "-m", "unittest", *PY_TESTS]
-        # the Mac script's tests run it under Node, which then records what ran for c8
-        env = {**os.environ, "NODE_V8_COVERAGE": str(COVERAGE_DIR / "v8")}
+        # the Mac script's tests run it under Node, and mac_harness.js writes its counts here
+        (COVERAGE_DIR / "js-node-runs").mkdir()
+        env = {**os.environ, "HBUC_JS_COVERAGE": str(COVERAGE_DIR / "js-node-runs")}
     ok = True
     proc = subprocess.run(python, cwd=ROOT, capture_output=True, text=True, env=env)
     ok &= step(f"python unit tests ({proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else ''})", proc.returncode == 0)

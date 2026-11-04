@@ -134,6 +134,13 @@ function settingsWidth(writtenWidth) {
   return Math.max(WIDTH, 2 * MARGIN + WRITTEN_X + 20 + 20 + Math.ceil(writtenWidth));
 }
 
+// How many of the instrument rows shown to leave out so that a window this tall fits the room the screen has. The
+// list scrolls either way, and it keeps at least three rows.
+function rowsToCut(height, room, shown) {
+  if (height <= room) return 0;
+  return Math.min(Math.max(0, shown - 3), Math.ceil((height - room) / ROW));
+}
+
 // ------------------------------------------------------------------------------------------------ AppKit
 
 const UTF8 = 4; // NSUTF8StringEncoding
@@ -334,6 +341,18 @@ function showSettings(app, model) {
   addButton(content, labels.cancel, width - MARGIN - 202, y, 96, target, "cancel:", "\u001b");
   addButton(content, labels.ok, width - MARGIN - 96, y, 96, target, "ok:", "\r");
   y += 32 + MARGIN;
+  // On a short screen (a small display, or a scaled "Larger Text" one), fewer rows show so that OK stays on it:
+  // everything below the list moves up by the rows left out.
+  const titleBar = $.NSWindow.frameRectForContentRectStyleMask(rect(0, 0, width, y), 1).size.height - y;
+  const cut = rowsToCut(y, $.NSScreen.mainScreen.visibleFrame.size.height - titleBar, shown) * ROW;
+  if (cut > 0) {
+    const below = scroll.frame.origin.y + scroll.frame.size.height;
+    ObjC.unwrap(content.subviews).forEach(function (view) {
+      if (view.frame.origin.y >= below) view.setFrameOrigin($.NSMakePoint(view.frame.origin.x, view.frame.origin.y - cut));
+    });
+    scroll.setFrameSize($.NSMakeSize(scroll.frame.size.width, scroll.frame.size.height - cut));
+    y -= cut;
+  }
   content.setFrame(rect(0, 0, width, y));
 
   const window = $.NSWindow.alloc.initWithContentRectStyleMaskBackingDefer(rect(0, 0, width, y), 1, 2, false); // titled; buffered
@@ -424,6 +443,9 @@ function run(argv) {
   const app = $.NSApplication.sharedApplication;
   app.setActivationPolicy(1); // NSApplicationActivationPolicyAccessory: windows, but no Dock icon
   installEditMenu(app);
+  // An app that osascript starts never runs [NSApp run], and until it has finished launching it doesn't answer the
+  // Accessibility API: VoiceOver couldn't read its windows.
+  app.finishLaunching;
   if (argv[0] === "--message") {
     const message = JSON.parse(readText(argv[1]));
     showAlert(app, field(message, "title"), field(message, "text"), text(field(message, "kind")),

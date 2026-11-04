@@ -34,11 +34,6 @@ component_management:
       name: JavaScript
       paths:
         - "plugin/**/*.js"
-      # Reported but not enforced until the Mac dialog's AppKit half runs in CI.
-      statuses:
-        - type: project
-          target: 80%
-          informational: true
     - component_id: powershell
       name: PowerShell
       paths:

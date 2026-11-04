@@ -192,7 +192,7 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
 
 - **Unit tests:** `python tools/run_tests.py` runs the Lua unit tests (stock Lua 5.2) and the Python tests. CI runs
   the same. The Mac dialog's tests need Node: they check `mac.js`'s syntax and run its non-AppKit parts.
-- **Coverage:** `python tools/run_tests.py --coverage` measures the unit tests with luacov, coverage.py and c8 and
+- **Coverage:** `python tools/run_tests.py --coverage` measures the unit tests with luacov, coverage.py and istanbul and
   writes the reports to `coverage/`. CI uploads them to Codecov, which holds each language to 80% and the lines a
   pull request changes to 90%. Code that only Dorico can run isn't measured: the Lua that calls Dorico
   (`hbuc/dorico/`), the script that builds the test project, and the in-Dorico checks.
@@ -201,6 +201,9 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
   the same checks.
 - **The Windows dialog:** `python tests/dialog/test_windows_dialog.py` opens the real dialog and drives it. CI runs
   it on a Windows runner, where Pester measures `windows.ps1`.
+- **The Mac dialog:** `python tests/dialog/test_mac_dialog.py` opens the real dialog on a Mac and works it through
+  System Events, so the app running it needs the Accessibility permission. CI runs it on a macOS runner, with a copy
+  of `mac.js` that counts its own statements.
 - **Inside Dorico:** `python tools/run_tests.py --dorico` adds the suites that run in Dorico 6 through its Remote
   Control API, on scratch copies of `fixtures/handbells-fixture.dorico` and of Steinberg's example projects. Dorico
   must be running with Remote Control enabled. The run takes 40 to 50 minutes.

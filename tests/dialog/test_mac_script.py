@@ -90,6 +90,15 @@ class MacScriptTests(unittest.TestCase):
         self.assertIn("setMainMenu", menu)
         self.assertIn("installEditMenu(app)", source[source.index("function run("):])
 
+    def test_windows_are_open_to_accessibility(self):
+        # Until finishLaunching, an app osascript starts doesn't answer the Accessibility API (kAXErrorCannotComplete),
+        # so VoiceOver can't read its windows and System Events lists none. test_mac_dialog.py drives them that way.
+        body = MAC_JS.read_text(encoding="utf-8")
+        body = body[body.index("function run(argv)"):]
+        self.assertIn("app.finishLaunching", body)
+        self.assertLess(body.index("app.finishLaunching"), body.index('argv[0] === "--message"'),
+                        "before any window is shown")
+
     def test_written_as_fits_its_longest_choice(self):
         self.assertEqual(self.evaluate("settingsWidth(200)"), 660, "the usual width when the choices fit")
         self.assertEqual(self.evaluate("settingsWidth(290)"), 660)
@@ -97,6 +106,19 @@ class MacScriptTests(unittest.TestCase):
         self.assertEqual(self.evaluate("settingsWidth(400.2)"), 771)
         source = MAC_JS.read_text(encoding="utf-8")
         self.assertIn("settingsWidth(fittedWidth(", source, "measured by AppKit in the real dialog")
+
+    def test_fewer_rows_show_on_a_short_screen(self):
+        # rowsToCut(window height, the screen's room for it, rows shown); a row is 28 points
+        self.assertEqual(self.evaluate("rowsToCut(786, 900, 8)"), 0, "room for all eight")
+        self.assertEqual(self.evaluate("rowsToCut(786, 786, 8)"), 0)
+        self.assertEqual(self.evaluate("rowsToCut(786, 785, 8)"), 1, "a point too tall costs a row")
+        self.assertEqual(self.evaluate("rowsToCut(786, 673, 8)"), 5, "1024 by 768, under the menu bar and Dock")
+        self.assertEqual(self.evaluate("rowsToCut(786, 400, 8)"), 5, "never fewer than three rows")
+        self.assertEqual(self.evaluate("rowsToCut(646, 400, 3)"), 0)
+        settings = MAC_JS.read_text(encoding="utf-8")
+        settings = settings[settings.index("function showSettings"):settings.index("function showAlert")]
+        self.assertIn("visibleFrame", settings, "the room is what the screen leaves under its menu bar and Dock")
+        self.assertIn("rowsToCut(", settings)
 
     def test_choice_response_maps_buttons(self):
         choice = '{buttons: [{id: "combine", label: "Combine"}, {id: "cancel", label: "Cancel"}], cancel: "cancel"}'
