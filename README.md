@@ -201,6 +201,9 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
   the same checks.
 - **The Windows dialog:** `python tests/dialog/test_windows_dialog.py` opens the real dialog and drives it. CI runs
   it on a Windows runner, where Pester measures `windows.ps1`.
+- **The Mac dialog:** `python tests/dialog/test_mac_dialog.py` opens the real dialog on a Mac and works it through
+  System Events, so the app running it needs the Accessibility permission. CI runs it on a macOS runner, with a copy
+  of `mac.js` that counts its own statements.
 - **Inside Dorico:** `python tools/run_tests.py --dorico` adds the suites that run in Dorico 6 through its Remote
   Control API, on scratch copies of `fixtures/handbells-fixture.dorico` and of Steinberg's example projects. Dorico
   must be running with Remote Control enabled. The run takes 40 to 50 minutes.
