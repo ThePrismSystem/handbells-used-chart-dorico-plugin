@@ -107,4 +107,12 @@ return {
     local p = plan.build(basic, { instruments = { "I" }, mode = "combined" })
     t:eq(#p.sections, 0)
   end,
+  unreadable_pitches_are_counted = function(t)
+    local p = plan.buildOne({ r(72, 35, NORMAL), r(nil, nil, NORMAL), r(72.5, 35, NORMAL) },
+      heads(NORMAL, NONE, NONE, NONE, NONE))
+    t:eq(#p.sections, 1, "the readable note is charted")
+    t:eq(#p.warnings, 1)
+    t:eq(p.warnings[1].type, "unreadable-pitch")
+    t:eq(p.warnings[1].count, 2)
+  end,
 }

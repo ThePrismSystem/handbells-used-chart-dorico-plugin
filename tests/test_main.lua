@@ -2,15 +2,21 @@
 -- saved when the run failed. Then main.chart, with Dorico and the layer-2 modules stubbed.
 local main = require("hbuc.main")
 
--- o: {scan = readscore.scan's result, scanError = what it raises instead, chart = true when one is there, respond =
--- the dialog's answer to the request, choose = the answer to a question (by default its cancel)}. Returns
--- main.chart's outcome, the files written, the commands run, the request the dialog got, the questions asked and the
--- options the read got.
+-- o: {scan = readscore.scan's result, scanError = what it raises instead, chart = true when one is there (or the
+-- whole of findchart's answer), respond = the dialog's answer to the request, choose = the answer to a question (by
+-- default its cancel), version = Dorico's, players = the score's, projectPath = the text export's, layoutId = the
+-- one on screen, modified = files.modified, removed = removechart's answer, removeError and writeError = what those
+-- raise instead}. Returns main.chart's outcome, the files written, the commands run, the request the dialog got, the
+-- questions asked, the options the read got and the options the write got.
 local function chartRun(o)
   local writes, commands, asked = {}, {}, { choices = {} }
+  local chart = o.chart == true and { status = "ok", flowId = "9", marker = { chartPlayers = {} } } or o.chart
+  -- The chart's layout on screen is Dorico's; drawing uses the real slots and build.
+  local layout = setmetatable({ fullScoreLayout = function() return "full" end },
+    { __index = require("hbuc.chartlayout") })
   local stubs = {
-    ["hbuc.textexport"] = { projectPath = function() return "C:/p/Bells.dorico" end },
-    ["hbuc.chartlayout"] = { fullScoreLayout = function() return "full" end },
+    ["hbuc.textexport"] = { projectPath = function() return o.projectPath or "C:/p/Bells.dorico" end },
+    ["hbuc.chartlayout"] = layout,
     ["hbuc.dorico.doc"] = {
       exportText = function() return "" end,
       command = function(_, _, text) commands[#commands + 1] = text end,
@@ -20,18 +26,23 @@ local function chartRun(o)
     ["hbuc.dorico.files"] = {
       read = function() return nil end,
       write = function(path, text) writes[path] = text end,
-      modified = function() return nil end,
+      modified = o.modified or function() return nil end,
     },
-    ["hbuc.dorico.findchart"] = { find = function()
-      return o.chart and { status = "ok", flowId = "9", marker = { chartPlayers = {} } } or { status = "none" }
-    end },
+    ["hbuc.dorico.findchart"] = { find = function() return chart or { status = "none" } end },
     ["hbuc.dorico.readscore"] = { scan = function(_, opts)
       asked.scanOpts = opts
       if o.scanError then error(o.scanError, 0) end
       return o.scan
     end },
-    ["hbuc.dorico.removechart"] = { remove = function() return { removed = true } end },
-    ["hbuc.dorico.writechart"] = { write = function() return {} end },
+    ["hbuc.dorico.removechart"] = { remove = function()
+      if o.removeError then error(o.removeError, 0) end
+      return o.removed or { removed = true }
+    end },
+    ["hbuc.dorico.writechart"] = { write = function(_, _, opts)
+      asked.writeOpts = opts
+      if o.writeError then error(o.writeError, 0) end
+      return {}
+    end },
     ["hbuc.dorico.safe"] = { call = function(_, _, fn, ...) return pcall(fn, ...) end },
   }
   local saved = { ["hbuc.main"] = package.loaded["hbuc.main"] }
@@ -41,7 +52,8 @@ local function chartRun(o)
   end
   package.loaded["hbuc.main"] = nil
   local ctx = {
-    app = { versionString = "6.0.10", currentScore = { players = { { key = "k1" } } }, currentLayoutID = "full" },
+    app = { versionString = o.version or "6.0.10", currentScore = { players = o.players or { { key = "k1" } } },
+      currentLayoutID = o.layoutId or "full" },
     log = { path = "run.log", line = function() end }, folders = { temp = "t/", data = "d/" },
     dialog = function(req)
       asked.req = req
@@ -56,7 +68,7 @@ local function chartRun(o)
   local ok, out = pcall(function() return require("hbuc.main").chart(ctx) end)
   for name, m in pairs(saved) do package.loaded[name] = m end
   if not ok then error(out, 0) end
-  return out, writes, commands, asked.req, asked.choices, asked.scanOpts
+  return out, writes, commands, asked.req, asked.choices, asked.scanOpts, asked.writeOpts
 end
 
 -- A, with a C5 and a D5, and B with nothing.
@@ -88,12 +100,32 @@ local function offered(req)
   return out
 end
 
-local DIAMOND, OLD = "noteheadset.diamondNoteheads", "noteheadset.oldDiamondNoteheads"
+local DEFAULT, DIAMOND, OLD = "noteheadset.default", "noteheadset.diamondNoteheads", "noteheadset.oldDiamondNoteheads"
+local M = require("hbuc.constants").MESSAGES
+local shapes = require("hbuc.shapes")
 
 -- B, which has no notes, is the only instrument chosen: the run stops at its report without drawing.
 local function chooseB(req)
   return { version = req.version, runId = req.runId, cancelled = false, instruments = { "B" }, mode = req.modes[1],
     heads = {}, shapes = {}, colours = {}, remove = false, atPitch = {} }
+end
+
+-- A, with its default noteheads as the handbells; over replaces any of the answer's fields.
+local function chooseA(req, over)
+  local resp = { version = req.version, runId = req.runId, cancelled = false, instruments = { "A" },
+    mode = req.modes[1], heads = { bells = DEFAULT }, shapes = {}, colours = {}, remove = false, atPitch = {},
+    newPage = true }
+  for k, v in pairs(over or {}) do resp[k] = v end
+  return resp
+end
+
+local function chooseRemove(req) return chooseA(req, { remove = true }) end
+
+local function has(list, value)
+  for _, v in ipairs(list) do
+    if v == value then return true end
+  end
+  return false
 end
 
 local function runWith(chart)
@@ -157,5 +189,124 @@ return {
   common_sets_ask_nothing = function(t)
     local _, _, _, _, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 5 }), respond = chooseB })
     t:eq(#choices, 0)
+  end,
+
+  -- Every way a run can end.
+  an_untested_dorico_is_refused = function(t)
+    local out, _, commands = chartRun({ version = "5.1.70", scan = scan() })
+    t:eq(out.ok, false)
+    t:eq(out.kind, "error")
+    t:eq(out.text, string.format(M.untestedDorico, "5.1.70"))
+    t:eq(#commands, 0, "nothing is done in Dorico")
+  end,
+  no_players_is_no_project = function(t)
+    local out = chartRun({ players = {}, scan = scan() })
+    t:eq(out.kind, "error")
+    t:eq(out.text, M.noProject)
+  end,
+  an_unsaved_project_is_refused = function(t)
+    local out = chartRun({ projectPath = "", scan = scan() })
+    t:eq(out.kind, "warning")
+    t:eq(out.text, M.notSaved)
+  end,
+  a_part_on_screen_is_refused = function(t)
+    local out = chartRun({ layoutId = "part", scan = scan() })
+    t:eq(out.kind, "warning")
+    t:eq(out.text, M.notFullScore)
+  end,
+  a_chart_it_cannot_identify_is_left_alone = function(t)
+    local out, _, _, req = chartRun({ chart = { status = "invalid", reason = "its marker is damaged" }, scan = scan() })
+    t:eq(out.kind, "error")
+    t:eq(out.text, string.format(M.chartUnidentified, "its marker is damaged"))
+    t:eq(req, nil, "no dialog")
+  end,
+  an_existing_chart_is_skipped_by_the_read = function(t)
+    local found = { status = "ok", flowId = "9", marker = { chartPlayers = { "c1", "c2" } } }
+    local _, _, _, req, _, opts = chartRun({ chart = found, scan = scan(), respond = chooseB })
+    t:eq(opts.skipFlowId, "9", "the chart's flow")
+    t:ok(opts.skipKeys.c1 and opts.skipKeys.c2, "and its players")
+    t:eq(req.chartExists, true, "the dialog is told there is one")
+  end,
+  a_cancelled_dialog_says_nothing = function(t)
+    local out, writes = chartRun({ scan = scan() })
+    t:eq(out.ok, false)
+    t:eq(out.kind, "info")
+    t:eq(out.text, "", "nothing to show")
+    t:eq(next(writes), nil, "no settings written")
+  end,
+  a_dialog_that_fails_counts_as_a_cancel = function(t)
+    local out = chartRun({ scan = scan(), respond = function() error("no PowerShell") end })
+    t:eq(out.kind, "info")
+    t:eq(out.text, "")
+  end,
+  two_kinds_on_one_notehead_are_refused = function(t)
+    local out, writes = chartRun({ scan = scan(), respond = function(req)
+      return chooseA(req, { heads = { bells = DEFAULT, chimes = DEFAULT } })
+    end })
+    t:eq(out.kind, "error")
+    t:eq(out.text, "More than one instrument is set to the " .. shapes.displayName(DEFAULT) .. " notehead. "
+      .. M.sameNoteheadChosen)
+    t:eq(next(writes), nil, "refused before anything is saved")
+  end,
+  no_instrument_chosen_is_refused = function(t)
+    local out = chartRun({ scan = scan(), respond = function(req) return chooseA(req, { instruments = {} }) end })
+    t:eq(out.kind, "error")
+    t:eq(out.text, M.noInstrumentSelected)
+  end,
+  a_save_that_did_not_happen_stops_the_run = function(t)
+    local out, writes, commands = chartRun({ scan = scan(), respond = chooseA, modified = function() return 100 end })
+    t:eq(out.kind, "error")
+    t:eq(out.text, M.saveFailed)
+    t:ok(has(commands, "File.Save"), "it tried")
+    t:ok(writes["d/settings.json"], "the choices are remembered first")
+  end,
+  remove_without_a_chart_warns = function(t)
+    local out = chartRun({ scan = scan(), respond = chooseRemove })
+    t:eq(out.ok, false)
+    t:eq(out.kind, "warning")
+    t:eq(out.text, M.noChartToRemove)
+  end,
+  a_remove_that_fails_points_to_revert = function(t)
+    local out = chartRun({ chart = true, scan = scan(), respond = chooseRemove, removeError = "no flow 9" })
+    t:eq(out.kind, "error")
+    t:eq(out.text, string.format(M.writeFailed, "no flow 9", "run.log"))
+  end,
+  removed_with_its_options_left_warns = function(t)
+    local out = chartRun({ chart = true, scan = scan(), respond = chooseRemove,
+      removed = { removed = true, restored = false } })
+    t:eq(out.ok, true)
+    t:eq(out.kind, "warning")
+    t:eq(out.text, M.chartRemovedOptionsLeft)
+  end,
+  removed_says_so = function(t)
+    local out = chartRun({ chart = true, scan = scan(), respond = chooseRemove })
+    t:eq(out.ok, true)
+    t:eq(out.kind, "info")
+    t:eq(out.text, M.chartWasRemoved)
+  end,
+  nothing_removed_keeps_the_chart = function(t)
+    local out = chartRun({ chart = true, scan = scan(), respond = chooseRemove, removed = { removed = false } })
+    t:eq(out.ok, false)
+    t:eq(out.kind, "warning")
+    t:eq(out.text, M.chartKept)
+  end,
+  a_chart_is_drawn_and_reported = function(t)
+    local out, _, _, _, _, _, wrote = chartRun({ scan = scan(), respond = chooseA })
+    t:eq(out.ok, true)
+    t:eq(out.kind, "info")
+    t:eq(out.text, "Handbells Used: 2")
+    t:eq(wrote.newPage, true)
+    t:eq(table.concat(wrote.musicKeys, ","), "k1,k2", "every player's music follows the chart")
+    t:eq(wrote.existing, nil, "no chart to replace")
+  end,
+  a_write_that_fails_points_to_revert = function(t)
+    local out = chartRun({ scan = scan(), respond = chooseA, writeError = "no room on the page" })
+    t:eq(out.kind, "error")
+    t:eq(out.text, string.format(M.writeFailed, "no room on the page", "run.log"))
+  end,
+  unrecognised_noteheads_are_named_as_the_dialog_lists_them = function(t)
+    local out = chartRun({ scan = headsScan({ DEFAULT, 2 }, { DIAMOND, 1 }), respond = chooseA })
+    t:ok(out.text:find("skipped: " .. shapes.displayName(DIAMOND), 1, true), out.text)
+    t:ok(not out.text:find(DIAMOND, 1, true), "not by its id")
   end,
 }
