@@ -44,6 +44,18 @@ class MacDriveTests(unittest.TestCase):
             return until("a window", function () { tries += 1; return tries < 3 ? null : "found " + tries; });
           })()"""), "found 3")
 
+    def test_on_screen_only_once_the_window_server_shows_the_process_a_window(self):
+        # stand-ins for the bridge: the window server's list, as CGWindowListCopyWindowInfo gives it
+        self.assertEqual(self.evaluate("""(function () {
+            ObjC = { import: function () {}, castRefToObject: function (x) { return x; },
+                     deepUnwrap: function (x) { return x; } };
+            $ = { CGWindowListCopyWindowInfo: function () {
+              return [{ kCGWindowOwnerPID: 353, kCGWindowOwnerName: "Dock" },
+                      { kCGWindowOwnerPID: 1302, kCGWindowOwnerName: "osascript" }];
+            } };
+            return [onScreen(1302), onScreen(1337)];
+          })()"""), [True, None])
+
 
 if __name__ == "__main__":
     unittest.main()

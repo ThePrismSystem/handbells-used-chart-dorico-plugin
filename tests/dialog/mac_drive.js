@@ -39,6 +39,13 @@ function until(what, fn) {
   }
 }
 
+// true once the window server shows process pid a window, else null. This list doesn't go through Accessibility.
+function onScreen(pid) {
+  ObjC.import("CoreGraphics");
+  const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1, 0))); // OnScreenOnly
+  return windows.some(function (w) { return w.kCGWindowOwnerPID === pid; }) ? true : null;
+}
+
 function controls(element, role) {
   return element.entireContents().filter(function (e) { return attempt(function () { return e.role(); }, "") === role; });
 }
@@ -70,6 +77,9 @@ function describe(window) {
 function run(argv) {
   const pid = Number(argv[0]);
   const action = argv[1];
+  // System Events is asked nothing until the dialog's window is up. On GitHub's runners, asking while the app was
+  // still starting left it listing no windows for that process from then on.
+  until("process " + pid + " on screen", function () { return onScreen(pid); });
   const se = Application("System Events");
   const proc = until("process " + pid, function () { return se.processes.whose({ unixId: pid })()[0] || null; });
   const window = until("a window of process " + pid, function () {
