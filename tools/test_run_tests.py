@@ -49,7 +49,7 @@ class MainTests(unittest.TestCase):
     def main(self, *argv, missing=()):
         with mock.patch.object(run_tests, "find_lua", return_value="lua"), \
                 mock.patch.object(run_tests, "coverage_tools", return_value=list(missing)), \
-                mock.patch.object(run_tests, "c8", return_value="c8"), \
+                mock.patch.object(run_tests, "node", return_value="node"), \
                 mock.patch.object(run_tests, "COVERAGE_DIR", self.out / "coverage"), \
                 mock.patch("subprocess.run", side_effect=self.fake_run), redirect_stdout(io.StringIO()) as printed:
             code = run_tests.main(list(argv))
@@ -78,14 +78,16 @@ class MainTests(unittest.TestCase):
         self.assertEqual(code, 0)
         python, env = self.calls[0]
         self.assertEqual(python, [sys.executable, "-m", "coverage", "run", "-m", "unittest", *run_tests.PY_TESTS])
-        self.assertEqual(env["NODE_V8_COVERAGE"], str(cov / "v8"), "the Mac script's Node runs record their coverage")
+        self.assertEqual(env["HBUC_JS_COVERAGE"], str(cov / "js-node-runs"),
+                         "the Mac script's Node runs write their counts there")
+        self.assertTrue((cov / "js-node-runs").is_dir(), "made before the runs that write into it")
         argvs = self.argvs()
         self.assertIn(["lua", "-lluacov", "tests/run.lua"], argvs)
         self.assertIn(["lua", "spike/lib/test_json.lua"], argvs, "the spike's libraries aren't measured")
         self.assertIn([sys.executable, "-m", "coverage", "xml", "-o", str(cov / "python.xml")], argvs)
         self.assertIn(["lua", "-e", run_tests.LUACOV_REPORT], argvs)
-        self.assertIn(["c8", "report", "--temp-directory", str(cov / "v8"), "--include", "plugin/**",
-                       "--reporter", "lcovonly", "--reports-dir", str(cov / "js-node")], argvs)
+        self.assertIn(["node", "tests/dialog/mac_coverage.js", str(cov / "js-node-runs"), str(cov / "js-node")], argvs,
+                      "counted as the osascript runs are, so Codecov can merge the two")
 
     def test_coverage_starts_from_nothing(self):
         stale = self.out / "coverage" / "luacov.stats.out"
@@ -111,17 +113,18 @@ class CoverageToolsTests(unittest.TestCase):
     def test_coverage_needs_its_tools(self):
         with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 1)), \
                 mock.patch("importlib.util.find_spec", return_value=None), \
-                mock.patch.object(run_tests, "c8", return_value=None):
+                mock.patch.object(run_tests, "node", return_value=None):
             hints = run_tests.coverage_tools("lua")
         self.assertEqual(len(hints), 3)
         self.assertIn("luarocks install luacov", hints[0])
         self.assertIn("luarocks install luacov-reporter-lcov", hints[0])
         self.assertIn("pip install -r requirements-dev.txt", hints[1])
         self.assertIn("npm ci", hints[2])
+        self.assertIn("istanbul", hints[2])
 
     def test_luacov_is_missing_without_lua(self):
         with mock.patch("importlib.util.find_spec", return_value=object()), \
-                mock.patch.object(run_tests, "c8", return_value="c8"):
+                mock.patch.object(run_tests, "node", return_value="node"):
             hints = run_tests.coverage_tools(None)
         self.assertEqual(len(hints), 1)
         self.assertIn("luarocks install luacov", hints[0])
@@ -129,7 +132,7 @@ class CoverageToolsTests(unittest.TestCase):
     def test_all_there(self):
         with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)), \
                 mock.patch("importlib.util.find_spec", return_value=object()), \
-                mock.patch.object(run_tests, "c8", return_value="c8"):
+                mock.patch.object(run_tests, "node", return_value="node"):
             self.assertEqual(run_tests.coverage_tools("lua"), [])
 
 

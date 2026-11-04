@@ -86,6 +86,33 @@ class MacCoverageTests(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("no coverage reports", proc.stderr)
 
+    def harness(self, script, reports, *args):
+        return self.node(HARNESS, script, *args, env={**os.environ, "HBUC_JS_COVERAGE": str(reports)})
+
+    def test_node_runs_of_mac_js_are_counted_when_measuring(self):
+        # as the osascript runs are, so that Codecov merges two reports that count the same lines
+        reports = self.tmp / "node-runs"
+        reports.mkdir()
+        proc = self.harness(MAC_JS, reports, "eval", "chartsEnabled([true, true])")
+        self.assertEqual(proc.stdout, "true", proc.stderr)
+        (report,) = reports.glob("coverage-*.json")
+        (path, counts), = json.loads(report.read_text(encoding="utf-8")).items()
+        self.assertEqual(Path(path), MAC_JS)
+        self.assertGreater(sum(counts["s"].values()), 0)
+
+    def test_only_the_plugin_is_counted(self):
+        reports = self.tmp / "node-runs"
+        reports.mkdir()
+        self.harness(self.copy, reports, "eval", "1")
+        self.harness(HERE / "mac_drive.js", reports, "eval", "1")
+        self.assertEqual(list(reports.iterdir()), [], "the copy counts for itself, and the driver is a test")
+
+    def test_nothing_is_written_without_a_folder(self):
+        env = {k: v for k, v in os.environ.items() if k != "HBUC_JS_COVERAGE"}
+        proc = self.node(HARNESS, MAC_JS, "eval", "1", env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(list(self.tmp.glob("**/coverage-*.json")), [])
+
 
 if __name__ == "__main__":
     unittest.main()
