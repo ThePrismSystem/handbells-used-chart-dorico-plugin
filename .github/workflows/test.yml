@@ -62,3 +62,11 @@ jobs:
           files: coverage/lua.lcov,coverage/python.xml,coverage/js-node/lcov.info
           disable_search: true
           fail_ci_if_error: true
+      # Codecov's per-language checks need its Pro plan, so each job holds the languages it measures to 80% itself.
+      # JavaScript is held where all of mac.js runs, in the dialogs workflow's dialog-mac job.
+      - name: Coverage floors
+        run: |
+          status=0
+          python tools/coverage_gate.py lua coverage/lua.lcov || status=1
+          python tools/coverage_gate.py python coverage/python.xml || status=1
+          exit $status
