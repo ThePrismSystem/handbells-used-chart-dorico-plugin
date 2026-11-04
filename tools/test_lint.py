@@ -139,7 +139,15 @@ class EslintTests(unittest.TestCase):
 
 
 class ZizmorTests(unittest.TestCase):
-    FILES = [".github/dependabot.yml", ".github/workflows/test.yml"]
+    FILES = [".github/workflows/test.yml"]
+
+    def test_reads_only_the_workflows(self):
+        # Renovate's config is JSON, which zizmor doesn't audit
+        zizmor = next(t for t in lint.TOOLS if t.name == "zizmor")
+        with mock.patch.object(lint, "tracked", return_value=self.FILES) as tracked, \
+                mock.patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0)):
+            zizmor.run("zizmor", None)
+        tracked.assert_called_once_with([".github/workflows/*.yml"])
 
     def test_runs_on_the_tracked_workflows(self):
         zizmor = next(t for t in lint.TOOLS if t.name == "zizmor")
