@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On a Mac, VoiceOver and other assistive tools can read the settings dialog, the results window and the notehead
   question. Before, the Accessibility API couldn't reach their windows.
+- On a Mac with a short screen, such as a small display or one scaled for larger text, the settings dialog shows
+  fewer instruments at once (at least three) and scrolls the list, so OK and Cancel stay on the screen. Before, with
+  six or more instruments, the bottom of the dialog could fall off the screen.
 
 ## [0.1.0] - 2026-10-26
 
