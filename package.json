@@ -1,6 +1,6 @@
 {
   "private": true,
-  "description": "Development tools only: ESLint for the Mac dialog script and its test harness, and c8 to measure the script's tests.",
+  "description": "Development tools only: ESLint for the Mac dialog script and its test harness, c8 to measure the script's tests under Node, and istanbul to measure its runs under osascript.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "c8": "^12.0.0",

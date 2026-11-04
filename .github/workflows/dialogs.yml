@@ -76,10 +76,8 @@ jobs:
           mkdir -p "$HBUC_JS_COVERAGE" "$HBUC_SCREENSHOTS"
           python tests/dialog/test_mac_dialog.py -v
       - name: Merge coverage
-        if: ${{ !cancelled() }}
         run: node tests/dialog/mac_coverage.js "$RUNNER_TEMP/js-mac" coverage/js-mac
       - name: Upload coverage
-        if: ${{ !cancelled() }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
