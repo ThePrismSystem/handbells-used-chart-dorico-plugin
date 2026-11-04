@@ -5,11 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+    # A flag that is off unless set: on a push or pull request there are no inputs, and an absent one reads as false.
     inputs:
-      coverage:
-        description: Upload the coverage reports to Codecov
+      skip-coverage-upload:
+        description: Run the tests without uploading their coverage to Codecov
         type: boolean
-        default: true
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -53,7 +54,7 @@ jobs:
         run: python tools/run_tests.py --coverage
       # The release workflow runs these tests again without uploading.
       - name: Upload coverage
-        if: inputs.coverage != false
+        if: ${{ !inputs.skip-coverage-upload }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
