@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On a Mac with a short screen, such as a small display or one scaled for larger text, the settings dialog shows
   fewer instruments at once (at least three) and scrolls the list, so OK and Cancel stay on the screen. Before, with
   six or more instruments, the bottom of the dialog could fall off the screen.
+- Drawing or removing a chart no longer crashes Dorico in a project that has ever had a player deleted. The plug-in
+  now reads each player's id from a saved copy of the project. Before, it tried ids one by one, and the deleted
+  player's id was one Dorico couldn't take.
+- When Dorico can't save the project, for example because it's in a folder you can't write to, the plug-in says so
+  after Dorico's error and draws nothing. Before, on a Mac, it could draw the chart anyway, and File > Revert would
+  then also have thrown away any changes you hadn't saved before the run.
 
 ## [0.1.0] - 2026-10-26
 
