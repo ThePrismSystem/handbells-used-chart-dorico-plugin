@@ -133,7 +133,8 @@ function main.chart(ctx)
   -- 7. remove
   if resp.remove then
     if not chart then return result(false, "warning", M.noChartToRemove) end
-    local okRemove, removed = safe.call(log, "remove", removechart.remove, app, chart, { log = log, fullId = fullId })
+    local okRemove, removed = safe.call(log, "remove", removechart.remove, app, chart,
+      { log = log, fullId = fullId, tempDir = temp })
     if not okRemove then return result(false, "error", string.format(M.writeFailed, failure(removed), log.path)) end
     if removed.removed and removed.restored == false then return result(true, "warning", M.chartRemovedOptionsLeft) end
     if removed.removed then return result(true, "info", M.chartWasRemoved) end

@@ -171,7 +171,7 @@ function writechart.write(app, built, opts)
   for _, k in ipairs(assigned.surplus) do chartKeys[#chartKeys + 1] = k end
   -- Player ids, for the commands and layout options that take them. Chart players are named with a space, which
   -- playersToShowPlayerName then shows as their (empty) staff label.
-  local ids = doc.playerIds(app, log)
+  local ids = doc.playerIds(app, log, temp)
   for _, k in ipairs(chartKeys) do doc.command(app, log, commands.renamePlayer(ids[k], " ")) end
   for _, id in ipairs(chartlayout.partLayouts(doc.layouts(app.currentScore), chartKeys, fullId)) do
     doc.command(app, log, commands.deleteLayout(id))

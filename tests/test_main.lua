@@ -30,7 +30,10 @@ local function chartRun(o)
       if o.scanError then error(o.scanError, 0) end
       return o.scan
     end },
-    ["hbuc.dorico.removechart"] = { remove = function() return { removed = true } end },
+    ["hbuc.dorico.removechart"] = { remove = function(_, _, opts)
+      asked.removeOpts = opts
+      return { removed = true }
+    end },
     ["hbuc.dorico.writechart"] = { write = function() return {} end },
     ["hbuc.dorico.safe"] = { call = function(_, _, fn, ...) return pcall(fn, ...) end },
   }
@@ -56,7 +59,7 @@ local function chartRun(o)
   local ok, out = pcall(function() return require("hbuc.main").chart(ctx) end)
   for name, m in pairs(saved) do package.loaded[name] = m end
   if not ok then error(out, 0) end
-  return out, writes, commands, asked.req, asked.choices, asked.scanOpts
+  return out, writes, commands, asked.req, asked.choices, asked.scanOpts, asked.removeOpts
 end
 
 -- A, with a C5 and a D5, and B with nothing.
@@ -94,6 +97,12 @@ local DIAMOND, OLD = "noteheadset.diamondNoteheads", "noteheadset.oldDiamondNote
 local function chooseB(req)
   return { version = req.version, runId = req.runId, cancelled = false, instruments = { "B" }, mode = req.modes[1],
     heads = {}, shapes = {}, colours = {}, remove = false, atPitch = {} }
+end
+
+local function chooseRemove(req)
+  local resp = chooseB(req)
+  resp.instruments, resp.remove = {}, true
+  return resp
 end
 
 local function runWith(chart)
@@ -157,5 +166,10 @@ return {
   common_sets_ask_nothing = function(t)
     local _, _, _, _, choices = chartRun({ scan = headsScan({ DIAMOND, 6 }, { OLD, 5 }), respond = chooseB })
     t:eq(#choices, 0)
+  end,
+  removing_finds_player_ids_in_the_temp_folder = function(t)
+    local out, _, _, _, _, _, removeOpts = chartRun({ scan = scan(), chart = true, respond = chooseRemove })
+    t:eq(out.text, require("hbuc.constants").MESSAGES.chartWasRemoved)
+    t:eq(removeOpts.tempDir, "t/")
   end,
 }

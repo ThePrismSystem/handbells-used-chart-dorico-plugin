@@ -88,4 +88,12 @@ return {
     t:ok(err, "fails")
     t:ok(not exists(dir .. "reading.dorico"), "and the copy is still deleted")
   end,
+  player_ids_come_from_a_copy_too = function(t)
+    local dir, seen = tempDir(), {}
+    local ids = savedcopy.playerIds(app(fixture(), true, seen), log, dir)
+    t:eq(seen.path, dir .. "reading.dorico", "saved into the temp folder")
+    t:eq(ids[0], 0, "the fixture's first handbells")
+    t:eq(ids[2], 2, "and its organ")
+    t:ok(not exists(seen.path), "the copy is gone")
+  end,
 }

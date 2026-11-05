@@ -391,9 +391,11 @@ reports no error, so the commands after it act on nothing too. `hbuc/dorico/doc.
 
 - `score:addPlayer("instrument.pitchedpercussion.handbells", false, 1)` adds a player and returns it. It joins every
   flow, so remove it from the ones it shouldn't be in. Dorico also makes a part layout for it.
-- **Finding a player's id.** Rename each candidate id in turn to a unique token with
-  `Project.Player.Rename?PlayerID=<id>&Name=<token>`, see which player's `tostring` becomes the token, then give it its
-  name back. Pass `Name` alone so the short name isn't touched.
+- **Finding a player's id.** Read it from a saved copy (section 3). Each `scorePlayer` under `scorePlayers/array`
+  has a `playerID`, and an `instrumentID` for each of its instruments, the same id Lua gives
+  `player.instruments[i].id`. Don't look for ids by renaming each candidate in turn with `Project.Player.Rename`.
+  Given the id of a deleted player, that command crashed Dorico 6.2.30, and every project that has lost a player has
+  such an id.
 - **Staff labels show instrument names,** so renaming a player doesn't change them, and instrument names can only be
   set through Dorico's Edit Instrument Names dialog. To hide a player's labels, list its id in the layout option
   `staffLabelLayoutOptions.playersToShowPlayerName` and name the player with a single space.
@@ -647,6 +649,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - `stream.events` throws on most real music. `stream:dump()` always works but has no properties.
 - Every pitch is sounding, and nothing says how an instrument transposes.
 - Players have no id and no `==`. Player ids aren't instrument ids.
+- `Project.Player.Rename` with the id of a deleted player crashes Dorico.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
 - So does a notehead set chosen in Dorico, and every such Variant equals every other. A saved copy has them
@@ -681,7 +684,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | Noteheads and colours, from a saved copy | `hbuc/dorico/savedcopy.lua`, `hbuc/zip.lua`, `hbuc/inflate.lua`, `hbuc/dtn.lua`, `hbuc/noteprops.lua` |
 | Combining a rare notehead set with a common one | `hbuc/combine.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
-| Player ids | `hbuc/dorico/doc.lua` (`playerIds`) |
+| Player ids, from a saved copy | `hbuc/dorico/doc.lua` (`playerIds`), `hbuc/playerids.lua` |
 | Command strings | `hbuc/commands.lua` |
 | The dialogs | `hbuc/dorico/dialog.lua`, `dialog/windows.ps1`, `dialog/mac.js` |
 | Probes | `spike/*.lua` |

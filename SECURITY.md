@@ -99,9 +99,9 @@ Two more commands can run on a Mac:
   - the dialog's request, response and message files, and the question's;
   - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart, the
     flow headings and whether flows start on a new page;
-  - `reading.dorico`, a copy of the open project that Dorico saves there so the plug-in can read each note's notehead
-    and colour from it. The plug-in deletes it once it has read it. If it can't, the run log says so, and the next
-    run deletes it first;
+  - `reading.dorico`, a copy of the open project that Dorico saves there. The plug-in reads each note's notehead and
+    colour from one copy, and each player's id from another saved while it draws or removes a chart. It deletes each
+    copy once it has read it. If it can't, the run log says so, and the next run deletes it first;
   - `osascript.log` on a Mac;
   - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
     set (on a Mac with none of them set, `/tmp/hbuc/`).

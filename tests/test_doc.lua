@@ -24,7 +24,42 @@ end
 
 local INSTANCES = { { id = 1061, block = { id = 36 } }, { id = 1070, block = { id = 40 } } }
 
+-- doc.playerIds for players with these keys (first instrument ids), with the saved copy's ids stubbed. Returns
+-- whether it worked, its result and the commands it sent.
+local function playerIdsWith(fromCopy, keys)
+  local sent, asked = {}, {}
+  local saved = { copy = package.loaded["hbuc.dorico.savedcopy"], doc = package.loaded["hbuc.dorico.doc"] }
+  package.loaded["hbuc.dorico.savedcopy"] = { playerIds = function(_, _, dir)
+    asked.dir = dir
+    return fromCopy
+  end }
+  package.loaded["hbuc.dorico.doc"] = nil
+  local players = {}
+  for i, k in ipairs(keys) do players[i] = { instruments = { { id = k } } } end
+  local app = { currentScore = { players = players }, doCommand = function(_, c) sent[#sent + 1] = c end }
+  local ok, ids = pcall(function()
+    return require("hbuc.dorico.doc").playerIds(app, { line = function() end }, "t/")
+  end)
+  package.loaded["hbuc.dorico.savedcopy"], package.loaded["hbuc.dorico.doc"] = saved.copy, saved.doc
+  return ok, ids, sent, asked.dir
+end
+
 return {
+  -- Renaming the id of a deleted player crashed Dorico 6.2.30, so no id is tried: they are read from a saved copy.
+  player_ids_are_read_without_renaming_anyone = function(t)
+    local ok, ids, sent, dir = playerIdsWith({ [1] = 0, [5] = 3, [9] = 3 }, { 1, 5 })
+    t:ok(ok, tostring(ids))
+    t:eq(ids[1], 0)
+    t:eq(ids[5], 3)
+    t:eq(ids[9], nil, "only the players' keys")
+    t:eq(#sent, 0, "no command")
+    t:eq(dir, "t/", "the copy goes in the temp folder")
+  end,
+  a_player_missing_from_the_copy_is_an_error = function(t)
+    local ok, err = playerIdsWith({ [1] = 0 }, { 1, 7 })
+    t:eq(ok, false)
+    t:ok(tostring(err):find("player 7", 1, true), tostring(err))
+  end,
   block_id_comes_from_the_instance_holding_the_event = function(t)
     t:eq(doc.blockIdOf(stream(TWO_BLOCKS, INSTANCES), 7932), 36)
   end,
