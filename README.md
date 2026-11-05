@@ -229,8 +229,6 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
     Dorico has no per-flow setting. Unticked, the music follows the chart on page 1, and in a project with several
     flows each later movement also runs straight on from the one before, with no page break between them. Remove
     puts back the setting the project had.
-- The last chart section isn't stretched to the full width, because stretching it would also stretch the music's
-  final system.
 - **Chart size.** Dorico can't tell the plug-in whether a chart fits on one line, so the plug-in works out a staff
   size from the full score's page size, margins, staff size and note spacing. A wide chart is drawn smaller, down to
   55%, and one still too wide at that size runs onto another system. If you change any of those settings, run the

@@ -4,9 +4,10 @@ A field guide to the parts of Dorico 6's Lua scripting that Steinberg doesn't do
 Handbells Used Chart plug-in. It covers how the plug-in reads the music, draws into the score, shows a dialog, and is
 tested from outside Dorico, and the workarounds and gotchas found along the way.
 
-It is based on Dorico 6.2.30 on Windows 11, probed script by script, and the probes are in `spike/`. The Mac parts
-(section 8) are written but haven't run on a Mac yet. None of this is a published API: Steinberg can change any of
-it in any update, so check each call on the version you target.
+It is based on Dorico 6.2.30 on Windows 11, probed script by script, and the probes are in `spike/`. The plug-in
+also runs on a Mac with Dorico 6, where it draws the same charts as on Windows and the dialog in section 8 works.
+None of this is a published API: Steinberg can change any of it in any update, so check each call on the version you
+target.
 
 ## Contents
 
@@ -30,7 +31,7 @@ Dorico lists every `.lua` file at the top level of its Script Plug-ins folder in
 name:
 
 - Windows: `%APPDATA%\Steinberg\Dorico 6\Script Plug-ins\`
-- Mac: `~/Library/Application Support/Steinberg/Dorico 6/Script Plug-ins/` (not yet confirmed on a Mac)
+- Mac: `~/Library/Application Support/Steinberg/Dorico 6/Script Plug-ins/`
 
 It doesn't look in subfolders, so a plug-in made of several modules puts one entry file at the top level and its
 modules in a folder beside it. The entry file finds that folder from its own path:
@@ -73,8 +74,8 @@ it. Clear what you set.
 ### What Lua has
 
 - Lua 5.2, with the standard `io`, `os`, `string`, `table`, `math` and `debug` libraries.
-- On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. Whether a Mac has it is unconfirmed,
-  so the plug-in works without it there.
+- On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. A Mac may not have it, so the plug-in
+  works without it there.
 - On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8. `lfs.dir` listed a folder named
   "Noël" with byte 235 (Windows-1252), and `io.open` opened the file by that name but not by its UTF-8 bytes. So a path
   that came in as UTF-8 (from JSON, say) has to be converted before Lua can open it, and a file whose name has
@@ -586,7 +587,7 @@ PowerShell traps we fell into:
   also keeps Enter for itself, so give OK the first focus if Enter should press it.
 - Cap the results window's height and let long text scroll, or a long report pushes OK off the screen.
 
-### Mac: JavaScript for Automation (written, not yet run on a Mac)
+### Mac: JavaScript for Automation
 
 ```
 /usr/bin/osascript -l JavaScript '<dialog.js>' '<req.json>' '<resp.json>' 2>'<error log>'
@@ -608,7 +609,7 @@ escaping any `'` inside as `'\''`. Points that matter in JXA:
 - Text fields take Cmd-C, Cmd-V and Cmd-A through the main menu, and a script has none: give it an Edit menu.
 - Read and write files through `NSString` with UTF-8.
 - If `os.execute` returns before the user could have answered, the plug-in polls for the response file instead of
-  taking the missing file as a cancel. We don't yet know whether Dorico waits for `osascript` on a Mac.
+  taking the missing file as a cancel.
 - Keep the non-AppKit parts (reading the request, building the response) in plain functions, and test them under
   Node.
 

@@ -41,7 +41,7 @@ function shell.poll(read, sleep, now, limit)
   return nil, blocks
 end
 
--- os.execute should wait for osascript, which waits for the dialog (not yet confirmed on a Mac).
+-- os.execute should wait for osascript, which waits for the dialog.
 -- If it came back with no answer before anyone could have used the dialog, the dialog is taken to be still up.
 function shell.shouldWait(elapsedSeconds, responseExists)
   return not responseExists and elapsedSeconds < 2
