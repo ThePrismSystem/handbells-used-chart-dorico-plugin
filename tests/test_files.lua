@@ -10,7 +10,33 @@ local function unique(name)
   return temp .. "hbuc-test-" .. os.time() .. "-" .. made .. "-" .. name
 end
 
+-- Runs fn with lfs as fake, or with no lfs to load when fake is nil.
+local function withLfs(fake, fn)
+  local loaded, preload = package.loaded.lfs, package.preload.lfs
+  package.loaded.lfs = fake
+  if not fake then package.preload.lfs = function() error("no lfs here") end end
+  local ok, err = pcall(fn)
+  package.loaded.lfs, package.preload.lfs = loaded, preload
+  if not ok then error(err, 0) end
+end
+
 return {
+  -- Without lfs, which a Mac may lack, a save is told by the file's bytes: each save stamps its time into the zip.
+  without_lfs_the_stamp_is_the_file_s_bytes = function(t)
+    withLfs(nil, function()
+      local path = unique("stamp.txt")
+      files.write(path, "first")
+      t:eq(files.stamp(path), "first")
+      files.write(path, "second")
+      t:eq(files.stamp(path), "second")
+      files.remove(path)
+      t:eq(files.stamp(path), nil, "a file that can't be read")
+    end)
+  end,
+  with_lfs_the_stamp_is_the_modification_time = function(t)
+    withLfs({ attributes = function(path, what) return path == "p" and what == "modification" and 42 or nil end },
+      function() t:eq(files.stamp("p"), 42) end)
+  end,
   remove_deletes_a_file = function(t)
     local path = unique("remove.txt")
     files.write(path, "x")

@@ -7,7 +7,7 @@ local main = require("hbuc.main")
 -- main.chart's outcome, the files written, the commands run, the request the dialog got, the questions asked and the
 -- options the read got.
 local function chartRun(o)
-  local writes, commands, asked = {}, {}, { choices = {} }
+  local writes, commands, asked, stamps = {}, {}, { choices = {} }, 0
   local stubs = {
     ["hbuc.textexport"] = { projectPath = function() return "C:/p/Bells.dorico" end },
     ["hbuc.chartlayout"] = { fullScoreLayout = function() return "full" end },
@@ -20,7 +20,10 @@ local function chartRun(o)
     ["hbuc.dorico.files"] = {
       read = function() return nil end,
       write = function(path, text) writes[path] = text end,
-      modified = function() return nil end,
+      stamp = function()
+        stamps = stamps + 1
+        return (o.stamps or {})[stamps]
+      end,
     },
     ["hbuc.dorico.findchart"] = { find = function()
       return o.chart and { status = "ok", flowId = "9", marker = { chartPlayers = {} } } or { status = "none" }
@@ -171,5 +174,18 @@ return {
     local out, _, _, _, _, _, removeOpts = chartRun({ scan = scan(), chart = true, respond = chooseRemove })
     t:eq(out.text, require("hbuc.constants").MESSAGES.chartWasRemoved)
     t:eq(removeOpts.tempDir, "t/")
+  end,
+  -- A project in a folder the user can't write to (Dorico's example projects on a Mac): Dorico refuses the save
+  -- with its own message, and the run must stop there.
+  a_save_that_leaves_the_project_as_it_was_stops_the_run = function(t)
+    local out, _, commands, _, _, _, removeOpts = chartRun({ scan = scan(), chart = true, respond = chooseRemove,
+      stamps = { "same", "same" } })
+    t:eq(out.text, require("hbuc.constants").MESSAGES.saveFailed)
+    t:eq(commands[#commands], "File.Save", "nothing after the save")
+    t:eq(removeOpts, nil, "nothing removed")
+  end,
+  a_save_that_changes_the_project_goes_on = function(t)
+    local out = chartRun({ scan = scan(), chart = true, respond = chooseRemove, stamps = { "before", "after" } })
+    t:eq(out.text, require("hbuc.constants").MESSAGES.chartWasRemoved)
   end,
 }

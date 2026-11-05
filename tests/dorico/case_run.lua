@@ -80,14 +80,14 @@ probe.run("case_run", function(p)
   local settingsPath = ctx.folders.data .. "settings.json"
   if p.args.freshSettings then os.remove(settingsPath) end
   local project = cases.runFolder() .. "scratch.dorico"
-  local savedBefore = files.modified(project)
+  local savedBefore = files.stamp(project)
   local summaryBefore = cases.summary(ctx.app.currentScore)
 
   local out = main.run(ctx)
   local text = (p.facts.shown[1] or {}).text or ""
   p:fact("outcome", out)
   p:fact("text", text)
-  local saved = files.modified(project) ~= savedBefore
+  local saved = files.stamp(project) ~= savedBefore
   local found = findchart.find(ctx.app, ctx.log, ctx.folders.temp)
   local function has(s) return text:find(s, 1, true) ~= nil end
 

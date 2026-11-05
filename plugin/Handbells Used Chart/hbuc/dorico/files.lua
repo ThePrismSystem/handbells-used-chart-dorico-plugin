@@ -52,10 +52,11 @@ function files.ensureDir(path)
   end
 end
 
--- nil without lfs: main then cannot tell a save that did nothing, and goes on.
-function files.modified(path)
+-- Something that changes each time the file is saved, so main can tell a save that did nothing: its modification
+-- time, or without lfs its bytes, since each save stamps its time into the zip's entries. nil when it can't be read.
+function files.stamp(path)
   local lfs = lfsOrNil()
-  if not lfs then return nil end
+  if not lfs then return files.read(path) end
   return lfs.attributes(path, "modification")
 end
 

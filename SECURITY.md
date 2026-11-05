@@ -105,12 +105,13 @@ Two more commands can run on a Mac:
   - `osascript.log` on a Mac;
   - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
     set (on a Mac with none of them set, `/tmp/hbuc/`).
-- The open project, which it saves before it changes anything.
+- The open project, which it saves before it changes anything. Where Dorico's Lua has no LuaFileSystem library, the
+  plug-in reads the project's file before and after the save to check that the save happened.
 
 [`hbuc/guards.lua`](plugin/Handbells%20Used%20Chart/hbuc/guards.lua) decides where the folders are. The plug-in
-writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`, and reads and deletes the copy of the
-project through `files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text,
-saves the project when `hbuc/main.lua` runs File > Save, and saves the copy in the temp folder when
+writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`. It reads the project's file, and reads and
+deletes the copy, through `files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export >
+Text, saves the project when `hbuc/main.lua` runs File > Save, and saves the copy in the temp folder when
 `hbuc/dorico/savedcopy.lua` calls `app:save`. The call test pins each of these calls.
 
 ## No network

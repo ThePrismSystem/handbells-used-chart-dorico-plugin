@@ -121,14 +121,15 @@ function main.chart(ctx)
 
   -- 6. remember the choices, and save: File > Revert then takes the whole run back
   files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp)))
-  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read cannot be checked and
-  -- is trusted: on Windows, one with any character outside ASCII, since the text export gives it in UTF-8 and lfs
-  -- takes the code page.)
-  local savedBefore = files.modified(projectPath)
+  -- File > Revert is the run's undo, so the save must have happened. Dorico refuses it in a folder the user can't
+  -- write to, such as its example projects on a Mac, and only shows its own message. (A path that can't be read
+  -- can't be checked and is trusted: on Windows, one with any character outside ASCII, since the text export gives
+  -- it in UTF-8 and Lua takes the code page.)
+  local savedBefore = files.stamp(projectPath)
   doc.command(app, log, "File.Save")
   -- From here on a failure is told to use File > Revert (main.run).
   ctx.saved = true
-  if savedBefore and files.modified(projectPath) == savedBefore then return result(false, "error", M.saveFailed) end
+  if savedBefore and files.stamp(projectPath) == savedBefore then return result(false, "error", M.saveFailed) end
 
   -- 7. remove
   if resp.remove then

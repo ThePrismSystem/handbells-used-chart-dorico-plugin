@@ -515,7 +515,9 @@ Saving:
 - `File.Save` on a saved project is silent and immediate. On a never-saved one it opens Save As, so check the text
   export's `Path` first and ask the user to save.
 - To confirm a save happened, compare the file's modification time before and after (`lfs.attributes(path,
-  "modification")`).
+  "modification")`). Without lfs, compare the file's bytes: each save writes its time into the zip's entries.
+- A save Dorico refuses, such as one into a folder the user can't write to, shows Dorico's own error. Then
+  `File.Save` returns and the script carries on.
 
 ## 8. A dialog from Lua
 
