@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "schedule": ["before 9am on monday"],
+  "minimumReleaseAge": "7 days",
+  "prConcurrentLimit": 10,
+  "platformCommit": "enabled",
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null
+  },
+  "packageRules": [
+    {
+      "description": "Actions run with the workflow's token, so every update is read by a person before it merges.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "automerge": false
+    },
+    {
+      "description": "Python and Node versions in the setup actions change what CI tests on, so they are proposed and merged by hand.",
+      "matchDepTypes": ["uses-with"],
+      "groupName": "CI runtimes",
+      "automerge": false
+    },
+    {
+      "description": "Non-major updates to the development tools come as one PR a week, and GitHub merges it once every required check passes.",
+      "matchManagers": ["npm", "pip_requirements", "custom.regex"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "development tools (non-major)",
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Tools the workflows install by command line. The comment on the line before says where the version comes from.",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: registryUrl=(?<registryUrl>\\S+))?\\n[^\\n]*?(?:luarocks install \\S+|Install-Module \\S+ -RequiredVersion) (?<currentValue>[^\\s\"']+)"
+      ],
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "gitleaks is downloaded by its release tag and checked against its SHA-256. Renovate reads the new hash from the release's checksums file, so the two always change together.",
+      "managerFilePatterns": ["/^\\.github/workflows/lint\\.yml$/"],
+      "matchStrings": ["VERSION: (?<currentValue>v\\S+)\\s+SHA256: (?<currentDigest>[0-9a-f]{64})"],
+      "depNameTemplate": "gitleaks/gitleaks",
+      "datasourceTemplate": "github-release-attachments"
+    }
+  ]
+}

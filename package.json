@@ -1,9 +1,16 @@
 {
   "private": true,
-  "description": "Development tools only: ESLint for the Mac dialog script and its test harness.",
+  "description": "Development tools only: ESLint for the Mac dialog script and its test harness, and istanbul to count what the script's tests run, under Node and under osascript.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.13.0",
-    "globals": "^17.13.0"
+    "globals": "^17.13.0",
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-instrument": "^6.0.3",
+    "istanbul-lib-report": "^3.0.1",
+    "istanbul-reports": "^3.2.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
   }
 }

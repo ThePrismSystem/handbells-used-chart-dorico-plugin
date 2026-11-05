@@ -14,10 +14,20 @@ export default [
   },
   {
     files: ["tests/**/*.js"],
+    ignores: ["tests/dialog/mac_drive.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
       globals: globals.node,
+    },
+  },
+  {
+    // The Mac dialog tests' driver, which osascript runs too, with System Events.
+    files: ["tests/dialog/mac_drive.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: { ObjC: "readonly", $: "readonly", Application: "readonly", delay: "readonly" },
     },
   },
 ];

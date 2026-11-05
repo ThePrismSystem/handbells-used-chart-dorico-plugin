@@ -3,6 +3,7 @@
     python tests/dialog/test_windows_dialog.py
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,9 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(HERE))
+import launch  # noqa: E402
 import run_tests  # noqa: E402
 
-PS1 = ROOT / "plugin" / "Handbells Used Chart" / "dialog" / "windows.ps1"
 CLICK = ROOT / "tools" / "dorico" / "click.ps1"
 GRID_CLICK = ROOT / "tools" / "dorico" / "gridclick.ps1"
 PRESS_KEY = ROOT / "tools" / "dorico" / "presskey.ps1"
@@ -25,6 +27,11 @@ FITS = HERE / "fits.ps1"
 TITLE = "Create a Handbells/Handchimes/SMBs Used Chart"
 RESULTS = "Handbells Used Chart"
 LUA = run_tests.find_lua()
+
+
+def start(*args):
+    """windows.ps1 with these arguments, measured when HBUC_PS_COVERAGE is set (launch.py)."""
+    return subprocess.Popen(launch.command([str(a) for a in args], os.environ))
 
 
 def powershell(*args, **kw):
@@ -80,8 +87,7 @@ class DialogTests(unittest.TestCase):
         subprocess.run([LUA, str(HERE / "make_request.lua"), "request", kind, str(self.request), settings], check=True)
 
     def open_dialog(self):
-        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                 "-File", str(PS1), "-Request", str(self.request), "-Response", str(self.response)])
+        proc = start("-Request", self.request, "-Response", self.response)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         self.assertTrue(wait_window(TITLE), "the dialog did not open")
         return proc
@@ -198,8 +204,7 @@ class DialogTests(unittest.TestCase):
         message = self.tmp / "message.json"
         message.write_text(json.dumps({"title": RESULTS, "kind": "info", "text": "Done", "ok": "Close"}),
                            encoding="utf-8")
-        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                 "-File", str(PS1), "-Message", str(message)])
+        proc = start("-Message", message)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         self.assertTrue(wait_window(RESULTS))
         pressed = click(RESULTS, "Close")
@@ -220,8 +225,7 @@ class DialogTests(unittest.TestCase):
     def show_message(self, text):
         message = self.tmp / "message.json"
         message.write_text(json.dumps({"title": RESULTS, "kind": "warning", "text": text}), encoding="utf-8")
-        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                 "-File", str(PS1), "-Message", str(message)])
+        proc = start("-Message", message)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         self.assertTrue(wait_window(RESULTS))
         return proc
@@ -237,8 +241,7 @@ class DialogTests(unittest.TestCase):
     def open_mode(self, flag, payload, title):
         path = self.tmp / f"{flag.lower()}.json"
         path.write_text(json.dumps(payload), encoding="utf-8")
-        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                 "-File", str(PS1), f"-{flag}", str(path), "-Response", str(self.response)])
+        proc = start(f"-{flag}", path, "-Response", self.response)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         self.assertTrue(wait_window(title), f"{title} did not open")
         time.sleep(1)
@@ -268,8 +271,7 @@ class DialogTests(unittest.TestCase):
             spec = self.tmp / f"{flag.lower()}.json"
             spec.write_text("not json", encoding="utf-8")
             self.response.unlink(missing_ok=True)
-            proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                     "-File", str(PS1), f"-{flag}", str(spec), "-Response", str(self.response)])
+            proc = start(f"-{flag}", spec, "-Response", self.response)
             got = self.response_json(proc)
             self.assertTrue(got.pop("error", ""), flag)
             self.assertEqual(got, answer, flag)
@@ -278,8 +280,7 @@ class DialogTests(unittest.TestCase):
         message = self.tmp / "message.json"
         message.write_text(json.dumps({"title": RESULTS, "kind": "info", "text": "Handbells Used: 2\nSMBs Used: 1"}),
                            encoding="utf-8")
-        proc = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                                 "-File", str(PS1), "-Message", str(message)])
+        proc = start("-Message", message)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         self.assertTrue(wait_window(RESULTS))
         self.assertTrue(click(RESULTS, "OK"))

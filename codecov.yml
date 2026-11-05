@@ -1,0 +1,42 @@
+# Codecov holds the lines a pull request changes to 90%. Its per-language checks need its Pro plan, so each CI job
+# holds the languages it measures to 80% of their lines instead (tools/coverage_gate.py).
+coverage:
+  status:
+    project: off
+    patch:
+      default:
+        target: 90%
+
+# Each upload says where it came from. One that doesn't arrive (a runner GitHub couldn't supply, say) keeps the last
+# commit's numbers instead of counting as no coverage.
+flag_management:
+  default_rules:
+    carryforward: true
+
+# Codecov's pages show each language's coverage apart.
+component_management:
+  individual_components:
+    - component_id: lua
+      name: Lua
+      paths:
+        - "plugin/**/*.lua"
+    - component_id: python
+      name: Python
+      paths:
+        - "tools/**"
+        - "fixtures/**"
+    - component_id: javascript
+      name: JavaScript
+      paths:
+        - "plugin/**/*.js"
+    - component_id: powershell
+      name: PowerShell
+      paths:
+        - "plugin/**/*.ps1"
+
+# Only Dorico runs these: layer 2 of the plug-in and the script that builds the fixture.
+ignore:
+  - "plugin/Handbells Used Chart/hbuc/dorico/**"
+  - "fixtures/build_fixture.py"
+  - "tests/**"
+  - "spike/**"
