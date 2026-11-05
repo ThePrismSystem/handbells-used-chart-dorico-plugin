@@ -4,9 +4,10 @@ A field guide to the parts of Dorico 6's Lua scripting that Steinberg doesn't do
 Handbells Used Chart plug-in. It covers how the plug-in reads the music, draws into the score, shows a dialog, and is
 tested from outside Dorico, and the workarounds and gotchas found along the way.
 
-It is based on Dorico 6.2.30 on Windows 11, probed script by script, and the probes are in `spike/`. The Mac parts
-(section 8) are written but haven't run on a Mac yet. None of this is a published API: Steinberg can change any of
-it in any update, so check each call on the version you target.
+It is based on Dorico 6.2.30 on Windows 11, probed script by script, and the probes are in `spike/`. The plug-in
+also runs on a Mac with Dorico 6, where it draws the same charts as on Windows and the dialog in section 8 works.
+None of this is a published API: Steinberg can change any of it in any update, so check each call on the version you
+target.
 
 ## Contents
 
@@ -30,7 +31,7 @@ Dorico lists every `.lua` file at the top level of its Script Plug-ins folder in
 name:
 
 - Windows: `%APPDATA%\Steinberg\Dorico 6\Script Plug-ins\`
-- Mac: `~/Library/Application Support/Steinberg/Dorico 6/Script Plug-ins/` (not yet confirmed on a Mac)
+- Mac: `~/Library/Application Support/Steinberg/Dorico 6/Script Plug-ins/`
 
 It doesn't look in subfolders, so a plug-in made of several modules puts one entry file at the top level and its
 modules in a folder beside it. The entry file finds that folder from its own path:
@@ -73,8 +74,8 @@ it. Clear what you set.
 ### What Lua has
 
 - Lua 5.2, with the standard `io`, `os`, `string`, `table`, `math` and `debug` libraries.
-- On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. Whether a Mac has it is unconfirmed,
-  so the plug-in works without it there.
+- On Windows, `require("lfs")` (LuaFileSystem) works: Dorico ships `lfs.dll`. A Mac may not have it, so the plug-in
+  works without it there.
 - On Windows, `io.open` and `lfs` take paths in the system's code page, not UTF-8. `lfs.dir` listed a folder named
   "Noël" with byte 235 (Windows-1252), and `io.open` opened the file by that name but not by its UTF-8 bytes. So a path
   that came in as UTF-8 (from JSON, say) has to be converted before Lua can open it, and a file whose name has
@@ -128,14 +129,15 @@ Things Lua can't read at all, and what the plug-in does instead:
 
 | Missing | Workaround |
 | ------- | ---------- |
-| A player's id (commands need it) | Rename each candidate id to a unique token and see which player takes it (section 5) |
+| A player's id (commands need it) | A saved copy (section 5) |
 | Layout options | Set them by command. To learn a value, compare text exports taken under each candidate (section 4) |
 | The project's file path | The text export's `Path` column |
 | A flow's name | The text export's `FlowName` column, or the Remote API's `getflows` |
 | An instrument's name | The text export's `Instrument` column |
 | Which instrument a voice stream belongs to | `flow.instruments[i]` owns `flow.voiceStreams[i]` |
 | The selection, or an event looked up by id | Keep the ids you need from `dump()` and select them by command |
-| An instrument's type or transposition | Ask the user |
+| An instrument's type or transposition | A saved copy (section 3) |
+| Where Dorico broke the systems | Nothing reports it. Work out the width beforehand (section 5) |
 
 ### Ids and identity
 
@@ -198,8 +200,8 @@ kNoteEvent (id:981) at 13/2 (6.5), duration 1/2 (0.5)  Bb4 (ends 7)
 - A grace note is its own event kind, at the position of the note it leads into.
 - `propertyTable:get("kNotePitch", ctx)` is the sounding MIDI pitch.
 - **Every pitch you can read is sounding.** A written C4 on Dorico's Handbells instrument reads as C5 (pitch 72).
-  Nothing in Lua says how an instrument transposes, so a plug-in that needs written pitch has to know the
-  instrument's transposition some other way. This one asks the user, per instrument.
+  Nothing in Lua says how an instrument transposes, so a plug-in that needs written pitch has to learn the
+  instrument's transposition some other way. This one reads it from a saved copy (section 3).
 
 ### `stream.events` fails on real music
 
@@ -267,6 +269,11 @@ music anyway. A saved project holds every note's values, so the plug-in saves a 
 
 Then match the dumps' notes to the copy by event id. On two real arrangements and Steinberg's Liszt and Smith
 examples, every dumped note had one, at the same position and pitch.
+
+The same copy says how each instrument transposes. Under `scorePlayers/array/scorePlayer/instruments/instrument`,
+Dorico's Handbells has `transposition/fixedOctaveTransposition = -1`, since it's written an octave below its sound,
+and a Piano or Organ has an empty `transposition`. The plug-in ticks "At pitch" in its dialog for each player whose
+instruments have no octave transposition (`hbuc/transpose.lua`).
 
 Three catches:
 
@@ -391,9 +398,11 @@ reports no error, so the commands after it act on nothing too. `hbuc/dorico/doc.
 
 - `score:addPlayer("instrument.pitchedpercussion.handbells", false, 1)` adds a player and returns it. It joins every
   flow, so remove it from the ones it shouldn't be in. Dorico also makes a part layout for it.
-- **Finding a player's id.** Rename each candidate id in turn to a unique token with
-  `Project.Player.Rename?PlayerID=<id>&Name=<token>`, see which player's `tostring` becomes the token, then give it its
-  name back. Pass `Name` alone so the short name isn't touched.
+- **Finding a player's id.** Read it from a saved copy (section 3). Each `scorePlayer` under `scorePlayers/array`
+  has a `playerID`, and an `instrumentID` for each of its instruments, the same id Lua gives
+  `player.instruments[i].id`. Don't look for ids by renaming each candidate in turn with `Project.Player.Rename`.
+  Given the id of a deleted player, that command crashed Dorico 6.2.30, and every project that has lost a player has
+  such an id.
 - **Staff labels show instrument names,** so renaming a player doesn't change them, and instrument names can only be
   set through Dorico's Edit Instrument Names dialog. To hide a player's labels, list its id in the layout option
   `staffLabelLayoutOptions.playersToShowPlayerName` and name the player with a single space.
@@ -432,6 +441,22 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
   rest survived the sweep. Selecting the rest itself and running `Edit.RemoveRests` again removed it.
 - To show only some staves on a system, set `hideEmptyStavesPolicy = kAllSystems` with every player who must always
   show in `alwaysVisiblePlayers`.
+- To scale one player's staves in one flow, select one of its notes and run
+  `Edit.ScalePlayer?ScalePlayerPercent=<percent>`, which is Dorico's custom staff size. It applies in the current
+  layout only, and the player's text in that flow scales with it. A saved copy holds it under
+  `flowPlayers/array/flowPlayer/staveSizeOverrides`, by `layoutID`, with nothing for a player never scaled.
+- The text export is the same at any staff size, so a script can't see how many systems a flow took. To keep notes on
+  one system, work out their width from the options a saved copy holds under `layouts/array/layout/layoutOptions`
+  (`chartlayout.pages`). In staff spaces, at full size:
+  - The frame is `(pageWidth - outer - inner) / defaultSpaceSize`, all in points, from `pageSizeAndMarginOptions` and
+    its `margins/margins`. Everything below scales with the staff and the frame doesn't, so a staff at 50% has twice
+    the room.
+  - A crotchet takes `noteSpacingOptions/crotchetSize`, which can be a fraction (`27/8`), however far apart the notes
+    are, as long as no rests fill the gaps. With an accidental showing it takes at least 3.25.
+  - The flow's first system also loses `flowFirstSystemIndent`.
+  - The brace, the clef and the end of the bar take about 10.5.
+
+  `spike/56_chart_width.py` draws charts to check these measurements against.
 
 ### Exporting MusicXML
 
@@ -513,7 +538,9 @@ Saving:
 - `File.Save` on a saved project is silent and immediate. On a never-saved one it opens Save As, so check the text
   export's `Path` first and ask the user to save.
 - To confirm a save happened, compare the file's modification time before and after (`lfs.attributes(path,
-  "modification")`).
+  "modification")`). Without lfs, compare the file's bytes: each save writes its time into the zip's entries.
+- A save Dorico refuses, such as one into a folder the user can't write to, shows Dorico's own error. Then
+  `File.Save` returns and the script carries on.
 
 ## 8. A dialog from Lua
 
@@ -560,7 +587,7 @@ PowerShell traps we fell into:
   also keeps Enter for itself, so give OK the first focus if Enter should press it.
 - Cap the results window's height and let long text scroll, or a long report pushes OK off the screen.
 
-### Mac: JavaScript for Automation (written, not yet run on a Mac)
+### Mac: JavaScript for Automation
 
 ```
 /usr/bin/osascript -l JavaScript '<dialog.js>' '<req.json>' '<resp.json>' 2>'<error log>'
@@ -582,7 +609,7 @@ escaping any `'` inside as `'\''`. Points that matter in JXA:
 - Text fields take Cmd-C, Cmd-V and Cmd-A through the main menu, and a script has none: give it an Edit menu.
 - Read and write files through `NSString` with UTF-8.
 - If `os.execute` returns before the user could have answered, the plug-in polls for the response file instead of
-  taking the missing file as a cancel. We don't yet know whether Dorico waits for `osascript` on a Mac.
+  taking the missing file as a cancel.
 - Keep the non-AppKit parts (reading the request, building the response) in plain functions, and test them under
   Node.
 
@@ -647,6 +674,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 - `stream.events` throws on most real music. `stream:dump()` always works but has no properties.
 - Every pitch is sounding, and nothing says how an instrument transposes.
 - Players have no id and no `==`. Player ids aren't instrument ids.
+- `Project.Player.Rename` with the id of a deleted player crashes Dorico.
 - `flow.instruments[i].streams` is broken. `flow.instruments[i].id` owns `flow.voiceStreams[i]`.
 - A colour set in the Properties panel, or by any command, reads as `""`. `getPropertyNames()` still lists it.
 - So does a notehead set chosen in Dorico, and every such Variant equals every other. A saved copy has them
@@ -681,7 +709,9 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | Noteheads and colours, from a saved copy | `hbuc/dorico/savedcopy.lua`, `hbuc/zip.lua`, `hbuc/inflate.lua`, `hbuc/dtn.lua`, `hbuc/noteprops.lua` |
 | Combining a rare notehead set with a common one | `hbuc/combine.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
-| Player ids | `hbuc/dorico/doc.lua` (`playerIds`) |
+| A chart's staff size | `hbuc/chartlayout.lua` (`pages`, `staffPercent`) |
+| Player ids, from a saved copy | `hbuc/dorico/doc.lua` (`playerIds`), `hbuc/playerids.lua` |
+| Instruments written at pitch, from a saved copy | `hbuc/dorico/readscore.lua`, `hbuc/transpose.lua` |
 | Command strings | `hbuc/commands.lua` |
 | The dialogs | `hbuc/dorico/dialog.lua`, `dialog/windows.ps1`, `dialog/mac.js` |
 | Probes | `spike/*.lua` |

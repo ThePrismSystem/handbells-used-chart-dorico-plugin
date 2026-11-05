@@ -38,10 +38,10 @@ ALLOWED = {
         "command File.Export.Text": 1,  # Dorico writes the project's text export into the temp folder
     },
     "Handbells Used Chart/hbuc/dorico/savedcopy.lua": {
-        "DoApp:save": 1,  # a copy of the open project into the temp folder, to read noteheads and colours from
+        "DoApp:save": 1,  # a copy of the open project into the temp folder, to read noteheads, colours and player ids
     },
     "Handbells Used Chart/hbuc/dorico/files.lua": {
-        "io.open": 2,  # reads and writes the plug-in's own files, and reads the copy savedcopy.lua has Dorico save
+        "io.open": 2,  # the plug-in's own files, the copy savedcopy.lua has Dorico save, and the project without lfs
         "os.remove": 1,  # the copy savedcopy.lua reads, before Dorico saves it and once it has been read
         "os.execute": 1,  # /bin/mkdir -p for the plug-in's folders on a Mac
         "require lfs": 1,  # LuaFileSystem, which ships with Dorico on Windows

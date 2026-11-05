@@ -13,7 +13,8 @@ local savedcopy = require("hbuc.dorico.savedcopy")
 
 local readscore = {}
 
--- Players in score order, named as the dialog lists them (repeats told apart), and the name of each instrument.
+-- Players in score order, named as the dialog lists them (repeats told apart), the name of each instrument, and
+-- each player's instrument ids.
 local function namePlayers(score, skipKeys)
   local kept, names = {}, {}
   for _, pl in ipairs(score.players) do
@@ -24,19 +25,32 @@ local function namePlayers(score, skipKeys)
     end
   end
   local unique = instruments.unique(names)
-  local players, nameOf = {}, {}
+  local players, nameOf, idsOf = {}, {}, {}
   for i, e in ipairs(kept) do
     players[i] = { key = e.key, name = unique[i] }
-    for _, ins in ipairs(e.player.instruments) do nameOf[ins.id] = unique[i] end
+    idsOf[i] = {}
+    for _, ins in ipairs(e.player.instruments) do
+      nameOf[ins.id] = unique[i]
+      idsOf[i][#idsOf[i] + 1] = ins.id
+    end
   end
-  return players, nameOf
+  return players, nameOf, idsOf
+end
+
+-- A player holding Dorico's Handbells as well as an instrument written at pitch keeps the Handbells convention.
+local function allAtPitch(ids, writtenAtPitch)
+  for _, id in ipairs(ids) do
+    if not writtenAtPitch[id] then return false end
+  end
+  return #ids > 0
 end
 
 -- opts: {log, skipFlowId, skipKeys = {[key] = true}, layoutId (the full score's), tempDir}. Returns
--- {players = {{key, name}}, records}.
+-- {players = {{key, name, atPitch}}, records}. atPitch is true for a player whose instruments are all written at
+-- pitch.
 function readscore.scan(app, opts)
   local log = opts.log
-  local players, nameOf = namePlayers(app.currentScore, opts.skipKeys or {})
+  local players, nameOf, idsOf = namePlayers(app.currentScore, opts.skipKeys or {})
   local notes = {}
   for _, flow in ipairs(app.currentScore.flows) do
     if flow.id ~= opts.skipFlowId then
@@ -53,13 +67,15 @@ function readscore.scan(app, opts)
       log:line("flow", flow.id, #notes - before, "notes")
     end
   end
-  local saved = #notes > 0 and savedcopy.read(app, log, opts.tempDir) or {}
-  local records, elsewhere = reading.records(notes, saved, opts.layoutId)
+  local saved = #notes > 0 and savedcopy.read(app, log, opts.tempDir)
+    or { notes = {}, writtenAtPitch = {}, pages = {} }
+  local records, elsewhere = reading.records(notes, saved.notes, opts.layoutId)
   if elsewhere > 0 then
     log:line(elsewhere .. " note(s) have a notehead or colour set only for another block instance, so they read"
       .. " without it")
   end
-  return { players = players, records = records }
+  for i, pl in ipairs(players) do pl.atPitch = allAtPitch(idsOf[i], saved.writtenAtPitch) end
+  return { players = players, records = records, page = saved.pages[opts.layoutId] }
 end
 
 return readscore

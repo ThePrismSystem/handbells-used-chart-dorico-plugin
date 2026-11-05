@@ -22,9 +22,9 @@ local function entry(property, value, layout, instance)
 end
 
 -- Players 1 ("Handbells") and 2 ("Chart"), flow 0 with Handbells' C5 (101) and D5 (102), and flow 9 (a chart) with
--- Chart's E5 (900). saved: the stub's answer. Returns scan's result (or error), the stub's calls and the commands
--- sent.
-local function scan(saved, opts)
+-- Chart's E5 (900). saved: the notes in the stub's answer; atPitch and pages: its writtenAtPitch and pages. Returns
+-- scan's result (or error), the stub's calls and the commands sent.
+local function scan(saved, opts, atPitch, pages)
   local bells, chart = player(1, "Handbells"), player(2, "Chart")
   local music = { id = 0, players = { bells }, voiceStreams = { voice({ { 101, "C5" }, { 102, "D5" } }) },
     instruments = { { id = 1 } } }
@@ -36,7 +36,7 @@ local function scan(saved, opts)
   local savedStub = package.loaded["hbuc.dorico.savedcopy"]
   package.loaded["hbuc.dorico.savedcopy"] = { read = function(a, _, tempDir)
     calls[#calls + 1] = { app = a, tempDir = tempDir }
-    return saved
+    return { notes = saved, writtenAtPitch = atPitch or {}, pages = pages or {} }
   end }
   package.loaded["hbuc.dorico.readscore"] = nil
   local args = { log = { line = function() end }, skipFlowId = 9, skipKeys = { [2] = true }, layoutId = 0,
@@ -68,6 +68,24 @@ return {
     t:eq(#result.players, 1)
     t:eq(result.players[1].name, "Handbells")
     t:eq(#result.records, 2, "the chart player's note is not read")
+  end,
+  -- The dialog starts with these ticked: a player is written at pitch when every instrument it holds is.
+  players_written_at_pitch_are_marked = function(t)
+    local notes = { [101] = {}, [102] = {}, [900] = {} }
+    local _, result = scan(notes, nil, { [1] = true })
+    t:eq(result.players[1].atPitch, true)
+    _, result = scan(notes, nil, { [2] = true })
+    t:eq(result.players[1].atPitch, false, "only the chart's instrument is")
+  end,
+  the_full_score_s_page_is_returned = function(t)
+    local notes = { [101] = {}, [102] = {}, [900] = {} }
+    local pages = { [0] = { crotchet = 4 }, [1] = { crotchet = 9 } }
+    local _, result = scan(notes, nil, nil, pages)
+    t:eq(result.page.crotchet, 4, "layout 0")
+    _, result = scan(notes, { layoutId = 1 }, nil, pages)
+    t:eq(result.page.crotchet, 9, "layout 1")
+    _, result = scan(notes, { layoutId = 2 }, nil, pages)
+    t:eq(result.page, nil, "a layout with no page")
   end,
   the_full_score_and_the_notes_instance_decide = function(t)
     local _, result = scan({

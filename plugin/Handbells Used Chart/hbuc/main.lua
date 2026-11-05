@@ -95,12 +95,15 @@ function main.chart(ctx)
   -- 4. the dialog
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
-  local names = {}
-  for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
+  local names, atPitch = {}, {}
+  for _, pl in ipairs(scan.players) do
+    names[#names + 1] = pl.name
+    if pl.atPitch then atPitch[#atPitch + 1] = pl.name end
+  end
   -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
   local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
-  local req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
-    runId = runId })
+  local req = request.build({ players = names, atPitch = atPitch, records = scan.records, settings = settings,
+    chartExists = chart ~= nil, runId = runId })
   local okAsk, raw = pcall(ctx.dialog, req)
   if not okAsk then log:line("the dialog failed:", raw) end
   local resp = okAsk and request.parse(raw, req) or nil
@@ -121,19 +124,21 @@ function main.chart(ctx)
 
   -- 6. remember the choices, and save: File > Revert then takes the whole run back
   files.write(settingsPath, options.encodeSettings(request.settingsAfter(settings, req, resp)))
-  -- File > Revert is the run's undo, so the save must have happened. (A path lfs cannot read cannot be checked and
-  -- is trusted: on Windows, one with any character outside ASCII, since the text export gives it in UTF-8 and lfs
-  -- takes the code page.)
-  local savedBefore = files.modified(projectPath)
+  -- File > Revert is the run's undo, so the save must have happened. Dorico refuses it in a folder the user can't
+  -- write to, such as its example projects on a Mac, and only shows its own message. (A path that can't be read
+  -- can't be checked and is trusted: on Windows, one with any character outside ASCII, since the text export gives
+  -- it in UTF-8 and Lua takes the code page.)
+  local savedBefore = files.stamp(projectPath)
   doc.command(app, log, "File.Save")
   -- From here on a failure is told to use File > Revert (main.run).
   ctx.saved = true
-  if savedBefore and files.modified(projectPath) == savedBefore then return result(false, "error", M.saveFailed) end
+  if savedBefore and files.stamp(projectPath) == savedBefore then return result(false, "error", M.saveFailed) end
 
   -- 7. remove
   if resp.remove then
     if not chart then return result(false, "warning", M.noChartToRemove) end
-    local okRemove, removed = safe.call(log, "remove", removechart.remove, app, chart, { log = log, fullId = fullId })
+    local okRemove, removed = safe.call(log, "remove", removechart.remove, app, chart,
+      { log = log, fullId = fullId, tempDir = temp })
     if not okRemove then return result(false, "error", string.format(M.writeFailed, failure(removed), log.path)) end
     if removed.removed and removed.restored == false then return result(true, "warning", M.chartRemovedOptionsLeft) end
     if removed.removed then return result(true, "info", M.chartWasRemoved) end
@@ -159,7 +164,8 @@ function main.chart(ctx)
   local musicKeys = {}
   for _, pl in ipairs(scan.players) do musicKeys[#musicKeys + 1] = pl.key end
   local okWrite, wrote = safe.call(log, "write", writechart.write, app, built,
-    { log = log, tempDir = temp, slots = slots, musicKeys = musicKeys, existing = chart, newPage = resp.newPage })
+    { log = log, tempDir = temp, slots = slots, musicKeys = musicKeys, existing = chart, newPage = resp.newPage,
+      staffPercent = chartlayout.staffPercent(built, scan.page) })
   if not okWrite then return result(false, "error", string.format(M.writeFailed, failure(wrote), log.path)) end
 
   -- 9. report

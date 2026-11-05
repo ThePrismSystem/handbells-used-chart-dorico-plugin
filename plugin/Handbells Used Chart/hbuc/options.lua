@@ -145,19 +145,6 @@ function options.excludedAfterRun(remembered, offered, selected)
   return excluded
 end
 
--- The instruments to remember as written at pitch: names this score does not offer keep what was remembered;
--- names it offers are remembered exactly as they were set this time.
-function options.atPitchAfterRun(remembered, offered, chosen)
-  local out = {}
-  for _, name in ipairs(remembered) do
-    if not listed(offered, name) then out[#out + 1] = name end
-  end
-  for _, name in ipairs(offered) do
-    if listed(chosen, name) then out[#out + 1] = name end
-  end
-  return out
-end
-
 -- The notehead two instruments share, or "" when they share none. The no-notehead entry may repeat. With two
 -- clashing pairs it names the same one the Sibelius plugin's DuplicateHead does: the earliest instrument a later
 -- one repeats.
@@ -190,12 +177,11 @@ local function kindTable(t)
   return out
 end
 
--- Remembered settings: {excluded and atPitch = pipe strings, mode, newPage, heads/shapes/colours keyed by kind}.
+-- Remembered settings: {excluded = a pipe string, mode, newPage, heads/shapes/colours keyed by kind}.
 -- newPage is true unless it was turned off.
 function options.encodeSettings(s)
   return json.encode({
     excluded = stringField(s, "excluded"),
-    atPitch = stringField(s, "atPitch"),
     mode = stringField(s, "mode"),
     newPage = s.newPage ~= false,
     heads = kindTable(s.heads),
@@ -211,7 +197,6 @@ function options.decodeSettings(text)
   local mode = stringField(raw, "mode")
   return {
     excluded = stringField(raw, "excluded"),
-    atPitch = stringField(raw, "atPitch"),
     mode = (mode == "separate") and "separate" or "combined",
     newPage = raw.newPage ~= false,
     heads = kindTable(raw.heads),

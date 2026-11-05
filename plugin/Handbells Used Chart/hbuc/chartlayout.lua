@@ -2,6 +2,7 @@
 -- what each section writes, at which positions and with which spellings, notehead set and colour.
 local bellname = require("hbuc.bellname")
 local constants = require("hbuc.constants")
+local dtn = require("hbuc.dtn")
 local options = require("hbuc.options")
 local shapes = require("hbuc.shapes")
 
@@ -47,6 +48,80 @@ function chartlayout.assign(slots, existing)
     if not used[j] then surplus[#surplus + 1] = e.key end
   end
   return { keys = keys, surplus = surplus }
+end
+
+-- The smallest staff size a chart is drawn at, in percent. A chart still too wide there spills onto another system.
+chartlayout.MIN_PERCENT = 55
+local PERCENT_STEP = 5
+-- Staff spaces a system takes besides its columns: the brace and clef before them and the gap that ends a section
+-- after them. Measured at 9.1 to 10.45 on the fixture and Steinberg's Liszt example, and rounded up, since a chart a
+-- little small is better than one that spills.
+local SYSTEM_EDGES = 10.5
+-- The least a column with an accidental takes, however tight the layout's note spacing. Measured at 3.15 to 3.25.
+local ACCIDENTAL_COLUMN = 3.25
+
+-- A number in a saved score, which writes some as fractions ("27/8").
+local function numberAt(tree, id, ...)
+  for _, name in ipairs({ ... }) do
+    id = id and dtn.child(tree, id, name)
+  end
+  local text = id and dtn.value(tree, id)
+  local over, under = tostring(text):match("^(%d+)/(%d+)$")
+  if over then return tonumber(over) / tonumber(under) end
+  return tonumber(text)
+end
+
+-- {[layout id] = {frame, crotchet, indent}} from a saved copy's score, in staff spaces: the width between the
+-- page's margins, the note spacing's space for a crotchet, and the flow's first-system indent. A layout missing a
+-- size has no entry.
+function chartlayout.pages(tree)
+  local out = {}
+  local layouts = dtn.child(tree, 0, "layouts")
+  local list = layouts and dtn.child(tree, layouts, "array")
+  for _, layout in ipairs(list and dtn.children(tree, list) or {}) do
+    local o = dtn.child(tree, layout, "layoutOptions")
+    local page = "pageSizeAndMarginOptions"
+    local width = numberAt(tree, o, page, "pageWidth")
+    local outer = numberAt(tree, o, page, "margins", "margins", "outer")
+    local inner = numberAt(tree, o, page, "margins", "margins", "inner")
+    local space = numberAt(tree, o, "defaultSpaceSize")
+    local crotchet = numberAt(tree, o, "noteSpacingOptions", "crotchetSize")
+    if width and outer and inner and space and crotchet then
+      out[numberAt(tree, layout, "layoutID")] = {
+        frame = (width - outer - inner) / space,
+        crotchet = crotchet,
+        indent = numberAt(tree, o, "flowFirstSystemIndent") or 0,
+      }
+    end
+  end
+  return out
+end
+
+-- Naturals are hidden, so only a sharp or flat widens a column.
+local function hasAccidental(spellings)
+  for _, spelling in ipairs(spellings or {}) do
+    if spelling:match("^[A-G][#bx]") then return true end
+  end
+  return false
+end
+
+-- The staff size, in percent, that keeps each section on one system. Dorico can't report the systems it made, so
+-- this is worked out from the page (chartlayout.pages; nil leaves the size alone). Every chart note is a crotchet,
+-- so a column takes the layout's space for one, and everything on a system scales with its staff. Only the flow's
+-- first system is indented, and the last section's hidden end note takes a column.
+function chartlayout.staffPercent(built, page)
+  if not page then return 100 end
+  local percent = 100
+  for i, s in ipairs(built.sections) do
+    local width = (i == 1 and page.indent or 0) + SYSTEM_EDGES
+    for c = 1, s.columns do
+      local shown = hasAccidental(s.treble[c]) or hasAccidental(s.bass[c])
+      width = width + (shown and math.max(page.crotchet, ACCIDENTAL_COLUMN) or page.crotchet)
+    end
+    if i == #built.sections then width = width + page.crotchet end
+    percent = math.min(percent, 100 * page.frame / width)
+  end
+  return math.max(math.floor(percent / PERCENT_STEP) * PERCENT_STEP, chartlayout.MIN_PERCENT)
 end
 
 -- A grand-staff chart player sounds an octave up, so the bell's own (sounding) spelling is written; the

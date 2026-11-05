@@ -19,7 +19,7 @@ probe.run("31_player_names", function(p)
     return table.concat(out, "; ")
   end
   p:fact("before", names())
-  local ids = doc.playerIds(app, log)
+  local ids = doc.playerIds(app, log, probe.runDir)
   local list = {}
   for k, id in pairs(ids) do list[#list + 1] = k .. "->" .. id end
   table.sort(list)

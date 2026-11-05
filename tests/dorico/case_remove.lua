@@ -21,7 +21,7 @@ probe.run("case_remove", function(p)
   local app = ctx.app
   local found = findchart.find(app, ctx.log, ctx.folders.temp)
   if not p:check("a chart to remove", found.status == "ok", found.status) then return end
-  local out = removechart.remove(app, found, { log = ctx.log })
+  local out = removechart.remove(app, found, { log = ctx.log, tempDir = ctx.folders.temp })
   p:fact("removed", out.removed)
   p:fact("flowCount", #app.currentScore.flows)
   local left = {}

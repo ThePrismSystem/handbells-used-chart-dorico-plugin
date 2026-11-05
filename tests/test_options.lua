@@ -155,20 +155,6 @@ return {
     end
     t:eq(options.decodeSettings(nil).mode, "combined")
   end,
-  at_pitch_after_run_keeps_names_not_offered = function(t)
-    local after = options.atPitchAfterRun({ "Old", "Organ" }, { "Organ", "A" }, { "A" })
-    t:eq(join(after), "Old, A", "Old is not offered and stays; Organ was offered and unset; A was set")
-    t:eq(#options.atPitchAfterRun({}, { "A" }, {}), 0)
-  end,
-  at_pitch_names_round_trip_awkward_characters = function(t)
-    local names = { 'P|F ~ "x"', "Organ" }
-    local text = options.encodeSettings({ atPitch = options.joinPipe(names) })
-    local back = options.pipeList(options.decodeSettings(text).atPitch)
-    t:eq(#back, 2)
-    t:eq(back[1], 'P|F ~ "x"')
-    t:eq(back[2], "Organ")
-    t:eq(options.decodeSettings("").atPitch, "", "nothing remembered")
-  end,
   duplicate_head_names_the_first_instrument_with_a_twin = function(t)
     -- As the Sibelius plugin's DuplicateHead: the earliest instrument that a later one repeats, not the first repeat.
     t:eq(options.duplicateHead(heads("Normal", "Diamond", "Diamond", "Normal", NONE)), "Normal")

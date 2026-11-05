@@ -20,7 +20,7 @@ probe.run("case_rename", function(p)
   local ctx = cases.context(p)
   local app = ctx.app
   local key = doc.playerKey(app.currentScore.players[1])
-  local ids = doc.playerIds(app, ctx.log)
+  local ids = doc.playerIds(app, ctx.log, ctx.folders.temp)
   doc.command(app, ctx.log, commands.renamePlayerName(ids[key], p.args.name))
   local name = tostring(doc.playerByKey(app.currentScore, key))
   p:fact("name", name)

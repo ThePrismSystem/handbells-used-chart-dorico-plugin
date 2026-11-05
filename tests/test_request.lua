@@ -15,9 +15,10 @@ local RECORDS = {
   rec(NORMAL), rec(DIAMOND, "#c80000"), rec(DIAMOND, "#c80000"), rec(DIAMOND), rec(SQUARE, "#008000", "B"),
 }
 
-local function build(settingsText, players)
+local function build(settingsText, players, atPitch)
   return request.build({
     players = players or { "A", "B", "Organ" },
+    atPitch = atPitch,
     records = RECORDS,
     settings = options.decodeSettings(settingsText),
     chartExists = false,
@@ -177,11 +178,12 @@ return {
     local round = options.decodeSettings(options.encodeSettings(after))
     t:eq(round.excluded, "Elsewhere|B|Organ", "survives the settings file")
   end,
-  build_offers_remembered_at_pitch_names = function(t)
-    local req = build('{"atPitch":"Organ|Gone"}')
+  -- The read says which players are written at pitch. A name remembered from another project no longer counts: a
+  -- "Piano 1" can be either.
+  build_offers_the_players_read_as_at_pitch = function(t)
+    local req = build('{"atPitch":"A"}', nil, { "Organ", "Gone" })
     t:eq(req.runId, "r1")
-    t:eq(#req.atPitch, 1, "a remembered name this score doesn't offer stays out")
-    t:eq(req.atPitch[1], "Organ")
+    t:eq(table.concat(req.atPitch, "|"), "Organ", "a name this score doesn't offer stays out, and A isn't read")
     t:eq(#build("").atPitch, 0)
     t:eq(constants.DIALOG.writtenHeader, "Written as")
     t:eq(constants.DIALOG.writtenHandbells, "Handbells instrument (sounds an octave higher)")
@@ -206,10 +208,12 @@ return {
       chartExists = false })
     t:eq(request.parse(answer({ runId = nil }), noId), nil, "a request without a run id accepts nothing")
   end,
-  settings_after_remember_at_pitch = function(t)
+  settings_after_leave_at_pitch_out = function(t)
     local settings = options.decodeSettings('{"atPitch":"Elsewhere|A"}')
     local req = build("")
     local resp = request.parse(answer({ atPitch = { "Organ" } }), req)
-    t:eq(request.settingsAfter(settings, req, resp).atPitch, "Elsewhere|Organ")
+    local after = request.settingsAfter(settings, req, resp)
+    t:eq(after.atPitch, nil)
+    t:eq(options.encodeSettings(after):find("atPitch", 1, true), nil, "nor in the settings file")
   end,
 }

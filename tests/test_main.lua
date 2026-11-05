@@ -5,9 +5,9 @@ local main = require("hbuc.main")
 -- o: {scan = readscore.scan's result, scanError = what it raises instead, chart = true when one is there (or the
 -- whole of findchart's answer), respond = the dialog's answer to the request, choose = the answer to a question (by
 -- default its cancel), version = Dorico's, players = the score's, projectPath = the text export's, layoutId = the
--- one on screen, modified = files.modified, removed = removechart's answer, removeError and writeError = what those
--- raise instead}. Returns main.chart's outcome, the files written, the commands run, the request the dialog got, the
--- questions asked, the options the read got and the options the write got.
+-- one on screen, stamp = files.stamp, removed = removechart's answer, removeError and writeError = what those raise
+-- instead}. Returns main.chart's outcome, the files written, the commands run, the request the dialog got, the
+-- questions asked, and the options the read, the write and the remove got.
 local function chartRun(o)
   local writes, commands, asked = {}, {}, { choices = {} }
   local chart = o.chart == true and { status = "ok", flowId = "9", marker = { chartPlayers = {} } } or o.chart
@@ -26,7 +26,7 @@ local function chartRun(o)
     ["hbuc.dorico.files"] = {
       read = function() return nil end,
       write = function(path, text) writes[path] = text end,
-      modified = o.modified or function() return nil end,
+      stamp = o.stamp or function() return nil end,
     },
     ["hbuc.dorico.findchart"] = { find = function() return chart or { status = "none" } end },
     ["hbuc.dorico.readscore"] = { scan = function(_, opts)
@@ -34,7 +34,8 @@ local function chartRun(o)
       if o.scanError then error(o.scanError, 0) end
       return o.scan
     end },
-    ["hbuc.dorico.removechart"] = { remove = function()
+    ["hbuc.dorico.removechart"] = { remove = function(_, _, opts)
+      asked.removeOpts = opts
       if o.removeError then error(o.removeError, 0) end
       return o.removed or { removed = true }
     end },
@@ -68,7 +69,7 @@ local function chartRun(o)
   local ok, out = pcall(function() return require("hbuc.main").chart(ctx) end)
   for name, m in pairs(saved) do package.loaded[name] = m end
   if not ok then error(out, 0) end
-  return out, writes, commands, asked.req, asked.choices, asked.scanOpts, asked.writeOpts
+  return out, writes, commands, asked.req, asked.choices, asked.scanOpts, asked.writeOpts, asked.removeOpts
 end
 
 -- A, with a C5 and a D5, and B with nothing.
@@ -227,6 +228,20 @@ return {
     t:ok(opts.skipKeys.c1 and opts.skipKeys.c2, "and its players")
     t:eq(req.chartExists, true, "the dialog is told there is one")
   end,
+  the_dialog_starts_with_the_players_read_as_at_pitch = function(t)
+    local s = scan()
+    s.players[2].atPitch = true
+    local _, _, _, req = chartRun({ scan = s })
+    t:eq(table.concat(req.atPitch, "|"), "B")
+  end,
+  the_chart_is_sized_for_the_full_score_s_page = function(t)
+    local s = scan()
+    s.page = { frame = 15, crotchet = 4, indent = 0 }
+    local _, _, _, _, _, _, wrote = chartRun({ scan = s, respond = chooseA })
+    t:eq(wrote.staffPercent, 80, "a column and the end note, on a very narrow page")
+    _, _, _, _, _, _, wrote = chartRun({ scan = scan(), respond = chooseA })
+    t:eq(wrote.staffPercent, 100, "no page read")
+  end,
   a_cancelled_dialog_says_nothing = function(t)
     local out, writes = chartRun({ scan = scan() })
     t:eq(out.ok, false)
@@ -254,11 +269,20 @@ return {
     t:eq(out.text, M.noInstrumentSelected)
   end,
   a_save_that_did_not_happen_stops_the_run = function(t)
-    local out, writes, commands = chartRun({ scan = scan(), respond = chooseA, modified = function() return 100 end })
+    local out, writes, commands = chartRun({ scan = scan(), respond = chooseA, stamp = function() return 100 end })
     t:eq(out.kind, "error")
     t:eq(out.text, M.saveFailed)
     t:ok(has(commands, "File.Save"), "it tried")
     t:ok(writes["d/settings.json"], "the choices are remembered first")
+  end,
+  a_save_that_changed_the_project_goes_on = function(t)
+    local stamps = 0
+    local out = chartRun({ scan = scan(), respond = chooseA, stamp = function()
+      stamps = stamps + 1
+      return stamps
+    end })
+    t:eq(out.ok, true)
+    t:eq(stamps, 2, "checked before and after")
   end,
   remove_without_a_chart_warns = function(t)
     local out = chartRun({ scan = scan(), respond = chooseRemove })
@@ -283,6 +307,10 @@ return {
     t:eq(out.ok, true)
     t:eq(out.kind, "info")
     t:eq(out.text, M.chartWasRemoved)
+  end,
+  removing_finds_player_ids_in_the_temp_folder = function(t)
+    local _, _, _, _, _, _, _, removeOpts = chartRun({ chart = true, scan = scan(), respond = chooseRemove })
+    t:eq(removeOpts.tempDir, "t/")
   end,
   nothing_removed_keeps_the_chart = function(t)
     local out = chartRun({ chart = true, scan = scan(), respond = chooseRemove, removed = { removed = false } })

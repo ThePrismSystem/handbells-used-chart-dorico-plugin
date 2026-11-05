@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selection alone. One Edit > Undo after a run takes back just the chart. Before, for music read through such a
   copy, it also took back your last action before the run.
 - Notes in unison in two voices of one staff are each read. Before, the copy merged them into one.
+- The dialog's "Written as" column starts from each player's instrument: At pitch for a Piano, Organ or anything
+  else that doesn't sound an octave above its notes, and Handbells instrument for Dorico's Handbells. Before, it
+  started from the names ticked in earlier runs, so a player under a new name, such as "Piano 1", started as
+  Handbells instrument and its bells were charted an octave low.
 
 ### Fixed
 
@@ -30,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On a Mac with a short screen, such as a small display or one scaled for larger text, the settings dialog shows
   fewer instruments at once (at least three) and scrolls the list, so OK and Cancel stay on the screen. Before, with
   six or more instruments, the bottom of the dialog could fall off the screen.
+- Drawing or removing a chart no longer crashes Dorico in a project that has ever had a player deleted. The plug-in
+  now reads each player's id from a saved copy of the project. Before, it tried ids one by one, and the deleted
+  player's id was one Dorico couldn't take.
+- When Dorico can't save the project, for example because it's in a folder you can't write to, the plug-in says so
+  after Dorico's error and draws nothing. Before, on a Mac, it could draw the chart anyway, and File > Revert would
+  then also have thrown away any changes you hadn't saved before the run.
+- A chart too wide for the page is drawn smaller, so each section stays on one system. Before, it ran onto a second
+  system. The plug-in works out the staff size from the full score's page size, margins, staff size and note spacing,
+  down to 55%, and a chart that fits stays at full size.
 
 ## [0.1.0] - 2026-10-26
 

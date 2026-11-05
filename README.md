@@ -35,7 +35,7 @@ Version 0.1.0.
 
 - **Windows:** tested with Dorico 6 Pro (6.2.30). The full test suite passes, including the tests that run inside
   Dorico on copies of a test project and of two of Steinberg's example projects.
-- **Mac:** the Mac dialog is written but has not yet been run on a Mac. Version 1.0.0 follows its first run there.
+- **Mac:** tested with Dorico 6. The dialog works, and the plug-in draws the same charts as on Windows.
 - Any Dorico 6 build is accepted. If something goes wrong on a build other than 6.2.30, please
   [report it](https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/issues).
 - Charts in part layouts aren't supported yet. The chart is drawn in the full score only.
@@ -77,9 +77,9 @@ From a clone of this repository, `python tools/install.py` does the copying, and
 2. Show the full score (not a part) and choose **Script > Handbells Used Chart**.
 3. Choose the settings and click OK. Cancel changes nothing.
 
-On OK, the plug-in saves the project first, so **File > Revert** takes the whole run back. It checks that the save
-happened and stops if it didn't, where it can. On a Mac where Dorico doesn't give scripts its file library (the run
-log says `lfs missing`), or for a project whose folder or file name has characters outside ASCII, it trusts the save.
+On OK, the plug-in saves the project first, so **File > Revert** takes the whole run back. If Dorico doesn't save it,
+for example because the project is in a folder you can't write to, the plug-in stops and draws nothing. On Windows it
+can't check the save when the project's folder or file name has characters outside ASCII, and assumes it worked.
 Then it draws the chart into a new flow named "Handbells Used Chart" at the start of the project. That flow carries
 the title on page 1. The music starts on page 2, or straight after the chart on page 1 if you untick "Start the music
 on a new page". In a project with one flow, the music flow's own heading is hidden so the title isn't printed
@@ -125,13 +125,14 @@ a piano left out of one project starts unticked in the next project that has a p
 
 A handbell sounds an octave above the written note. Dorico's own Handbells instrument already knows this. A handbell
 part written on another instrument, such as a Piano or Organ staff, sounds as written, so its bells are an octave
-above the notes Dorico plays back. The plug-in can't tell which kind of instrument a player has, so the table asks:
+above the notes Dorico plays back. The table has a choice for each player:
 
-- **Handbells instrument (sounds an octave higher):** the default, for parts on Dorico's Handbells instrument.
+- **Handbells instrument (sounds an octave higher):** for parts on Dorico's Handbells instrument.
 - **At pitch (e.g. Piano or Organ):** for parts written on another instrument. Their bells are charted an octave
   higher.
 
-The setting is remembered by player name, like the ticks.
+The plug-in looks at each player's instrument and picks At pitch when it doesn't sound an octave above its notes.
+You can change it for a run, and the next run picks again.
 
 ### Choosing the noteheads
 
@@ -228,8 +229,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
     Dorico has no per-flow setting. Unticked, the music follows the chart on page 1, and in a project with several
     flows each later movement also runs straight on from the one before, with no page break between them. Remove
     puts back the setting the project had.
-- The last chart section isn't stretched to the full width, because stretching it would also stretch the music's
-  final system.
+- **Chart size.** Dorico can't tell the plug-in whether a chart fits on one line, so the plug-in works out a staff
+  size from the full score's page size, margins, staff size and note spacing. A wide chart is drawn smaller, down to
+  55%, and one still too wide at that size runs onto another system. If you change any of those settings, run the
+  plug-in again. Each run sets the size afresh, so a size you give the chart yourself doesn't last.
 - A run that charts nothing leaves an existing chart as it was.
 - Bells outside C2-C9 are skipped and reported. Grace notes are charted; cue notes aren't, since they repeat another
   player's music.
@@ -238,7 +241,6 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
   characters outside ASCII (often from your user name), Dorico can't write the files the plug-in reads, and the run
   stops with an error before changing anything.
 - One notehead per kind of bell. Notes with a second notehead style for the same kind are skipped and counted.
-- Tested on Windows only, until the first Mac check.
 
 ## Licence
 

@@ -3,6 +3,7 @@
 local commands = require("hbuc.commands")
 local dump = require("hbuc.dump")
 local files = require("hbuc.dorico.files")
+local savedcopy = require("hbuc.dorico.savedcopy")
 
 local doc = {}
 
@@ -21,7 +22,7 @@ function doc.flowNumber(score, id)
   return nil
 end
 
--- Players have no id and no __eq; their first instrument's id is unique, and equals the player id commands take.
+-- Players have no id and no __eq; their first instrument's id is unique. Commands take player ids (doc.playerIds).
 function doc.playerKey(player)
   return player.instruments[1].id
 end
@@ -94,30 +95,15 @@ end
 
 -- {[key] = player id} for every player. Lua has no player ids, and in a project whose players and instruments
 -- were not made one for one (Steinberg's own Smith example, for one) they differ from the instrument ids the
--- plug-in uses as keys. Each candidate id in turn is renamed to a unique token; the player that takes it is noted
--- and given its exact name back (Name only, so its short name is untouched).
-function doc.playerIds(app, log)
-  local names = {}
-  for _, pl in ipairs(app.currentScore.players) do names[doc.playerKey(pl)] = tostring(pl) end
-  local want, found, ids = 0, 0, {}
-  for _ in pairs(names) do want = want + 1 end
-  for id = 0, 8 * want + 64 do
-    if found == want then break end
-    local token = "HBUCID" .. id
-    doc.command(app, log, commands.renamePlayerName(id, token))
-    for _, pl in ipairs(app.currentScore.players) do
-      if tostring(pl) == token then
-        local key = doc.playerKey(pl)
-        ids[key] = id
-        found = found + 1
-        doc.command(app, log, commands.renamePlayerName(id, names[key]))
-        if tostring(doc.playerByKey(app.currentScore, key)) ~= names[key] then
-          error("a player's name could not be put back: " .. names[key])
-        end
-      end
-    end
+-- plug-in uses as keys. They are read from a copy of the project saved into tempDir.
+function doc.playerIds(app, log, tempDir)
+  local fromCopy = savedcopy.playerIds(app, log, tempDir)
+  local ids = {}
+  for _, pl in ipairs(app.currentScore.players) do
+    local key = doc.playerKey(pl)
+    if fromCopy[key] == nil then error("the saved copy has no id for player " .. tostring(key)) end
+    ids[key] = fromCopy[key]
   end
-  if found < want then error("the ids of " .. (want - found) .. " player(s) could not be found") end
   return ids
 end
 

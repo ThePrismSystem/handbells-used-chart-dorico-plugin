@@ -31,7 +31,8 @@ function request.choices(records)
   }
 end
 
--- args: {players = {name...} in score order, records, settings (options.decodeSettings), chartExists, runId}.
+-- args: {players = {name...} in score order, atPitch = {name...} (the players the read found written at pitch),
+-- records, settings (options.decodeSettings), chartExists, runId}.
 -- runId is echoed by the dialog, so a response left over from another run is never taken as this one's.
 function request.build(args)
   local settings = args.settings
@@ -69,7 +70,7 @@ function request.build(args)
     labels = constants.DIALOG,
     instruments = players,
     selected = options.preselected(players, options.pipeList(settings.excluded)),
-    atPitch = instruments.named(players, options.pipeList(settings.atPitch or "")),
+    atPitch = instruments.named(players, args.atPitch or {}),
     modes = { constants.CHART_MODE_COMBINED, constants.CHART_MODE_SEPARATE },
     mode = settings.mode == "separate" and constants.CHART_MODE_SEPARATE or constants.CHART_MODE_COMBINED,
     newPage = settings.newPage ~= false,
@@ -131,8 +132,6 @@ function request.settingsAfter(settings, req, resp)
   local excluded = options.excludedAfterRun(options.pipeList(settings.excluded), req.instruments, resp.instruments)
   return {
     excluded = options.joinPipe(excluded),
-    atPitch = options.joinPipe(options.atPitchAfterRun(options.pipeList(settings.atPitch or ""), req.instruments,
-      resp.atPitch or {})),
     mode = resp.mode,
     newPage = resp.newPage,
     heads = resp.heads,

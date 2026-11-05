@@ -99,18 +99,19 @@ Two more commands can run on a Mac:
   - the dialog's request, response and message files, and the question's;
   - Dorico's text exports of the project, which the plug-in reads to find the project's file, an existing chart, the
     flow headings and whether flows start on a new page;
-  - `reading.dorico`, a copy of the open project that Dorico saves there so the plug-in can read each note's notehead
-    and colour from it. The plug-in deletes it once it has read it. If it can't, the run log says so, and the next
-    run deletes it first;
+  - `reading.dorico`, a copy of the open project that Dorico saves there. The plug-in reads each note's notehead and
+    colour from one copy, and each player's id from another saved while it draws or removes a chart. It deletes each
+    copy once it has read it. If it can't, the run log says so, and the next run deletes it first;
   - `osascript.log` on a Mac;
   - the log of a run that couldn't start, which goes in `hbuc` under the first of `TEMP`, `TMP` and `TMPDIR` that is
     set (on a Mac with none of them set, `/tmp/hbuc/`).
-- The open project, which it saves before it changes anything.
+- The open project, which it saves before it changes anything. Where Dorico's Lua has no LuaFileSystem library, the
+  plug-in reads the project's file before and after the save to check that the save happened.
 
 [`hbuc/guards.lua`](plugin/Handbells%20Used%20Chart/hbuc/guards.lua) decides where the folders are. The plug-in
-writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`, and reads and deletes the copy of the
-project through `files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export > Text,
-saves the project when `hbuc/main.lua` runs File > Save, and saves the copy in the temp folder when
+writes its files in `hbuc/dorico/files.lua`, `safe.lua` and `dialog.lua`. It reads the project's file, and reads and
+deletes the copy, through `files.lua`. Dorico writes the text exports when `hbuc/dorico/doc.lua` runs File > Export >
+Text, saves the project when `hbuc/main.lua` runs File > Save, and saves the copy in the temp folder when
 `hbuc/dorico/savedcopy.lua` calls `app:save`. The call test pins each of these calls.
 
 ## No network

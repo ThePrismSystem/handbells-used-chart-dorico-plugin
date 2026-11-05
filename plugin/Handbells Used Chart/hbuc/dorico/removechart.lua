@@ -8,9 +8,9 @@ local doc = require("hbuc.dorico.doc")
 
 local removechart = {}
 
--- found: findchart's result with status "ok". opts: {log, fullId = the full score the run started on}. Returns
--- {removed = bool, restored = bool}: restored is false when no full score could be found to put its layout options
--- back on. Nothing else changes unless the user lets Dorico delete the flow.
+-- found: findchart's result with status "ok". opts: {log, fullId = the full score the run started on, tempDir}.
+-- Returns {removed = bool, restored = bool}: restored is false when no full score could be found to put its layout
+-- options back on. Nothing else changes unless the user lets Dorico delete the flow.
 function removechart.remove(app, found, opts)
   local log = opts.log
   local flowId = found.flowId
@@ -46,7 +46,7 @@ function removechart.remove(app, found, opts)
     end
   end
   -- Chart players are named with a space to hide their labels; named, they are recognisable in Dorico's list.
-  local ids = doc.playerIds(app, log)
+  local ids = doc.playerIds(app, log, opts.tempDir)
   for i, k in ipairs(chartKeys) do
     if ids[k] then doc.command(app, log, commands.renamePlayer(ids[k], string.format(constants.CHART_PLAYER_LEFT, i))) end
   end

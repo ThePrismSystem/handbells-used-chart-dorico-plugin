@@ -2,13 +2,16 @@
 -- the object model. Used by case_write.lua and the update cases.
 local chartlayout = require("hbuc.chartlayout")
 local constants = require("hbuc.constants")
+local dtn = require("hbuc.dtn")
 local dump = require("hbuc.dump")
 local eventtext = require("hbuc.eventtext")
 local marker = require("hbuc.marker")
 local plan = require("hbuc.plan")
 local shapes = require("hbuc.shapes")
 local textexport = require("hbuc.textexport")
+local zip = require("hbuc.zip")
 local doc = require("hbuc.dorico.doc")
+local files = require("hbuc.dorico.files")
 local readscore = require("hbuc.dorico.readscore")
 local writechart = require("hbuc.dorico.writechart")
 
@@ -34,7 +37,8 @@ local function musicParts(score, skip)
 end
 
 -- opts: {mode, existing (find and update the chart there), instruments (names; default all), newPage (false: no
--- flow breaks), lastStep (in place of chartlayout.LAST_STEP, for spike/41_last_step.py)}.
+-- flow breaks), lastStep (in place of chartlayout.LAST_STEP, for spike/41_last_step.py), staffPercent (in place of
+-- chartlayout.staffPercent's answer)}.
 function chartcase.draw(p, ctx, opts)
   local app = ctx.app
   if opts.lastStep then chartlayout.LAST_STEP = opts.lastStep end
@@ -70,9 +74,11 @@ function chartcase.draw(p, ctx, opts)
   local built = chartlayout.build(thePlan.sections, {
     shapes = shapeChoice, colours = chartcase.COLOURS, heads = chartcase.HEADS, headNames = headNames,
   })
+  local staffPercent = opts.staffPercent or chartlayout.staffPercent(built, scan.page)
+  p:fact("staffPercent", staffPercent)
   local t0 = os.clock()
   local res = writechart.write(app, built, { log = ctx.log, tempDir = ctx.folders.temp, slots = slots,
-    musicKeys = musicKeys, existing = found, newPage = opts.newPage })
+    musicKeys = musicKeys, existing = found, newPage = opts.newPage, staffPercent = staffPercent })
   p:fact("writeSeconds", os.clock() - t0)
   local labels = {}
   for _, s in ipairs(built.sections) do labels[#labels + 1] = s.label end
@@ -86,7 +92,31 @@ function chartcase.draw(p, ctx, opts)
   p:fact("flowCount", #app.currentScore.flows)
   p:fact("playerCount", #app.currentScore.players)
   p:fact("layoutCount", #app.currentScore.layouts)
-  return { built = built, res = res, before = before, musicKeys = musicKeys, namesBefore = namesBefore }
+  return { built = built, res = res, before = before, musicKeys = musicKeys, namesBefore = namesBefore,
+    staffPercent = staffPercent }
+end
+
+-- {[player id] = staff size} in a flow, for the full score. Lua can't read it, so it comes from a saved copy, which
+-- holds nothing for a player never scaled: nil is 100%.
+local function staffSizes(ctx, flowId, layoutId)
+  local path = ctx.folders.temp .. "sizes.dorico"
+  if ctx.app:save(ctx.app.currentScore, path) ~= true then error("no copy to read the staff sizes from") end
+  local tree = dtn.decode(zip.entry(files.read(path), "score.dtn"))
+  os.remove(path)
+  local function number(parent, name) return tonumber(dtn.value(tree, dtn.child(tree, parent, name))) end
+  local sizes = {}
+  for _, flow in ipairs(dtn.children(tree, dtn.child(tree, dtn.child(tree, 0, "flows"), "array"))) do
+    if number(flow, "flowID") == flowId then
+      for _, player in ipairs(dtn.children(tree, dtn.child(tree, dtn.child(tree, flow, "flowPlayers"), "array"))) do
+        for _, size in ipairs(dtn.children(tree, dtn.child(tree, player, "staveSizeOverrides"))) do
+          if number(size, "layoutID") == layoutId then
+            sizes[number(player, "playerID")] = number(size, "staveSizeOverride")
+          end
+        end
+      end
+    end
+  end
+  return sizes
 end
 
 local function sortedJoin(list)
@@ -115,6 +145,14 @@ function chartcase.check(p, ctx, out)
   local want = {}
   for _, k in ipairs(res.chartKeys) do want[#want + 1] = tostring(k) end
   p:check("chart flow holds exactly the chart players", sortedJoin(keys) == sortedJoin(want), sortedJoin(keys))
+
+  local sizes = staffSizes(ctx, res.flowId, app.currentLayoutID)
+  local ids = doc.playerIds(app, ctx.log, ctx.folders.temp)
+  for _, k in ipairs(res.slotKeys) do
+    local size = sizes[ids[k]] or 100
+    p:check("chart player " .. tostring(k) .. " is at the chart's staff size", size == out.staffPercent,
+      size .. " of " .. out.staffPercent)
+  end
 
   -- marker and labels
   local markers, texts = {}, {}
