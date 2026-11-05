@@ -1,8 +1,8 @@
 -- Draws a chart into its own first flow (docs/dorico-lua-guide.md, section 5): chart players that only the chart
 -- flow holds, one system per section (a hidden open-meter time signature and a system break at each section after
--- the first, and the last section spread to the frame's width), stemless notes in the section's notehead set and
--- colour, no naturals, rests, staff labels, barlines or flow headings, and a hidden marker written before anything
--- else.
+-- the first, and the last section spread to the frame's width), staves small enough to hold the widest section,
+-- stemless notes in the section's notehead set and colour, no naturals, rests, staff labels, barlines or flow
+-- headings, and a hidden marker written before anything else.
 local chartlayout = require("hbuc.chartlayout")
 local commands = require("hbuc.commands")
 local constants = require("hbuc.constants")
@@ -132,7 +132,7 @@ local function clearFlow(app, chartId, length)
 end
 
 -- built: chartlayout.build output. opts: {log, tempDir, slots, musicKeys, existing = findchart result or nil,
--- newPage = false to let the music follow the chart on its page}.
+-- newPage = false to let the music follow the chart on its page, staffPercent = chartlayout.staffPercent's answer}.
 -- Returns {flowId, chartKeys}.
 function writechart.write(app, built, opts)
   local log, temp = opts.log, opts.tempDir
@@ -310,6 +310,18 @@ function writechart.write(app, built, opts)
         doc.select(app, log, chartId, ev.id, doc.blockIdOf(s, ev.id, d))
         doc.command(app, log, "Edit.RemoveRests")
       end
+    end
+  end
+
+  -- Set on every run, so an update also undoes the size of the chart it replaces. A section can have no first note
+  -- to select when Dorico can't write any of its bells.
+  local sized = {}
+  for i, s in ipairs(built.sections) do
+    local first = firstNotes[i]
+    if first and not sized[s.slot] then
+      sized[s.slot] = true
+      doc.select(app, log, chartId, first.id, blockOf(first.stream, first.id))
+      doc.command(app, log, commands.scalePlayer(opts.staffPercent))
     end
   end
   doc.command(app, log, "Edit.SelectNone")

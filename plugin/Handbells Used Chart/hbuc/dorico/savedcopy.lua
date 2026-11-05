@@ -1,8 +1,9 @@
 -- What Lua can't read from the open project, read from a copy of it saved into the temp folder: every note's notehead
 -- set and colour (Lua can't read a value set by command or in Dorico's UI; hbuc.noteprops says why), the
--- instruments written at pitch, and every player's id. app:save(score, path) writes the current state, unsaved
--- edits included, without touching the project's own file, its path or its unsaved mark (docs/dorico-lua-guide.md,
--- section 3).
+-- instruments written at pitch, each layout's page, and every player's id. app:save(score, path) writes the current
+-- state, unsaved edits included, without touching the project's own file, its path or its unsaved mark
+-- (docs/dorico-lua-guide.md, section 3).
+local chartlayout = require("hbuc.chartlayout")
 local dtn = require("hbuc.dtn")
 local noteprops = require("hbuc.noteprops")
 local playerids = require("hbuc.playerids")
@@ -42,10 +43,12 @@ local function fromCopy(app, log, tempDir, fromTree)
 end
 
 -- {notes = {[eventId] = entries} (hbuc.noteprops.fromTree) for every note and grace note in the project,
--- writtenAtPitch = {[instrument id] = true} (hbuc.transpose.writtenAtPitch)}.
+-- writtenAtPitch = {[instrument id] = true} (hbuc.transpose.writtenAtPitch),
+-- pages = {[layout id] = page} (hbuc.chartlayout.pages)}.
 function savedcopy.read(app, log, tempDir)
   return fromCopy(app, log, tempDir, function(tree)
-    return { notes = noteprops.fromTree(tree), writtenAtPitch = transpose.writtenAtPitch(tree) }
+    return { notes = noteprops.fromTree(tree), writtenAtPitch = transpose.writtenAtPitch(tree),
+      pages = chartlayout.pages(tree) }
   end)
 end
 

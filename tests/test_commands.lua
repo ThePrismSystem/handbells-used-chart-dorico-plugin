@@ -23,6 +23,9 @@ return {
     t:fails(function() commands.layoutOptions(1, 0, { p = "a&b" }) end)
     t:fails(function() commands.layoutOptions(1, 0, { p = "a=b" }) end)
   end,
+  scale_player = function(t)
+    t:eq(commands.scalePlayer(65), "Edit.ScalePlayer?ScalePlayerPercent=65")
+  end,
   build = function(t)
     t:eq(commands.build("Edit.SelectNone", {}), "Edit.SelectNone")
     t:eq(commands.build("File.Save", { { "Notify", "false" } }), "File.Save?Notify=false")

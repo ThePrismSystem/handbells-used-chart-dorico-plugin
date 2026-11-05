@@ -53,6 +53,7 @@ return {
     t:ok(copy.notes[209], "a fixture note")
     t:eq(copy.writtenAtPitch[2], true, "the fixture's organ is written at pitch")
     t:eq(copy.writtenAtPitch[0], nil, "its handbells aren't")
+    t:eq(copy.pages[0].crotchet, 4, "the full score's note spacing")
     t:ok(not exists(seen.path), "the copy is gone")
   end,
   a_leftover_copy_is_removed_first = function(t)

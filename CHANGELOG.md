@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When Dorico can't save the project, for example because it's in a folder you can't write to, the plug-in says so
   after Dorico's error and draws nothing. Before, on a Mac, it could draw the chart anyway, and File > Revert would
   then also have thrown away any changes you hadn't saved before the run.
+- A chart too wide for the page is drawn smaller, so each section stays on one system. Before, it ran onto a second
+  system. The plug-in works out the staff size from the full score's page size, margins, staff size and note spacing,
+  down to 55%, and a chart that fits stays at full size.
 
 ## [0.1.0] - 2026-10-26
 

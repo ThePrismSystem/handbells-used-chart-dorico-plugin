@@ -67,14 +67,15 @@ function readscore.scan(app, opts)
       log:line("flow", flow.id, #notes - before, "notes")
     end
   end
-  local saved = #notes > 0 and savedcopy.read(app, log, opts.tempDir) or { notes = {}, writtenAtPitch = {} }
+  local saved = #notes > 0 and savedcopy.read(app, log, opts.tempDir)
+    or { notes = {}, writtenAtPitch = {}, pages = {} }
   local records, elsewhere = reading.records(notes, saved.notes, opts.layoutId)
   if elsewhere > 0 then
     log:line(elsewhere .. " note(s) have a notehead or colour set only for another block instance, so they read"
       .. " without it")
   end
   for i, pl in ipairs(players) do pl.atPitch = allAtPitch(idsOf[i], saved.writtenAtPitch) end
-  return { players = players, records = records }
+  return { players = players, records = records, page = saved.pages[opts.layoutId] }
 end
 
 return readscore

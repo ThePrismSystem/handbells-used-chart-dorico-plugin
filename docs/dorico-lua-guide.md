@@ -128,7 +128,7 @@ Things Lua can't read at all, and what the plug-in does instead:
 
 | Missing | Workaround |
 | ------- | ---------- |
-| A player's id (commands need it) | Rename each candidate id to a unique token and see which player takes it (section 5) |
+| A player's id (commands need it) | A saved copy (section 5) |
 | Layout options | Set them by command. To learn a value, compare text exports taken under each candidate (section 4) |
 | The project's file path | The text export's `Path` column |
 | A flow's name | The text export's `FlowName` column, or the Remote API's `getflows` |
@@ -136,6 +136,7 @@ Things Lua can't read at all, and what the plug-in does instead:
 | Which instrument a voice stream belongs to | `flow.instruments[i]` owns `flow.voiceStreams[i]` |
 | The selection, or an event looked up by id | Keep the ids you need from `dump()` and select them by command |
 | An instrument's type or transposition | A saved copy (section 3) |
+| Where Dorico broke the systems | Nothing reports it. Work out the width beforehand (section 5) |
 
 ### Ids and identity
 
@@ -439,6 +440,22 @@ Project.Flow.SetNotationOptions?Dictionary=list: {string: "barlineOptions.finalB
   rest survived the sweep. Selecting the rest itself and running `Edit.RemoveRests` again removed it.
 - To show only some staves on a system, set `hideEmptyStavesPolicy = kAllSystems` with every player who must always
   show in `alwaysVisiblePlayers`.
+- To scale one player's staves in one flow, select one of its notes and run
+  `Edit.ScalePlayer?ScalePlayerPercent=<percent>`, which is Dorico's custom staff size. It applies in the current
+  layout only, and the player's text in that flow scales with it. A saved copy holds it under
+  `flowPlayers/array/flowPlayer/staveSizeOverrides`, by `layoutID`, with nothing for a player never scaled.
+- The text export is the same at any staff size, so a script can't see how many systems a flow took. To keep notes on
+  one system, work out their width from the options a saved copy holds under `layouts/array/layout/layoutOptions`
+  (`chartlayout.pages`). In staff spaces, at full size:
+  - The frame is `(pageWidth - outer - inner) / defaultSpaceSize`, all in points, from `pageSizeAndMarginOptions` and
+    its `margins/margins`. Everything below scales with the staff and the frame doesn't, so a staff at 50% has twice
+    the room.
+  - A crotchet takes `noteSpacingOptions/crotchetSize`, which can be a fraction (`27/8`), however far apart the notes
+    are, as long as no rests fill the gaps. With an accidental showing it takes at least 3.25.
+  - The flow's first system also loses `flowFirstSystemIndent`.
+  - The brace, the clef and the end of the bar take about 10.5.
+
+  `spike/56_chart_width.py` draws charts to check these measurements against.
 
 ### Exporting MusicXML
 
@@ -691,6 +708,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | Noteheads and colours, from a saved copy | `hbuc/dorico/savedcopy.lua`, `hbuc/zip.lua`, `hbuc/inflate.lua`, `hbuc/dtn.lua`, `hbuc/noteprops.lua` |
 | Combining a rare notehead set with a common one | `hbuc/combine.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
+| A chart's staff size | `hbuc/chartlayout.lua` (`pages`, `staffPercent`) |
 | Player ids, from a saved copy | `hbuc/dorico/doc.lua` (`playerIds`), `hbuc/playerids.lua` |
 | Instruments written at pitch, from a saved copy | `hbuc/dorico/readscore.lua`, `hbuc/transpose.lua` |
 | Command strings | `hbuc/commands.lua` |

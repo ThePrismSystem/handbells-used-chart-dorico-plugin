@@ -231,6 +231,10 @@ works with Dorico's undocumented Lua scripting and the workarounds it needs.
     puts back the setting the project had.
 - The last chart section isn't stretched to the full width, because stretching it would also stretch the music's
   final system.
+- **Chart size.** Dorico can't tell the plug-in whether a chart fits on one line, so the plug-in works out a staff
+  size from the full score's page size, margins, staff size and note spacing. A wide chart is drawn smaller, down to
+  55%, and one still too wide at that size runs onto another system. If you change any of those settings, run the
+  plug-in again. Each run sets the size afresh, so a size you give the chart yourself doesn't last.
 - A run that charts nothing leaves an existing chart as it was.
 - Bells outside C2-C9 are skipped and reported. Grace notes are charted; cue notes aren't, since they repeat another
   player's music.

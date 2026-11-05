@@ -234,6 +234,14 @@ return {
     local _, _, _, req = chartRun({ scan = s })
     t:eq(table.concat(req.atPitch, "|"), "B")
   end,
+  the_chart_is_sized_for_the_full_score_s_page = function(t)
+    local s = scan()
+    s.page = { frame = 15, crotchet = 4, indent = 0 }
+    local _, _, _, _, _, _, wrote = chartRun({ scan = s, respond = chooseA })
+    t:eq(wrote.staffPercent, 80, "a column and the end note, on a very narrow page")
+    _, _, _, _, _, _, wrote = chartRun({ scan = scan(), respond = chooseA })
+    t:eq(wrote.staffPercent, 100, "no page read")
+  end,
   a_cancelled_dialog_says_nothing = function(t)
     local out, writes = chartRun({ scan = scan() })
     t:eq(out.ok, false)

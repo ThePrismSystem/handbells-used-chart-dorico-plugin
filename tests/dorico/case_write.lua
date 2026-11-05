@@ -5,6 +5,7 @@
 --   args.newPage: false to let the music follow the chart on its page
 --   args.startBreaks: a flowBreakBehaviour to give the full score first, as the project's own
 --   args.lastStep: beats between the last section's columns, in place of chartlayout.LAST_STEP
+--   args.staffPercent: the chart's staff size, in place of the one worked out from the page
 local here = debug.getinfo(1, "S").source:match("^@(.*[/\\])")
 local repo = here .. "../../"
 local mine = here .. "lib/?.lua;" .. repo .. "spike/lib/?.lua;" .. repo .. "plugin/Handbells Used Chart/?.lua"
@@ -26,6 +27,7 @@ probe.run("case_write", function(p)
       { flowBreakBehaviour = p.args.startBreaks }))
   end
   local out = chartcase.draw(p, ctx, { mode = p.args.mode or "combined", existing = p.args.existing,
-    instruments = p.args.instruments, newPage = p.args.newPage, lastStep = p.args.lastStep })
+    instruments = p.args.instruments, newPage = p.args.newPage, lastStep = p.args.lastStep,
+    staffPercent = p.args.staffPercent })
   chartcase.check(p, ctx, out)
 end)

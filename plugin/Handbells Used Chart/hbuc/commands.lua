@@ -32,6 +32,11 @@ local function id(value, what)
   return value
 end
 
+-- The staff size of the selected notes' player, in the flow they're in. A percentage of the layout's own.
+function commands.scalePlayer(percent)
+  return "Edit.ScalePlayer?ScalePlayerPercent=" .. percent
+end
+
 -- name?key=value&key=value, params in the order given.
 function commands.build(name, params)
   local parts = {}

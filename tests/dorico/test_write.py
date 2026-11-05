@@ -34,6 +34,7 @@ class WriteTests(unittest.TestCase):
     def test_combined_chart_is_drawn(self):
         with harness.scratch(self, "case_write.lua", args={"mode": "combined"}) as (client, result):
             facts = result["facts"]
+            self.assertEqual(facts["staffPercent"], 100, "a chart that fits stays full size")
             self.assertEqual(facts["musicKeys"], "0,1,2")
             self.assertEqual(facts["restore"]["flowHeadingBehaviour"], "kAlwaysInsertHeadings")
             self.assertEqual(facts["restore"]["flowBreakBehaviour"], "kStartNewPageForFlows")
@@ -92,8 +93,9 @@ class RealScores(unittest.TestCase):
 
     def test_liszt_is_charted_without_touching_the_music(self):
         with harness.scratch(self, "case_write.lua", open_file=inputs.ensure("liszt"), args={"mode": "combined"},
-                             timeout=900):
-            pass
+                             timeout=900) as (_, result):
+            # At 70% this chart spills onto a second system. The case checks that its players were given this size.
+            self.assertEqual(result["facts"]["staffPercent"], 65)
 
 
 if __name__ == "__main__":

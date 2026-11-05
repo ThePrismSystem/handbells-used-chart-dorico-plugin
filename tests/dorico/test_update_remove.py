@@ -35,6 +35,14 @@ class UpdateAndRefuse(unittest.TestCase):
             self.assertIn('named "Chart"', renamed["facts"]["reason"])
 
 
+    def test_rerun_replaces_the_staff_size(self):
+        # the case checks the size on each chart player, against a saved copy
+        with harness.scratch(self, "case_write.lua", args={"mode": "combined", "staffPercent": 70}) as (client, first):
+            self.assertEqual(first["facts"]["staffPercent"], 70)
+            again = harness.run_more(self, client, "case_write.lua", {"mode": "combined", "existing": True})
+            self.assertEqual(again["facts"]["staffPercent"], 100)
+
+
 class OldMarker(unittest.TestCase):
     def test_a_chart_from_before_the_flow_break_option_still_updates(self):
         # A version 1 marker records no flow breaks: its chart never changed them, so the update finds them out.
