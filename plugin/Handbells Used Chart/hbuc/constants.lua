@@ -79,7 +79,7 @@ constants.MESSAGES = {
 }
 
 -- The plug-in's own version; the dialog's response must carry the same one.
-constants.VERSION = "0.1.0"
+constants.VERSION = "1.0.0"
 
 -- The Dorico major version the plug-in runs on (any build of it).
 constants.DORICO_MAJOR = "6"

@@ -1,7 +1,7 @@
 """Build the release zip: the plug-in and its documents in one versioned folder.
 
     python tools/package.py [--out DIR]
-    python tools/package.py --tag v0.1.0 --notes notes.md --outputs "$GITHUB_OUTPUT"   what the release workflow runs
+    python tools/package.py --tag v1.0.0 --notes notes.md --outputs "$GITHUB_OUTPUT"   what the release workflow runs
 
 Writes dist/handbells-used-chart-dorico-v<version>.zip, with the version read from hbuc/constants.lua. Inside,
 handbells-used-chart-dorico-v<version>/ holds the menu file, its folder, README.md, LICENSE.md and CHANGELOG.md:

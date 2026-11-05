@@ -26,7 +26,7 @@ probe.run("case_savedcopy", function(p)
     require("lfs").mkdir(temp)
   end
   local t0 = os.clock()
-  local notes = savedcopy.read(app, ctx.log, temp)
+  local notes = savedcopy.read(app, ctx.log, temp).notes
   p:fact("seconds", os.clock() - t0)
   local layoutId = app.currentLayoutID
   local heads, missing, total = {}, 0, 0

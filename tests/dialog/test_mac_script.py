@@ -155,7 +155,7 @@ class MacScriptTests(unittest.TestCase):
         raw, parsed = self.answer("fixture", '{"excluded":"Organ","atPitch":"Organ"}')
         self.assertEqual(raw["runId"], "t1")
         self.assertIs(raw["cancelled"], False)
-        self.assertEqual(raw["version"], "0.1.0")
+        self.assertEqual(raw["version"], "1.0.0")
         self.assertEqual(raw["colours"]["chimes"], "#c80000")
         self.assertEqual(parsed["instruments"], ["Handbells (A)", "Handbells (B)"])
         self.assertEqual(parsed["atPitch"], ["Organ"])

@@ -46,7 +46,7 @@ end
 
 return {
   constants_for_the_dialog = function(t)
-    t:eq(constants.VERSION, "0.1.0")
+    t:eq(constants.VERSION, "1.0.0")
     t:eq(constants.DIALOG.title, "Create a Handbells/Handchimes/SMBs Used Chart")
     t:eq(constants.DIALOG.saveNote, "The project is saved before the chart is drawn.")
     t:eq(constants.DIALOG.newPage, "Start the music on a new page")

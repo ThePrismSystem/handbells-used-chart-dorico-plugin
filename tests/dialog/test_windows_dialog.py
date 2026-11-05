@@ -111,7 +111,7 @@ class DialogTests(unittest.TestCase):
                    str(ROOT / "images" / "dialog.png"), "-TitleLike", TITLE)
         self.assertTrue(click(TITLE, "OK"))
         resp = self.response_json(proc)
-        self.assertEqual(resp["version"], "0.1.0")
+        self.assertEqual(resp["version"], "1.0.0")
         self.assertFalse(resp["cancelled"])
         self.assertEqual(resp["mode"], "One combined chart")
         self.assertEqual(resp["heads"]["bells"], "noteheadset.default")
