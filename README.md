@@ -125,13 +125,14 @@ a piano left out of one project starts unticked in the next project that has a p
 
 A handbell sounds an octave above the written note. Dorico's own Handbells instrument already knows this. A handbell
 part written on another instrument, such as a Piano or Organ staff, sounds as written, so its bells are an octave
-above the notes Dorico plays back. The plug-in can't tell which kind of instrument a player has, so the table asks:
+above the notes Dorico plays back. The table has a choice for each player:
 
-- **Handbells instrument (sounds an octave higher):** the default, for parts on Dorico's Handbells instrument.
+- **Handbells instrument (sounds an octave higher):** for parts on Dorico's Handbells instrument.
 - **At pitch (e.g. Piano or Organ):** for parts written on another instrument. Their bells are charted an octave
   higher.
 
-The setting is remembered by player name, like the ticks.
+The plug-in looks at each player's instrument and picks At pitch when it doesn't sound an octave above its notes.
+You can change it for a run, and the next run picks again.
 
 ### Choosing the noteheads
 

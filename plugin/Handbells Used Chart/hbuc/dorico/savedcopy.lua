@@ -1,10 +1,12 @@
 -- What Lua can't read from the open project, read from a copy of it saved into the temp folder: every note's notehead
--- set and colour (Lua can't read a value set by command or in Dorico's UI; hbuc.noteprops says why) and every
--- player's id. app:save(score, path) writes the current state, unsaved edits included, without touching the
--- project's own file, its path or its unsaved mark (docs/dorico-lua-guide.md, section 3).
+-- set and colour (Lua can't read a value set by command or in Dorico's UI; hbuc.noteprops says why), the
+-- instruments written at pitch, and every player's id. app:save(score, path) writes the current state, unsaved
+-- edits included, without touching the project's own file, its path or its unsaved mark (docs/dorico-lua-guide.md,
+-- section 3).
 local dtn = require("hbuc.dtn")
 local noteprops = require("hbuc.noteprops")
 local playerids = require("hbuc.playerids")
+local transpose = require("hbuc.transpose")
 local zip = require("hbuc.zip")
 local files = require("hbuc.dorico.files")
 
@@ -39,9 +41,12 @@ local function fromCopy(app, log, tempDir, fromTree)
   return out
 end
 
--- {[eventId] = entries} (hbuc.noteprops.fromTree) for every note and grace note in the project.
+-- {notes = {[eventId] = entries} (hbuc.noteprops.fromTree) for every note and grace note in the project,
+-- writtenAtPitch = {[instrument id] = true} (hbuc.transpose.writtenAtPitch)}.
 function savedcopy.read(app, log, tempDir)
-  return fromCopy(app, log, tempDir, noteprops.fromTree)
+  return fromCopy(app, log, tempDir, function(tree)
+    return { notes = noteprops.fromTree(tree), writtenAtPitch = transpose.writtenAtPitch(tree) }
+  end)
 end
 
 -- {[instrument id] = player id} (hbuc.playerids.fromTree) for every player in the project.

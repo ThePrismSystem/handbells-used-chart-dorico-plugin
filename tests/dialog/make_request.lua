@@ -1,6 +1,7 @@
 -- For tests/dialog/test_windows_dialog.py, with stock Lua: writes a dialog request like the plug-in's, or reads a
 -- response back the way the plug-in does.
 --   lua52 make_request.lua request <fixture|single|many|cased> <request.json> [settings json] [run id, default t1]
+--     The settings json's atPitch (a pipe string) stands for the players the read found written at pitch.
 --   lua52 make_request.lua parse <request.json> <response.json>     prints request.parse's result as JSON
 local here = (arg[0]:match("^(.*[/\\])") or "./")
 package.path = here .. "../../plugin/Handbells Used Chart/?.lua;" .. package.path
@@ -46,8 +47,10 @@ if arg[1] == "request" then
       rec("noteheadset.default", "", "Organ"),
     }
   end
-  local req = request.build({ players = players, records = records, settings = options.decodeSettings(arg[4] or ""),
-    chartExists = false, runId = arg[5] or "t1" })
+  local ok, raw = pcall(json.decode, arg[4] or "")
+  local atPitch = options.pipeList(ok and type(raw) == "table" and type(raw.atPitch) == "string" and raw.atPitch or "")
+  local req = request.build({ players = players, atPitch = atPitch, records = records,
+    settings = options.decodeSettings(arg[4] or ""), chartExists = false, runId = arg[5] or "t1" })
   local f = assert(io.open(arg[3], "wb"))
   f:write(json.encode(req))
   f:close()

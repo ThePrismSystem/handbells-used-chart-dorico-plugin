@@ -1,4 +1,4 @@
--- Reading noteheads and colours from a copy of the project that the run saves into its temp folder, against a fake
+-- Reading noteheads, colours and the instruments written at pitch from a copy of the project that the run saves into its temp folder, against a fake
 -- app whose save writes the fixture project's bytes.
 local files = require("hbuc.dorico.files")
 local savedcopy = require("hbuc.dorico.savedcopy")
@@ -48,9 +48,11 @@ end
 return {
   reads_the_copy_and_deletes_it = function(t)
     local dir, seen = tempDir(), {}
-    local notes = savedcopy.read(app(fixture(), true, seen), log, dir)
+    local copy = savedcopy.read(app(fixture(), true, seen), log, dir)
     t:eq(seen.path, dir .. "reading.dorico", "saved into the temp folder")
-    t:ok(notes[209], "a fixture note")
+    t:ok(copy.notes[209], "a fixture note")
+    t:eq(copy.writtenAtPitch[2], true, "the fixture's organ is written at pitch")
+    t:eq(copy.writtenAtPitch[0], nil, "its handbells aren't")
     t:ok(not exists(seen.path), "the copy is gone")
   end,
   a_leftover_copy_is_removed_first = function(t)
@@ -78,7 +80,7 @@ return {
     end)
     package.loaded["hbuc.dorico.files"], package.loaded["hbuc.dorico.savedcopy"] = files, savedcopy
     files.remove(dir .. "reading.dorico")
-    t:ok(ok and notes[209], "the read goes on: " .. tostring(notes))
+    t:ok(ok and notes.notes[209], "the read goes on: " .. tostring(notes))
     local said = table.concat(lines, "\n")
     t:ok(said:find("the saved copy could not be deleted: in use", 1, true), said)
   end,

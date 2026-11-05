@@ -228,6 +228,12 @@ return {
     t:ok(opts.skipKeys.c1 and opts.skipKeys.c2, "and its players")
     t:eq(req.chartExists, true, "the dialog is told there is one")
   end,
+  the_dialog_starts_with_the_players_read_as_at_pitch = function(t)
+    local s = scan()
+    s.players[2].atPitch = true
+    local _, _, _, req = chartRun({ scan = s })
+    t:eq(table.concat(req.atPitch, "|"), "B")
+  end,
   a_cancelled_dialog_says_nothing = function(t)
     local out, writes = chartRun({ scan = scan() })
     t:eq(out.ok, false)

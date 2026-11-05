@@ -95,12 +95,15 @@ function main.chart(ctx)
   -- 4. the dialog
   local settingsPath = ctx.folders.data .. "settings.json"
   local settings = options.decodeSettings(files.read(settingsPath) or "")
-  local names = {}
-  for _, pl in ipairs(scan.players) do names[#names + 1] = pl.name end
+  local names, atPitch = {}, {}
+  for _, pl in ipairs(scan.players) do
+    names[#names + 1] = pl.name
+    if pl.atPitch then atPitch[#atPitch + 1] = pl.name end
+  end
   -- A fresh id each run: the dialog echoes it, so a response file left over from another run is never read.
   local runId = tostring(os.time()) .. "-" .. tostring(math.random(100000, 999999))
-  local req = request.build({ players = names, records = scan.records, settings = settings, chartExists = chart ~= nil,
-    runId = runId })
+  local req = request.build({ players = names, atPitch = atPitch, records = scan.records, settings = settings,
+    chartExists = chart ~= nil, runId = runId })
   local okAsk, raw = pcall(ctx.dialog, req)
   if not okAsk then log:line("the dialog failed:", raw) end
   local resp = okAsk and request.parse(raw, req) or nil

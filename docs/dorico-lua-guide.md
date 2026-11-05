@@ -135,7 +135,7 @@ Things Lua can't read at all, and what the plug-in does instead:
 | An instrument's name | The text export's `Instrument` column |
 | Which instrument a voice stream belongs to | `flow.instruments[i]` owns `flow.voiceStreams[i]` |
 | The selection, or an event looked up by id | Keep the ids you need from `dump()` and select them by command |
-| An instrument's type or transposition | Ask the user |
+| An instrument's type or transposition | A saved copy (section 3) |
 
 ### Ids and identity
 
@@ -198,8 +198,8 @@ kNoteEvent (id:981) at 13/2 (6.5), duration 1/2 (0.5)  Bb4 (ends 7)
 - A grace note is its own event kind, at the position of the note it leads into.
 - `propertyTable:get("kNotePitch", ctx)` is the sounding MIDI pitch.
 - **Every pitch you can read is sounding.** A written C4 on Dorico's Handbells instrument reads as C5 (pitch 72).
-  Nothing in Lua says how an instrument transposes, so a plug-in that needs written pitch has to know the
-  instrument's transposition some other way. This one asks the user, per instrument.
+  Nothing in Lua says how an instrument transposes, so a plug-in that needs written pitch has to learn the
+  instrument's transposition some other way. This one reads it from a saved copy (section 3).
 
 ### `stream.events` fails on real music
 
@@ -267,6 +267,11 @@ music anyway. A saved project holds every note's values, so the plug-in saves a 
 
 Then match the dumps' notes to the copy by event id. On two real arrangements and Steinberg's Liszt and Smith
 examples, every dumped note had one, at the same position and pitch.
+
+The same copy says how each instrument transposes. Under `scorePlayers/array/scorePlayer/instruments/instrument`,
+Dorico's Handbells has `transposition/fixedOctaveTransposition = -1`, since it's written an octave below its sound,
+and a Piano or Organ has an empty `transposition`. The plug-in ticks "At pitch" in its dialog for each player whose
+instruments have no octave transposition (`hbuc/transpose.lua`).
 
 Three catches:
 
@@ -687,6 +692,7 @@ unit-tested by replacing the modules it requires in `package.loaded` with stubs.
 | Combining a rare notehead set with a common one | `hbuc/combine.lua` |
 | Drawing into the score | `hbuc/dorico/writechart.lua`, `hbuc/chartlayout.lua` |
 | Player ids, from a saved copy | `hbuc/dorico/doc.lua` (`playerIds`), `hbuc/playerids.lua` |
+| Instruments written at pitch, from a saved copy | `hbuc/dorico/readscore.lua`, `hbuc/transpose.lua` |
 | Command strings | `hbuc/commands.lua` |
 | The dialogs | `hbuc/dorico/dialog.lua`, `dialog/windows.ps1`, `dialog/mac.js` |
 | Probes | `spike/*.lua` |
