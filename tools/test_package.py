@@ -19,10 +19,10 @@ class PackageTests(unittest.TestCase):
 
     def test_zip_holds_the_plugin_and_documents(self):
         path = package.build(self.out)
-        self.assertEqual(path.name, "handbells-used-chart-dorico-v0.1.0.zip")
+        self.assertEqual(path.name, "handbells-used-chart-dorico-v1.0.0.zip")
         with zipfile.ZipFile(path) as z:
             names = set(z.namelist())
-        top = "handbells-used-chart-dorico-v0.1.0/"
+        top = "handbells-used-chart-dorico-v1.0.0/"
         for name in ("Handbells Used Chart.lua", "Handbells Used Chart/hbuc/main.lua",
                      "Handbells Used Chart/dialog/windows.ps1", "Handbells Used Chart/dialog/mac.js",
                      "README.md", "LICENSE.md", "CHANGELOG.md"):
@@ -41,7 +41,7 @@ class PackageTests(unittest.TestCase):
         constants = self.out / "constants.lua"
         constants.write_text('constants.MARKER_VERSION = "1"\nconstants.VERSION = "9.8.7"\n', encoding="utf-8")
         self.assertEqual(package.version(constants), "9.8.7")
-        self.assertEqual(package.version(), "0.1.0")
+        self.assertEqual(package.version(), "1.0.0")
 
 
 class TagTests(unittest.TestCase):
@@ -114,22 +114,22 @@ class ReleaseCommandTests(unittest.TestCase):
         return code, notes, outputs, err.getvalue()
 
     def test_a_mismatched_tag_builds_nothing(self):
-        code, notes, _, err = self.run_main("v0.1.1")
+        code, notes, _, err = self.run_main("v1.0.1")
         self.assertEqual(code, 1)
-        self.assertIn("tag v0.1.1 does not match version 0.1.0", err)
+        self.assertIn("tag v1.0.1 does not match version 1.0.0", err)
         self.assertFalse((self.out / "dist").exists())
         self.assertFalse(notes.exists())
 
     def test_a_candidate_builds_the_zip_notes_and_outputs(self):
-        code, notes, outputs, _ = self.run_main("v0.1.0-rc.0")
+        code, notes, outputs, _ = self.run_main("v1.0.0-rc.0")
         self.assertEqual(code, 0)
-        zip_path = self.out / "dist" / "handbells-used-chart-dorico-v0.1.0.zip"
+        zip_path = self.out / "dist" / "handbells-used-chart-dorico-v1.0.0.zip"
         self.assertTrue(zip_path.exists())
         self.assertIn("SHA-256: " + hashlib.sha256(zip_path.read_bytes()).hexdigest(), notes.read_text(encoding="utf-8"))
         self.assertEqual(outputs.read_text(encoding="utf-8").splitlines(), [f"zip={zip_path}", "prerelease=true"])
 
     def test_the_release_tag_is_not_a_prerelease(self):
-        _, _, outputs, _ = self.run_main("v0.1.0")
+        _, _, outputs, _ = self.run_main("v1.0.0")
         self.assertIn("prerelease=false", outputs.read_text(encoding="utf-8").splitlines())
 
 

@@ -31,7 +31,7 @@ Whitechapel bells, each charted separately.
 
 ## Status
 
-Version 0.1.0.
+Version 1.0.0.
 
 - **Windows:** tested with Dorico 6 Pro (6.2.30). The full test suite passes, including the tests that run inside
   Dorico on copies of a test project and of two of Steinberg's example projects.

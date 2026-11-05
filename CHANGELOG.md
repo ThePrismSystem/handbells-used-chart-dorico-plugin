@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-05
+
+The first public release, tested with Dorico 6 on Windows and on a Mac. Version 0.1.0 was never released on its own,
+so this one also includes everything listed for it in CHANGELOG.md.
+
 ### Added
 
 - Noteheads and colours set in Dorico itself (with the Notations menu or the Properties panel) are read. A plug-in's
@@ -46,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-10-26
 
-The first version, for the first check on a Mac. It is not released yet: 1.0.0 follows that check.
+The first version, for the first check on a Mac. It was never released.
 
 ### Added
 
@@ -85,4 +90,4 @@ The first version, for the first check on a Mac. It is not released yet: 1.0.0 f
 - `tools/install.py` installs into Dorico 6's Script Plug-ins folder on Windows and macOS, and `tools/package.py`
   builds the release zip.
 
-[0.1.0]: https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/releases/tag/v0.1.0
+[1.0.0]: https://github.com/ThePrismSystem/handbells-used-chart-dorico-plugin/releases/tag/v1.0.0
